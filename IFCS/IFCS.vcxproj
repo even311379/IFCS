@@ -94,11 +94,12 @@
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\imgui;..\backends;..\imgui\libs\glfw\include;..\stb_image;..\opencv\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>vendor\imgui;vendor\imgui_extensions;vendor\stb_image;..\Dependencies\glfw\include;..\Dependencies\opencv\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>..\imgui\libs\glfw\lib-vc2010-32;%(AdditionalLibraryDirectories);..\opencv\build\x64\vc15\lib</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\Denpendencies\glfw\lib-vc2010-32;..\Dependencies\opencv\build\x64\vc15\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>opengl32.lib;glfw3.lib;opencv_world460d.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
       <IgnoreSpecificDefaultLibraries>msvcrt.lib</IgnoreSpecificDefaultLibraries>
@@ -108,11 +109,12 @@
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\imgui;..\backends;..\imgui\libs\glfw\include;..\stb_image;..\opencv\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>vendor\imgui;vendor\imgui_extensions;vendor\stb_image;..\Dependencies\glfw\include;..\Dependencies\opencv\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>..\imgui\libs\glfw\lib-vc2010-64;%(AdditionalLibraryDirectories);..\opencv\build\x64\vc15\lib</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\Dependencies\glfw\lib-vc2010-64;..\Dependencies\opencv\build\x64\vc15\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>opengl32.lib;glfw3.lib;opencv_world460d.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
       <IgnoreSpecificDefaultLibraries>msvcrt.lib</IgnoreSpecificDefaultLibraries>
@@ -124,14 +126,15 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\imgui;..\backends;..\imgui\libs\glfw\include;..\stb_image;..\opencv\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>vendor\imgui;vendor\imgui_extensions;vendor\stb_image;..\Dependencies\glfw\include;..\Dependencies\opencv\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>..\imgui\libs\glfw\lib-vc2010-32;%(AdditionalLibraryDirectories);..\opencv\build\x64\vc15\lib</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\Denpendencies\glfw\lib-vc2010-32;..\Dependencies\opencv\build\x64\vc15\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>opengl32.lib;glfw3.lib;opencv_world460.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
       <IgnoreSpecificDefaultLibraries>
@@ -144,14 +147,15 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\imgui;..\backends;..\imgui\libs\glfw\include;..\stb_image;..\opencv\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>vendor\imgui;vendor\imgui_extensions;vendor\stb_image;..\Dependencies\glfw\include;..\Dependencies\opencv\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>..\imgui\libs\glfw\lib-vc2010-64;%(AdditionalLibraryDirectories);..\opencv\build\x64\vc15\lib</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\Dependencies\glfw\lib-vc2010-64;..\Dependencies\opencv\build\x64\vc15\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>opengl32.lib;glfw3.lib;opencv_world460.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
       <IgnoreSpecificDefaultLibraries>
@@ -159,25 +163,54 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\imgui\imgui.cpp" />
-    <ClCompile Include="..\imgui\imgui_demo.cpp" />
-    <ClCompile Include="..\imgui\imgui_draw.cpp" />
-    <ClCompile Include="..\imgui\imgui_tables.cpp" />
-    <ClCompile Include="..\imgui\imgui_widgets.cpp" />
-    <ClCompile Include="..\backends\imgui_impl_glfw.cpp" />
-    <ClCompile Include="..\backends\imgui_impl_opengl3.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="vendor\imgui\imgui.cpp" />
+    <ClCompile Include="vendor\imgui\imgui_demo.cpp" />
+    <ClCompile Include="vendor\imgui\imgui_draw.cpp" />
+    <ClCompile Include="vendor\imgui\imgui_impl_glfw.cpp" />
+    <ClCompile Include="vendor\imgui\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="vendor\imgui\imgui_tables.cpp" />
+    <ClCompile Include="vendor\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="vendor\imgui_extensions\Implot\implot.cpp" />
+    <ClCompile Include="vendor\imgui_extensions\Implot\implot_demo.cpp" />
+    <ClCompile Include="vendor\imgui_extensions\Implot\implot_items.cpp" />
+    <ClCompile Include="vendor\stb_image\stb_image.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\imgui\imconfig.h" />
-    <ClInclude Include="..\imgui\imgui.h" />
-    <ClInclude Include="..\imgui\imgui_internal.h" />
-    <ClInclude Include="..\backends\imgui_impl_glfw.h" />
-    <ClInclude Include="..\backends\imgui_impl_opengl3.h" />
-    <ClInclude Include="..\backends\imgui_impl_opengl3_loader.h" />
+    <ClInclude Include="vendor\imgui\imconfig.h" />
+    <ClInclude Include="vendor\imgui\imgui.h" />
+    <ClInclude Include="vendor\imgui\imgui_impl_glfw.h" />
+    <ClInclude Include="vendor\imgui\imgui_impl_opengl3.h" />
+    <ClInclude Include="vendor\imgui\imgui_impl_opengl3_loader.h" />
+    <ClInclude Include="vendor\imgui\imgui_internal.h" />
+    <ClInclude Include="vendor\imgui\imstb_rectpack.h" />
+    <ClInclude Include="vendor\imgui\imstb_textedit.h" />
+    <ClInclude Include="vendor\imgui\imstb_truetype.h" />
+    <ClInclude Include="vendor\imgui_extensions\ImguiMD\imgui_markdown.h" />
+    <ClInclude Include="vendor\imgui_extensions\ImguiNotify\fa_solid_900.h" />
+    <ClInclude Include="vendor\imgui_extensions\ImguiNotify\font_awesome_5.h" />
+    <ClInclude Include="vendor\imgui_extensions\ImguiNotify\imgui_notify.h" />
+    <ClInclude Include="vendor\imgui_extensions\ImguiNotify\tahoma.h" />
+    <ClInclude Include="vendor\imgui_extensions\Implot\implot.h" />
+    <ClInclude Include="vendor\imgui_extensions\Implot\implot_internal.h" />
+    <ClInclude Include="vendor\stb_image\stb_image.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\imgui\misc\debuggers\imgui.natvis" />
+    <Content Include="vendor\imgui_extensions\ImFileDialog\.git" />
+    <Content Include="vendor\imgui_extensions\ImFileDialog\.gitignore" />
+    <Content Include="vendor\imgui_extensions\ImFileDialog\CMakeLists.txt" />
+    <Content Include="vendor\imgui_extensions\ImFileDialog\LICENSE" />
+    <Content Include="vendor\imgui_extensions\ImFileDialog\README.md" />
+    <Content Include="vendor\imgui_extensions\ImguiMD\.git" />
+    <Content Include="vendor\imgui_extensions\ImguiMD\LICENSE" />
+    <Content Include="vendor\imgui_extensions\ImguiMD\README.md" />
+    <Content Include="vendor\imgui_extensions\ImguiNotify\README.md" />
+    <Content Include="vendor\imgui_extensions\Implot\.git" />
+    <Content Include="vendor\imgui_extensions\Implot\.github\CMakeLists.txt" />
+    <Content Include="vendor\imgui_extensions\Implot\.github\workflows\build.yml" />
+    <Content Include="vendor\imgui_extensions\Implot\LICENSE" />
+    <Content Include="vendor\imgui_extensions\Implot\README.md" />
+    <Content Include="vendor\imgui_extensions\Implot\TODO.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

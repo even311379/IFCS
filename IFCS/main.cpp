@@ -16,9 +16,15 @@
 #include <opencv2/imgproc.hpp>
 #include <iostream>
 
+#include "Implot/implot.h"
 
-#define STB_IMAGE_IMPLEMENTATION
+// TODO: code is still very dirty, just try out if things may work... need take sometime to consider how to abstract it...
+
+
 #include "stb_image.h"
+// #include "ImFileDialog/ImFileDialog.h"
+#include "ImguiNotify/imgui_notify.h"
+#include "ImguiNotify/tahoma.h"
 
 // Simple helper function to load an image into a OpenGL texture with common settings
 bool LoadTextureFromFile(const char* filename, GLuint* out_texture, int* out_width, int* out_height)
@@ -69,8 +75,16 @@ static void glfw_error_callback(int error, const char* description)
     fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
 
+#define test_cv 0;
+#define test_implot 1;
+#define test_imfiledialog 0;
+#define test_imMD 1;
+#define test_imnotify 1;
+
 int main(int, char**)
 {
+
+#if test_cv    
     // test opencv
     std::string image_path = "test3.png";
     cv::Mat image = cv::imread(image_path, cv::IMREAD_COLOR);
@@ -78,7 +92,7 @@ int main(int, char**)
     cv::imshow("image", image);
     cv::waitKey(0);
     return 0;
-
+#endif
 
 
     // Setup window
@@ -121,6 +135,10 @@ int main(int, char**)
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+
+    // implot
+    ImPlot::CreateContext();
+    
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
@@ -145,6 +163,29 @@ int main(int, char**)
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
+#if test_imfiledialog    
+	// ImFileDialog requires you to set the CreateTexture and DeleteTexture
+	ifd::FileDialog::Instance().CreateTexture = [](uint8_t* data, int w, int h, char fmt) -> void* {
+		GLuint tex;
+
+		glGenTextures(1, &tex);
+		glBindTexture(GL_TEXTURE_2D, tex);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		// glGenerateMipmap(GL_TEXTURE_2D);
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+		return (void*)tex;
+	};
+	ifd::FileDialog::Instance().DeleteTexture = [](void* tex) {
+		GLuint texID = (GLuint)((uintptr_t)tex);
+		glDeleteTextures(1, &texID);
+	};
+#endif
+    
     // Load Fonts
     // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
     // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
@@ -159,17 +200,38 @@ int main(int, char**)
     //io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);
     //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
     //IM_ASSERT(font != NULL);
+    
+
+    ImFontConfig font_cfg;
+    font_cfg.FontDataOwnedByAtlas = false;
+    io.Fonts->AddFontFromMemoryTTF((void*)tahoma, sizeof(tahoma), 17.f, &font_cfg);
+
+// Initialize notify
+ImGui::MergeIconsWithLatestFont(16.f, false);
+
+// If you use multiple fonts, repeat the same thing!
+// io->Fonts->AddFontFromMemoryTTF((void*)another_font, sizeof(another_font), 17.f, &font_cfg);
+// ImGui::MergeIconsWithLatestFont(16.f, false);
+
 
     // Our state
     bool show_demo_window = true;
     bool show_another_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-int my_image_width = 0;
-int my_image_height = 0;
-GLuint my_image_texture = 0;
-bool ret = LoadTextureFromFile("test3.png", &my_image_texture, &my_image_width, &my_image_height);
-IM_ASSERT(ret);
+    int my_image_width = 0;
+    int my_image_height = 0;
+    GLuint my_image_texture = 0;
+    bool ret = LoadTextureFromFile("test3.png", &my_image_texture, &my_image_width, &my_image_height);
+    IM_ASSERT(ret);
+    
+    int   bar_data[6] = {50, 30, 20, 30, 10, 50};
+    float x_data[5] = {3.2f, 1.2f, 5.5f, 3.1f};
+    float y_data[5] = {1.2f, 2.3f, 5.9f, 7.8f};
+
+    ImGuiToast toast(ImGuiToastType_Success, 3000); // <-- content can also be passed here as above
+    const char* NotifyType = "wonderful";
+    
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
@@ -185,7 +247,7 @@ IM_ASSERT(ret);
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+        /*// 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
 
@@ -229,7 +291,84 @@ IM_ASSERT(ret);
             ImGui::Text("size = %d x %d", my_image_width, my_image_height);
             ImGui::Image((void*)(intptr_t)my_image_texture, ImVec2((float)my_image_width, (float)my_image_height));
             ImGui::End();
+        }*/
+
+
+
+        ImGui::Begin("My Window");
+        if (ImPlot::BeginPlot("My Plot")) {
+            ImPlot::PlotBars("My Bar Plot", bar_data, 6);
+            ImPlot::PlotLine("My Line Plot", x_data, y_data, 5);
+            ImPlot::EndPlot();
         }
+        ImGui::End();
+
+#if test_imfiledialog        
+		ImGui::Begin("Control Panel");
+		if (ImGui::Button("Open file"))
+			ifd::FileDialog::Instance().Open("ShaderOpenDialog", "Open a shader", "Image file (*.png;*.jpg;*.jpeg;*.bmp;*.tga){.png,.jpg,.jpeg,.bmp,.tga},.*", true);
+		if (ImGui::Button("Open directory"))
+			ifd::FileDialog::Instance().Open("DirectoryOpenDialog", "Open a directory", "");
+		if (ImGui::Button("Save file"))
+			ifd::FileDialog::Instance().Save("ShaderSaveDialog", "Save a shader", "*.sprj {.sprj}");
+		ImGui::End();
+
+		// file dialogs
+		if (ifd::FileDialog::Instance().IsDone("ShaderOpenDialog")) {
+			if (ifd::FileDialog::Instance().HasResult()) {
+				const std::vector<std::filesystem::path>& res = ifd::FileDialog::Instance().GetResults();
+				for (const auto& r : res) // ShaderOpenDialog supports multiselection
+					printf("OPEN[%s]\n", r.u8string().c_str());
+			}
+			ifd::FileDialog::Instance().Close();
+		}
+		if (ifd::FileDialog::Instance().IsDone("DirectoryOpenDialog")) {
+			if (ifd::FileDialog::Instance().HasResult()) {
+				std::string res = ifd::FileDialog::Instance().GetResult().u8string();
+				printf("DIRECTORY[%s]\n", res.c_str());
+			}
+			ifd::FileDialog::Instance().Close();
+		}
+		if (ifd::FileDialog::Instance().IsDone("ShaderSaveDialog")) {
+			if (ifd::FileDialog::Instance().HasResult()) {
+				std::string res = ifd::FileDialog::Instance().GetResult().u8string();
+				printf("SAVE[%s]\n", res.c_str());
+			}
+			ifd::FileDialog::Instance().Close();
+		}
+
+#endif      
+
+#if test_imnotify
+    ImGui::Begin("Btns");
+        if (ImGui::Button("Success"))
+            ImGui::InsertNotification({ ImGuiToastType_Success, 3000, "Hello World! This is a success! %s", "We can also format here:)" });
+        if (ImGui::Button("Warning"))
+            ImGui::InsertNotification({ ImGuiToastType_Warning, 3000, "Hello World! This is a warning! %d", 0x1337 });
+        if (ImGui::Button("Error"))
+            ImGui::InsertNotification({ ImGuiToastType_Error, 3000, "Hello World! This is an error! 0x%X", 0xDEADBEEF });
+        if (ImGui::Button("Info"))
+            ImGui::InsertNotification({ ImGuiToastType_Info, 3000, "Hello World! This is an info!" });
+        if (ImGui::Button("Info 2"))
+            ImGui::InsertNotification({ ImGuiToastType_Info, 3000, "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation" });
+        // TODO: custom type not working... but no problem~
+        if (ImGui::Button("Custom"))
+        {
+            // Now using a custom title...
+            toast.set_title("This is a %s title", NotifyType);
+            toast.set_content("Lorem ipsum dolor sit amet");
+            ImGui::InsertNotification(toast);    
+        }
+
+    ImGui::End();
+    // Render toasts on top of everything, at the end of your code!
+    // You should push style vars here
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 5.f); // Round borders
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(43.f / 255.f, 43.f / 255.f, 43.f / 255.f, 100.f / 255.f)); // Background color
+    ImGui::RenderNotifications(); // <-- Here we render all notifications
+    ImGui::PopStyleVar(1); // Don't forget to Pop()
+    ImGui::PopStyleColor(1);
+#endif
 
         // Rendering
         ImGui::Render();
@@ -257,6 +396,8 @@ IM_ASSERT(ret);
     // Cleanup
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
+
+    ImPlot::DestroyContext();
     ImGui::DestroyContext();
 
     glfwDestroyWindow(window);
