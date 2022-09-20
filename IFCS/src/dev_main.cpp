@@ -21,10 +21,22 @@
 // TODO: code is still very dirty, just try out if things may work... need take sometime to consider how to abstract it...
 
 
+#include "imgui_internal.h"
 #include "stb_image.h"
-// #include "ImFileDialog/ImFileDialog.h"
+#include "ImFileDialog/ImFileDialog.h"
 #include "ImguiNotify/imgui_notify.h"
 #include "ImguiNotify/tahoma.h"
+#include "Spectrum/imgui_spectrum.h"
+
+
+#include "Utils.h"
+
+#define test_cv 0;
+#define test_implot 1;
+#define test_imfiledialog 1;
+#define test_imMD 1;
+#define test_imnotify 1;
+
 
 // Simple helper function to load an image into a OpenGL texture with common settings
 bool LoadTextureFromFile(const char* filename, GLuint* out_texture, int* out_width, int* out_height)
@@ -75,11 +87,6 @@ static void glfw_error_callback(int error, const char* description)
     fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
 
-#define test_cv 0;
-#define test_implot 1;
-#define test_imfiledialog 0;
-#define test_imMD 1;
-#define test_imnotify 1;
 
 int main(int, char**)
 {
@@ -126,7 +133,7 @@ int main(int, char**)
 #endif
 
     // Create window with graphics context
-    GLFWwindow* window = glfwCreateWindow(3840, 2160, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(3840, 2060, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
     if (window == NULL)
         return 1;
     glfwMakeContextCurrent(window);
@@ -148,7 +155,7 @@ int main(int, char**)
     //io.ConfigViewportsNoTaskBarIcon = true;
 
     // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
+    // ImGui::StyleColorsDark();
     //ImGui::StyleColorsLight();
 
     // When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
@@ -200,10 +207,12 @@ int main(int, char**)
     //io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);
     //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
     //IM_ASSERT(font != NULL);
-    
 
     ImFontConfig font_cfg;
     font_cfg.FontDataOwnedByAtlas = false;
+    io.Fonts->AddFontFromFileTTF("../Resources/Font/cjkFonts_allseto_v1.11.ttf", 16.0f, NULL, io.Fonts->GetGlyphRangesChineseFull()); // first loaded will become default font!
+    // io.Fonts->AddFontFromFileTTF("../Resources/Font/NotoSansTC-Black.otf", 16.0f, NULL, io.Fonts->GetGlyphRangesChineseFull()); // first loaded will become default font!
+
     io.Fonts->AddFontFromMemoryTTF((void*)tahoma, sizeof(tahoma), 17.f, &font_cfg);
 
 // Initialize notify
@@ -222,7 +231,7 @@ ImGui::MergeIconsWithLatestFont(16.f, false);
     int my_image_width = 0;
     int my_image_height = 0;
     GLuint my_image_texture = 0;
-    bool ret = LoadTextureFromFile("test3.png", &my_image_texture, &my_image_width, &my_image_height);
+    bool ret = LoadTextureFromFile("../Resources/Images/test3.png", &my_image_texture, &my_image_width, &my_image_height);
     IM_ASSERT(ret);
     
     int   bar_data[6] = {50, 30, 20, 30, 10, 50};
@@ -247,10 +256,31 @@ ImGui::MergeIconsWithLatestFont(16.f, false);
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        /*// 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
 
+        {
+            ImGui::Begin("Themes");
+            if (ImGui::Button("Default ImGui"))
+                ImGui::StyleColorsClassic();
+            ImGui::SameLine();
+            if (ImGui::Button("Default ImGui Light"))
+                ImGui::StyleColorsLight();
+            ImGui::SameLine();
+            if (ImGui::Button("Default ImGui Dark"))
+                ImGui::StyleColorsDark();
+            ImGui::SameLine();
+            if (ImGui::Button("Spectrum Light"))
+                Spectrum::StyleColorsSpectrum();
+            ImGui::SameLine();
+            if (ImGui::Button("Spectrum Dark"))
+                Spectrum::StyleColorsSpectrum(false);
+            ImGui::SameLine();
+            ImGui::End();
+        }
+        
+        /*
         // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
         {
             static float f = 0.0f;
@@ -263,7 +293,7 @@ ImGui::MergeIconsWithLatestFont(16.f, false);
             ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
             ImGui::Checkbox("Another Window", &show_another_window);
 
-            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+            kmGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
             ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
 
             if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
@@ -295,15 +325,24 @@ ImGui::MergeIconsWithLatestFont(16.f, false);
 
 
 
-        ImGui::Begin("My Window");
-        if (ImPlot::BeginPlot("My Plot")) {
-            ImPlot::PlotBars("My Bar Plot", bar_data, 6);
-            ImPlot::PlotLine("My Line Plot", x_data, y_data, 5);
-            ImPlot::EndPlot();
+        {
+            ImGui::Begin("My Window");
+            ImGui::Text("測試測試");
+            ImGui::TextColored(ImVec4(0.5, 0.2, 0.3, 1.0),"測試");
+            // ImGui::TextV("大家好", {});
+            ImGui::TextUnformatted("測試");
+            static char str0[128] = "TestTestTEst";
+            ImGui::Text("打字喔!嘸蝦米打的出來，微軟的新注音打不出來");
+            ImGui::InputText("  ", str0, IM_ARRAYSIZE(str0));
+            if (ImPlot::BeginPlot("My Plot")) {
+                ImPlot::PlotBars("My Bar Plot", bar_data, 6);
+                ImPlot::PlotLine("My Line Plot", x_data, y_data, 5);
+                ImPlot::EndPlot();
+            }
+            ImGui::End();
         }
-        ImGui::End();
-
-#if test_imfiledialog        
+#if test_imfiledialog
+        ImGui::GetFont()->FontSize;
 		ImGui::Begin("Control Panel");
 		if (ImGui::Button("Open file"))
 			ifd::FileDialog::Instance().Open("ShaderOpenDialog", "Open a shader", "Image file (*.png;*.jpg;*.jpeg;*.bmp;*.tga){.png,.jpg,.jpeg,.bmp,.tga},.*", true);

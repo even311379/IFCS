@@ -1,4 +1,7 @@
 .idea/*
 .vs/*
-IFCS/Debug/*
-IFCS/Release/*
+build/Debug/*
+build/Release/*
+Resources/*
+*.vcxproj
+*.sln
