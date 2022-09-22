@@ -1,0 +1,19 @@
+### About integrate with yaml-cpp
+
+Due to my incapability of creating a nicely premake file and subsequent build flow...
+I just manually do it...
+
+First get yaml-cpp from github
+
+Build it. (follow its instruction...)
+
+Copy its .dll from both release and debug to the include bin folder I specified...
+
+Copy all its files inside its include folder, to the include folder I specified...
+
+
+Then luckily, it works now...
+
+Now, I'll just carry with dll files with my whole project...
+
+(it requires different dll files for debug and release configuration, I've set them in my premake file now.)

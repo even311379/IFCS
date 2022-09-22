@@ -1,12 +1,12 @@
-[submodule "imgui_extensions/Implot"]
-	path = imgui_extensions/Implot
+[submodule "IFCS/vendor/imgui_extensions/Implot"]
+	path = IFCS/vendor/imgui_extensions/Implot
 	url = https://github.com/epezent/implot.git
-[submodule "imgui_extensions/ImFileDialog"]
-	path = imgui_extensions/ImFileDialog
+[submodule "IFCS/vendor/imgui_extensions/ImFileDialog"]
+	path = IFCS/vendor/imgui_extensions/ImFileDialog
 	url = https://github.com/dfranx/ImFileDialog.git
-[submodule "imgui_extensions/ImguiMD"]
-	path = imgui_extensions/ImguiMD
-	url = https://github.com/mekhontsev/imgui_md.git
 [submodule "IFCS/vendor/imgui_extensions/ImguiMD"]
 	path = IFCS/vendor/imgui_extensions/ImguiMD
 	url = https://github.com/juliettef/imgui_markdown.git
+[submodule "IFCS/vendor/spdlog"]
+	path = IFCS/vendor/spdlog
+	url = https://github.com/gabime/spdlog.git
