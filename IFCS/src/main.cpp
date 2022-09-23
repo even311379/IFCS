@@ -1,11 +1,20 @@
 ﻿#ifdef IFCS_RELEASE
 #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 #endif
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <ostream>
+#include <string>
+#include <vector>
 #include "Application.h"
+#include "Utils.h"
 
 
 int main()
 {
+    system("chcp 65001"); // make encoding utf8?
+
     // create app
     const auto app = new IFCS::Application();
     

@@ -1,29 +1,14 @@
 ﻿#pragma once
-#include <set>
-#include <string>
 #include <vector>
+#include "Common.h"
 
 #include "Panel.h"
 
 namespace IFCS
 {
-    enum class ELogLevel : uint8_t
-    {
-        Info = 0,
-        Warning = 1,
-        Error = 2,
-    };
-    
-    struct FLogData
-    {
-        ELogLevel LogLevel = ELogLevel::Info;
-        std::string TimeString;
-        std::string Message;
-        bool ShouldDisplay;
-    };
 
     /*
-     * TODO: focus on recent only 
+     * TODO: focus on recent only, sync with setting singleton?? 
      */
 
     

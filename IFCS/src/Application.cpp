@@ -11,6 +11,10 @@
 
 #include "Panel.h"
 #include "Log.h"
+#include "Utils.h"
+#include "ImguiNotify/imgui_notify.h"
+#include "ImguiNotify/tahoma.h"
+#include "ImguiNotify/fa_solid_900.h"
 #include "Spectrum/imgui_spectrum.h"
 
 namespace IFCS
@@ -50,7 +54,7 @@ namespace IFCS
         }
 
         // YAML::Node test_node = YAML::Load("{name: David, mood: Sad}");
-        YAML::Node test_node = YAML::LoadFile("../Resources/test.yaml");
+        YAML::Node test_node = YAML::LoadFile("Resources/test.yaml");
         
         spdlog::warn("load yaml file has passed");
         if (test_node["name"])
@@ -59,7 +63,6 @@ namespace IFCS
             spdlog::error(test_node["mood"].as<std::string>());
         }
         spdlog::warn("Good?");
-        // std::cout<< config["test"].as<std::string>() << std::endl;
 
         
         glfwSetErrorCallback(glfw_error_callback);
@@ -86,14 +89,39 @@ namespace IFCS
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-        // setup styles
-        Spectrum::StyleColorsSpectrum(); // light
-
-        // load static images?
-
+        // tweak platform window
+        ImGuiStyle& style = ImGui::GetStyle();
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+        {
+            style.WindowRounding = 6.0f;
+            style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+        }
+        
         // setup platform renderer content should call lastly? after create content?
         ImGui_ImplGlfw_InitForOpenGL(window, true);
         ImGui_ImplOpenGL3_Init(glsl_version);
+        
+        // setup theme
+        Spectrum::StyleColorsSpectrum();
+        
+        // load font
+        // first loaded will become default font!
+        io.Fonts->AddFontFromFileTTF("Resources/Font/cjkFonts_allseto_v1.11.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesChineseFull());
+        ImFontConfig font_cfg;
+        font_cfg.FontDataOwnedByAtlas = false;
+        font_cfg.MergeMode = true;
+        font_cfg.GlyphMaxAdvanceX = 16.0f;
+        static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
+        io.Fonts->AddFontFromMemoryTTF((void*)fa_solid_900, sizeof(fa_solid_900), 22.f, &font_cfg, icon_ranges);
+        
+        
+        // Setting::Get().RegisterFont("default", default_font);
+        // Setting::Get().RegisterFont("FA", fa_font);
+        // io.Fonts->AddFontFromMemoryTTF((void*)tahoma, sizeof(tahoma), 17.f, &font_cfg);
+        // ImGui::MergeIconsWithLatestFont(16.f, false);
+        
+        // load static images?
+
     }
 
     void Application::run()
@@ -105,7 +133,15 @@ namespace IFCS
         LogPanel* MyLog = new LogPanel();
         MyLog->Setup("Log", true, 0);
         // bool open_log = true;
-        static char MM[128] = "";
+        std::string LocTest_E = GetLocText("PanelName.Name", ESupportedLanguage::English);
+        std::string LocTest_T = GetLocText("PanelName.Name", ESupportedLanguage::TraditionalChinese);
+        spdlog::warn("did something shown:");
+        spdlog::info(LocTest_E);
+        spdlog::info(LocTest_T);
+        spdlog::warn("in between");
+        spdlog::info(LocTest_E);
+        
+
         while (!glfwWindowShouldClose(window))
         {
             glfwPollEvents();
@@ -114,24 +150,17 @@ namespace IFCS
             ImGui::NewFrame();
             // render all the contents...
             bg->Render();
-            test->Render();
+            // test->Render();
             // ShowLogPanel(&open_log);
-            ImGui::Begin("TEst123");
-                ImGui::Text("Hello");
-                ImGui::InputText("MM", MM, IM_ARRAYSIZE(MM));
-                if (ImGui::Button("Add Log"))
-                    MyLog->AddLog(ELogLevel::Info, MM);
-                if (ImGui::Button("Add Warning Log"))
-                    MyLog->AddLog(ELogLevel::Warning, MM);
-                if (ImGui::Button("Add Error Log"))
-                    MyLog->AddLog(ELogLevel::Error, MM);
-            ImGui::End();
+
             MyLog->Render();
 
 
+
+
+
+
             // end of render content
-
-
             // Rendering
             ImGui::Render();
             int display_w, display_h;
@@ -141,11 +170,7 @@ namespace IFCS
                          clear_color.w);
             glClear(GL_COLOR_BUFFER_BIT);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-
             glfwSwapBuffers(window);
         }
-        delete bg;
-        delete test;
     }
 }

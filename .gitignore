@@ -2,7 +2,8 @@
 .vs/*
 build/Debug/*
 build/Release/*
-Resources/*
+DevContent/*
+IFCS/Config/*
 *.vcxproj
 *.vcxproj.filters
 *.sln

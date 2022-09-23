@@ -59,6 +59,10 @@ project "IFCS"
     
     defines {"YAML_CPP_STATIC_DEFINE"}
     
+--     copy all resource folder to build folder /s: include subdir, /i: auto create folder, /y override existing
+    postbuildcommands {
+        "xcopy %{wks.location}%{prj.name}\\Resources %{wks.location}build\\%{cfg.buildcfg}\\Resources /s /i /y"
+    }
     filter "configurations:Debug"
         defines { "IFCS_DEBUG" }
         symbols "On"

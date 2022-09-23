@@ -1,4 +1,7 @@
 ﻿#include "Panel.h"
+#include "Log.h"
+#include "Utils.h"
+#include "ImguiNotify/font_awesome_5.h"
 
 namespace IFCS 
 {
@@ -119,6 +122,35 @@ namespace IFCS
 
     void TestPanel::RenderContent()
     {
+        // render icon!!
+        char buff[300];
+        snprintf(buff, sizeof(buff), "this is icon1: %s and icon2: %s", ICON_FA_HANDS, ICON_FA_BUG);
+        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), buff);
+
+        
         ImGui::Text("Test");
+        ImGui::Text("Hello");
+        // ImGui::InputText("MM", MM, IM_ARRAYSIZE(MM));
+        // if (ImGui::Button("Add Log"))
+        //     MyLog->AddLog(ELogLevel::Info, MM);
+        // if (ImGui::Button("Add Warning Log"))
+        //     MyLog->AddLog(ELogLevel::Warning, MM);
+        // if (ImGui::Button("Add Error Log"))
+        //     MyLog->AddLog(ELogLevel::Error, MM);
+        ImGui::Text("測試讀取多語言");
+        ImGui::Text(GetLocText("PanelName.Name").c_str());
+
+        if (ImGui::Button("Load init run time??"))
+        {
+            ImGui::LoadIniSettingsFromDisk("BBB.ini");
+        }
+        if (ImGui::Button("Set language Chinese"))
+        {
+            Setting::Get().CurrentLanguage = ESupportedLanguage::TraditionalChinese;
+        }
+        if (ImGui::Button("Set language Eng"))
+        {
+            Setting::Get().CurrentLanguage = ESupportedLanguage::English;
+        }
     }
 }
