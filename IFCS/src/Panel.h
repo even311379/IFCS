@@ -1,4 +1,6 @@
 ﻿#pragma once
+#include <string>
+
 #include "imgui.h"
 /*
  * the base class to define a imgui panel
@@ -25,7 +27,7 @@ namespace IFCS
         
     };
 
-    class BG : public Panel
+    class BGPanel : public Panel
     {
     public:
         void Setup();
@@ -44,6 +46,10 @@ namespace IFCS
     {
     protected:
         void RenderContent() override;
+    private:
+        std::string s = "星期一";
+        const char* cs = "星期二";
+
         
     };
 

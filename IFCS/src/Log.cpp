@@ -39,7 +39,7 @@ namespace IFCS
 
     void LogPanel::AddLog(ELogLevel Level, const char* Message)
     {
-        Data.push_back({Level, GetCurrentTimeString(), Message, true});
+        Data.push_back({Level, Utils::GetCurrentTimeString(), Message, true});
     }
 
     void LogPanel::ClearData()

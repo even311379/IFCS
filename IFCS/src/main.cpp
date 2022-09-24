@@ -1,12 +1,6 @@
 ﻿#ifdef IFCS_RELEASE
 #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 #endif
-#include <cstdlib>
-#include <fstream>
-#include <iostream>
-#include <ostream>
-#include <string>
-#include <vector>
 #include "Application.h"
 #include "Utils.h"
 

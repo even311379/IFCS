@@ -4,6 +4,8 @@ build/Debug/*
 build/Release/*
 DevContent/*
 IFCS/Config/*
+IFCS/.vs/*
 *.vcxproj
 *.vcxproj.filters
+*.vcxproj.user
 *.sln
