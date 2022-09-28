@@ -9,10 +9,12 @@
 #include <yaml-cpp/yaml.h>
 #include <iostream>
 
+#include "DataBrowser.h"
 #include "Panel.h"
 #include "Log.h"
 #include "MainMenu.h"
 #include "Utils.h"
+#include "ImFileDialog/ImFileDialog.h"
 #include "ImguiNotify/imgui_notify.h"
 #include "ImguiNotify/tahoma.h"
 #include "ImguiNotify/fa_solid_900.h"
@@ -43,32 +45,6 @@ namespace IFCS
     void Application::init()
     {
         
-        /*YAML::Emitter out;
-        out << "Hello, World!";
-        std::cout << "Here's the output YAML:\n" << out.c_str(); // prints "Hello, World!"
-        YAML::Node primes = YAML::Load("[2, 3, 5, 7, 11]");
-        for (std::size_t i = 0; i < primes.size(); i++)
-        {
-            std::cout << primes[i].as<int>() << "\n";
-        }
-        // or:
-        for (YAML::const_iterator it = primes.begin(); it != primes.end(); ++it)
-        {
-            std::cout << it->as<int>() << "\n";
-        }
-
-        // YAML::Node test_node = YAML::Load("{name: David, mood: Sad}");
-        YAML::Node test_node = YAML::LoadFile("Resources/test.yaml");
-
-        spdlog::warn("load yaml file has passed");
-        if (test_node["name"])
-        {
-            spdlog::warn(test_node["name"].as<std::string>());
-            spdlog::error(test_node["mood"].as<std::string>());
-        }
-        spdlog::warn("Good?");*/
-
-
         glfwSetErrorCallback(glfw_error_callback);
         if (!glfwInit()) return;
 
@@ -82,6 +58,7 @@ namespace IFCS
         window = glfwCreateWindow(1920, 1030, "IFCS", NULL, NULL);
         if (window == NULL) return;
         glfwSetWindowPos(window, 0, 50);
+    	glfwSetWindowAttrib(window, GLFW_RESIZABLE, 0);
         glfwMakeContextCurrent(window);
         glfwSwapInterval(1); // enable vsync
 
@@ -131,14 +108,23 @@ namespace IFCS
 
     void Application::run()
     {
-        MainMenu* main_menu = new MainMenu();
-        BGPanel* bg = new BGPanel();
-        bg->Setup();
+    	// setup third party stuff
+    	CreateFileDialog();
+
+    	// setup this app
+        BGPanel::Get().Setup();
+        LogPanel::Get().Setup("Log", true, 0);
+    	DataBrowser::Get().Setup("DataBrowser", true, 0);
+
+    	
+        Setting::Get().LoadEditorIni();
+    	if (Setting::Get().ProjectIsLoaded)
+			glfwSetWindowTitle(window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
         TestPanel* test = new TestPanel();
         test->Setup("abstraction", true, 0);
-        LogPanel* MyLog = new LogPanel();
-        MyLog->Setup("Log", false, 0);
 
+    	int tick = 0;
+        // WelcomePanel::Get().Setup("Welcome", false, 0);
         while (!glfwWindowShouldClose(window))
         {
             glfwPollEvents();
@@ -149,14 +135,29 @@ namespace IFCS
             ImGui::ShowDemoWindow();
 
             // render all the contents...
-            bg->Render();
-            main_menu->Render();
+            BGPanel::Get().Render();
+            MainMenu::Get().Render();
+            LogPanel::Get().Render();
+
+            // major panels
+            DataBrowser::Get().Render();
+
+            // task modals
+        	if (!Setting::Get().ProjectIsLoaded && !WelcomeModal::Get().IsChoosingFolder)
+        	{
+        		ImGui::OpenPopup("Welcome");
+        	}
+			WelcomeModal::Get().Render();
+
             
+            // test panels
             test->Render();
-            // ShowLogPanel(&open_log);
+            ImGui::ShowDemoWindow();
 
-            MyLog->Render();
 
+        	// third party close/end
+        	HandleDialogClose();
+        	
 
             // end of render content
             // Rendering
@@ -169,6 +170,46 @@ namespace IFCS
             glClear(GL_COLOR_BUFFER_BIT);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
             glfwSwapBuffers(window);
+        	tick ++;
         }
+    }
+
+    void Application::CreateFileDialog()
+    {
+		ifd::FileDialog::Instance().CreateTexture = [](uint8_t* data, int w, int h, char fmt) -> void* {
+			GLuint tex;
+
+			glGenTextures(1, &tex);
+			glBindTexture(GL_TEXTURE_2D, tex);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+			// glGenerateMipmap(GL_TEXTURE_2D);
+			glBindTexture(GL_TEXTURE_2D, 0);
+
+			return (void*)tex;
+		};
+		ifd::FileDialog::Instance().DeleteTexture = [](void* tex) {
+			GLuint texID = (GLuint)((uintptr_t)tex);
+			glDeleteTextures(1, &texID);
+		};
+    }
+
+    void Application::HandleDialogClose()
+    {
+		if (ifd::FileDialog::Instance().IsDone("ChooseProjectLocationDialog")) {
+			if (ifd::FileDialog::Instance().HasResult()) {
+				std::string RawString = ifd::FileDialog::Instance().GetResult().string();
+				std::replace(RawString.begin(), RawString.end(), '\\', '/');
+				strcpy(WelcomeModal::Get().TempProjectLocation, RawString.c_str());
+				char buff[128];
+				snprintf(buff, sizeof(buff), "Choose project location: %s.", RawString.c_str());
+				LogPanel::Get().AddLog(ELogLevel::Info, buff);
+			}
+			ifd::FileDialog::Instance().Close();
+			WelcomeModal::Get().IsChoosingFolder = false;
+		}
     }
 }

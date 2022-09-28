@@ -82,7 +82,7 @@ namespace IFCS
         static const std::string GetLocText(const char* LocID)
         {
             Setting& s = Setting::Get();
-            return GetLocText(LocID, s.CurrentLanguage);
+            return GetLocText(LocID, s.PreferredLanguage);
         }
 
 
@@ -98,5 +98,9 @@ namespace IFCS
             }
         }
         
+        template<typename C, typename T>
+        static bool Contains(C&& c, T e) { 
+            return std::find(std::begin(c), std::end(c), e) != std::end(c);
+        };
     }
 }

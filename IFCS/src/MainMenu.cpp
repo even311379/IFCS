@@ -4,10 +4,7 @@
 #include "Utils.h"
 #include "ImguiNotify/font_awesome_5.h"
 
-#define LOCTEXT(key) Utils::GetLocText(key).c_str() 
-IFCS::MainMenu::MainMenu()
-{
-}
+
 
 IFCS::MainMenu::~MainMenu()
 {
@@ -24,7 +21,7 @@ void IFCS::MainMenu::Render()
             ImGui::MenuItem(LOCTEXT("ToolbarItem.ImportData"));
             ImGui::MenuItem(LOCTEXT("ToolbarItem.ExportData"));
             ImGui::Separator();
-            if (ImGui::MenuItem(LOCTEXT("ToolbarItem.Setting"),"", true, true))
+            if (ImGui::MenuItem(LOCTEXT("ToolbarItem.Setting"),"", false, true))
             {
                 OpenSetting();
             }
@@ -49,7 +46,10 @@ void IFCS::MainMenu::Render()
                 ImGui::MenuItem(LOCTEXT("ToolbarItem.DataBrowser"));
                 ImGui::EndMenu();
             }
-            ImGui::MenuItem(LOCTEXT("ToolbarItem.Log"));
+            if (ImGui::MenuItem(LOCTEXT("ToolbarItem.Log"), "", LogPanel::Get().GetVisibility(), true))
+            {
+                LogPanel::Get().ToggleVisibility();
+            }
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu(LOCTEXT("ToolbarMenu.Help")))

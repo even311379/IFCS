@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "Common.h"
+#include <set>
 // #include <unordered_map>
 
 
@@ -13,6 +14,8 @@ namespace IFCS
     class Setting
     {
     public:
+        Setting();
+        
         static Setting& Get()
         {
             static Setting setting;
@@ -22,14 +25,25 @@ namespace IFCS
         Setting(Setting const&) = delete;
         void operator=(Setting const&) = delete;
 
-        char* ActiveWks = "Annoation";
-        ESupportedLanguage CurrentLanguage = ESupportedLanguage::English;
-        // void RegisterFont(std::string FontName, ImFont* NewFont);
-        // ImFont* GetFont(std::string FontName);
+        
+        void LoadEditorIni();
+        void LoadUserIni();
+        void Save();
+        void CreateStartup();
+        std::string ProjectPath;
+        std::set<std::string> RecentProjects;
+        std::string Project;
+        EWorkspace ActiveWorkspace = EWorkspace::Data;
+        ESupportedLanguage PreferredLanguage = ESupportedLanguage::English;
+        ETheme Theme = ETheme::Light;
+        
+
+        bool ProjectIsLoaded = false;
         
     private:
-        // std::unordered_map<std::string, ImFont*> RegisteredFont; 
-        Setting() {}
+        // std::unordered_map<std::string, ImFont*> RegisteredFont;
+        // load setting vars from init file
+        
         
     };
     

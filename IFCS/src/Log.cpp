@@ -40,6 +40,15 @@ namespace IFCS
     void LogPanel::AddLog(ELogLevel Level, const char* Message)
     {
         Data.push_back({Level, Utils::GetCurrentTimeString(), Message, true});
+        switch (Level)
+        {
+        case ELogLevel::Info: spdlog::info(Message);
+            break;
+        case ELogLevel::Warning: spdlog::warn(Message);
+            break;
+        case ELogLevel::Error: spdlog::error(Message);
+            break;
+        }
     }
 
     void LogPanel::ClearData()
@@ -79,21 +88,21 @@ namespace IFCS
             if (!D.ShouldDisplay) continue;
             char buff[300];
             // TODO: where to query theme? 
-            switch (D.LogLevel) {
+            switch (D.LogLevel)
+            {
             case ELogLevel::Info:
-                    snprintf(buff, sizeof(buff), "[INFO    %s] %s", D.TimeString.c_str(), D.Message.c_str());
-                    ImGui::Text(buff);
-                    break;
+                snprintf(buff, sizeof(buff), "[INFO    %s] %s", D.TimeString.c_str(), D.Message.c_str());
+                ImGui::Text(buff);
+                break;
             case ELogLevel::Warning:
-                    snprintf(buff, sizeof(buff), "[WARNING %s] %s", D.TimeString.c_str(), D.Message.c_str());
-                    ImGui::TextColored(Spectrum::YELLOW(500), buff);
-                    break;
+                snprintf(buff, sizeof(buff), "[WARNING %s] %s", D.TimeString.c_str(), D.Message.c_str());
+                ImGui::TextColored(Spectrum::YELLOW(500), buff);
+                break;
             case ELogLevel::Error:
-                    snprintf(buff, sizeof(buff), "[ERROR   %s] %s", D.TimeString.c_str(), D.Message.c_str());
-                    ImGui::TextColored(Spectrum::RED(500), buff);
-                    break;
+                snprintf(buff, sizeof(buff), "[ERROR   %s] %s", D.TimeString.c_str(), D.Message.c_str());
+                ImGui::TextColored(Spectrum::RED(500), buff);
+                break;
             }
-            
         }
     }
 }

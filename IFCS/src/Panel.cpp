@@ -1,9 +1,11 @@
 ﻿#include "Panel.h"
 #include "Log.h"
 #include "Utils.h"
+#include "ImFileDialog/ImFileDialog.h"
 #include "ImguiNotify/font_awesome_5.h"
+#include "Spectrum/imgui_spectrum.h"
 
-#define LOCTEXT(key) Utils::GetLocText(key).c_str() 
+#define LOCTEXT(key) Utils::GetLocText(key).c_str()
 
 namespace IFCS
 {
@@ -16,28 +18,28 @@ namespace IFCS
     {
     }
 
-    void Panel::Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags)
+    void Panel::Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose)
     {
         Name = InName;
         ShouldOpen = InShouldOpen;
         Flags = InFlags;
         IsSetup = true;
+        CanClose = InCanClose;
     }
 
     void Panel::Render()
     {
         if (IsSetup)
         {
-            PreRender();
-            ImGui::Begin(Name, &ShouldOpen, Flags);
+            if (ShouldOpen)
             {
-                RenderContent();
+                PreRender();
+                ImGui::Begin(Name, CanClose ? &ShouldOpen : nullptr, Flags);
+                {
+                    RenderContent();
+                }
+                ImGui::End();
             }
-            ImGui::End();
-        }
-        else
-        {
-            // TODO: add info to log...
         }
     }
 
@@ -91,11 +93,9 @@ namespace IFCS
 
         ImGui::Text("Test");
         ImGui::Text("Hello");
-        ImGui::Text(s.c_str());
-        ImGui::Text(cs);
-        // ImGui::InputText("MM", MM, IM_ARRAYSIZE(MM));
-        // if (ImGui::Button("Add Log"))
-        //     MyLog->AddLog(ELogLevel::Info, MM);
+        ImGui::InputText("MM", MM, IM_ARRAYSIZE(MM));
+        if (ImGui::Button("Add Log"))
+            LogPanel::Get().AddLog(ELogLevel::Info, MM);
         // if (ImGui::Button("Add Warning Log"))
         //     MyLog->AddLog(ELogLevel::Warning, MM);
         // if (ImGui::Button("Add Error Log"))
@@ -109,11 +109,66 @@ namespace IFCS
         }
         if (ImGui::Button("Set language Chinese"))
         {
-            Setting::Get().CurrentLanguage = ESupportedLanguage::TraditionalChinese;
+            Setting::Get().PreferredLanguage = ESupportedLanguage::TraditionalChinese;
         }
         if (ImGui::Button("Set language Eng"))
         {
-            Setting::Get().CurrentLanguage = ESupportedLanguage::English;
+            Setting::Get().PreferredLanguage = ESupportedLanguage::English;
         }
+    }
+
+
+    void WelcomeModal::Render()
+    {
+        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        if (ImGui::BeginPopupModal("Welcome", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::Text("Welcome to IFCS!");
+            ImGui::Text("The first step is to setup PROJECT!");
+            ImGui::Text("All you hardwork will be stored at there");
+            ImGui::Dummy(ImVec2(10, 30));
+            ImGui::Separator();
+            ImGui::Dummy(ImVec2(10, 30));
+            ImGui::BulletText("Project Location:");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(400);
+            ImGui::InputText("##hidden", TempProjectLocation, IM_ARRAYSIZE(TempProjectLocation));
+            ImGui::SameLine();
+            if (ImGui::Button("Choose Project"))
+            {
+                IsChoosingFolder = true;
+                ifd::FileDialog::Instance().Open("ChooseProjectLocationDialog", "Choose project location", "");
+            }
+            ImGui::BulletText("Project Name:   ");
+            // directly insert blank lines are the best approach to make them align~
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(400);
+            if (ImGui::InputText("##Project Name", TempProjectName, IM_ARRAYSIZE(TempProjectName)))
+            {
+                Setting::Get().Project = TempProjectName;
+            }
+            float windowWidth = ImGui::GetWindowSize().x;
+            ImGui::SetCursorPosX(windowWidth * 0.4f);
+            ImGui::BeginDisabled(!CheckValidInputs());
+            if (ImGui::Button("OK", ImVec2(windowWidth * 0.2f, ImGui::GetFont()->FontSize * 1.5f)))
+            {
+                Setting::Get().ProjectPath = std::string(TempProjectLocation) + Setting::Get().Project;
+                Setting::Get().CreateStartup();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndDisabled();
+            if (!CheckValidInputs())
+            {
+                ImGui::SameLine();
+                ImGui::TextColored(Spectrum::RED(400, Setting::Get().Theme == ETheme::Light), "Fill in valid content");
+            }
+            ImGui::End();
+        }
+    }
+
+    bool WelcomeModal::CheckValidInputs()
+    {
+        return std::filesystem::exists(TempProjectLocation) && !Setting::Get().Project.empty();
     }
 }

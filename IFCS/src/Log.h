@@ -8,17 +8,20 @@ namespace IFCS
 {
 
     /*
-     * TODO: focus on recent only, sync with setting singleton?? 
+     * TODO: focus on recent only
+     * make this singleton??
      */
 
     
     class LogPanel : public Panel
     {
     public:
+        MAKE_SINGLETON(LogPanel)
         void ClearDisplay();
         void FilterData();
         void ClearData();
         void AddLog(ELogLevel Level, const char* Message);
+
         
     protected:
         void RenderContent() override;

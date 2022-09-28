@@ -23,3 +23,4 @@ ToolbarMenu.WksData,Data Preparation,資料準備
 ToolbarMenu.WksTrain,Train Model,訓練模型
 ToolbarMenu.WksPredict,Predict,預測
 ToolbarMenu.AddWks,Add new workspace?,添加新的工作空間?
+Common.OpenFolderHere,Open folder here,開啟目錄到此

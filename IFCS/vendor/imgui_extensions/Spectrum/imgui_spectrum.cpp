@@ -346,10 +346,14 @@ namespace Spectrum
         // not sure about this. Note: applies to tooltips too.
         colors[ImGuiCol_Border] = GRAY(300, is_light);
         colors[ImGuiCol_BorderShadow] = EMPTY(); // We don't want shadows. Ever.
-        colors[ImGuiCol_FrameBg] = GRAY(75, is_light);
+
+        // the color is so bad... can not see the frame at all...
+        colors[ImGuiCol_FrameBg] = GRAY(300, is_light);
         // this isnt right, spectrum does not do this, but it's a good fallback
-        colors[ImGuiCol_FrameBgHovered] = GRAY(50, is_light);
-        colors[ImGuiCol_FrameBgActive] = GRAY(200, is_light);
+        colors[ImGuiCol_FrameBgHovered] = GRAY(400, is_light);
+        colors[ImGuiCol_FrameBgActive] = GRAY(500, is_light);
+
+        
         colors[ImGuiCol_TitleBg] = GRAY(300, is_light);
         // those titlebar values are totally made up, spectrum does not have this.
         colors[ImGuiCol_TitleBgActive] = GRAY(200, is_light);

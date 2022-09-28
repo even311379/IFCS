@@ -1,6 +1,5 @@
 ﻿#pragma once
-#include <string>
-
+#include "Common.h"
 #include "imgui.h"
 /*
  * the base class to define a imgui panel
@@ -12,16 +11,19 @@ namespace IFCS
     {
     public:
         Panel();
-        ~Panel();
-        void Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags);
+        virtual ~Panel();
+        void Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose = true);
         void Render();
         void SetVisibility(bool NewVisibility);
+        bool GetVisibility() { return ShouldOpen; }
+        void ToggleVisibility() {ShouldOpen = ! ShouldOpen;}
     protected:
         virtual void PreRender(); // setup more panel config
         virtual void RenderContent();
     private:
         const char* Name;
         bool ShouldOpen;
+        bool CanClose;
         ImGuiWindowFlags Flags;
         bool IsSetup;
         
@@ -30,6 +32,7 @@ namespace IFCS
     class BGPanel : public Panel
     {
     public:
+        MAKE_SINGLETON(BGPanel)
         void Setup();
     protected:
         void PreRender() override;
@@ -46,13 +49,28 @@ namespace IFCS
     {
     protected:
         void RenderContent() override;
-    private:
-        std::string s = "星期一";
-        const char* cs = "星期二";
-
         
+    public:    
+        char MM[128];
     };
-
+    
+   /*
+    * TODO: returned dir path encode error?
+    * TODO: ... this shoul be Modal!!!! not a normal panel...
+    */ 
+    class WelcomeModal
+    {
+    public:
+        MAKE_SINGLETON(WelcomeModal)
+        void Render();
+        bool IsChoosingFolder = false;
+        char TempProjectLocation[256];
+    private:
+        // ImVec2 pos;
+        // ImVec2 size;
+        char TempProjectName[128];
+        bool CheckValidInputs();
+    };
 
     
 }

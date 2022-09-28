@@ -1,11 +1,13 @@
 ﻿#pragma once
+#include "Common.h"
+
 
 namespace IFCS
 {
     class MainMenu
     {
     public:
-        MainMenu();
+        MAKE_SINGLETON(MainMenu)
         ~MainMenu();
         void Render();
         void OpenSetting();
