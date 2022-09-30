@@ -5,7 +5,9 @@
 #include "ImguiNotify/font_awesome_5.h"
 #include <iostream>
 #include <spdlog/spdlog.h>
+#include <shellapi.h>
 
+#include "FrameExtractor.h"
 #include "Log.h"
 #include "Utils.h"
 
@@ -23,19 +25,16 @@ void IFCS::DataBrowser::RenderContent()
     {
         if (ImGui::TreeNodeEx((std::string(ICON_FA_VIDEO) + "    Video Clips").c_str(), ImGuiTreeNodeFlags_DefaultOpen))
         {
+            std::string clips_folder_path = Setting::Get().ProjectPath + std::string("/training_clips");
             if (ImGui::BeginPopupContextItem())
             {
                 if (ImGui::Button(LOCTEXT("Common.OpenFolderHere")))
+                {
+                    ShellExecuteA(NULL, "open", clips_folder_path.c_str(), NULL, NULL, SW_SHOWDEFAULT);
                     ImGui::CloseCurrentPopup();
+                }
                 ImGui::EndPopup();
             }
-            // using namespace std::string_literals;
-            // char buff[128];
-            // sprintf(buff, "%s/training_clips", Setting::Get().ProjectPath.c_str());
-            // spdlog::error(buff);
-
-            
-            std::string clips_folder_path = Setting::Get().ProjectPath + std::string("/training_clips");
             RecursiveClipTreeNodeGenerator(clips_folder_path, 0);
             ImGui::TreePop();
         }
@@ -82,10 +81,8 @@ ImVec2 IFCS::DataBrowser::GetBtnSize()
 // Copy and modify from https://discourse.dearimgui.org/t/how-to-mix-imgui-treenode-and-filesystem-to-print-the-current-directory-recursively/37
 void IFCS::DataBrowser::RecursiveClipTreeNodeGenerator(const std::filesystem::path& path, unsigned int depth)
 {
-    spdlog::error("here??000");
     for (const auto& entry : std::filesystem::directory_iterator(path))
     {
-        spdlog::error("here??111");
         ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
         if (std::filesystem::is_directory(entry.path()))
         {
@@ -115,18 +112,22 @@ void IFCS::DataBrowser::RecursiveClipTreeNodeGenerator(const std::filesystem::pa
                 ImGui::Indent();
             }
             std::string file_name = entry.path().filename().string();
-            if (ImGui::Selectable(file_name.c_str(), selected_video==file_name, ImGuiSelectableFlags_AllowDoubleClick))
+            std::string full_clip_path = entry.path().string();
+            std::replace(full_clip_path.begin(), full_clip_path.end(), '/', '\\');
+            if (ImGui::Selectable(file_name.c_str(), selected_video==full_clip_path, ImGuiSelectableFlags_AllowDoubleClick))
             {
-                selected_video = file_name;
+                selected_video = full_clip_path;
                 if (ImGui::IsMouseDoubleClicked(0))
                 {
                     char buff[128];
-                    sprintf(buff, "open %s to start frame extraction?", file_name.c_str());
+                    snprintf(buff, sizeof(buff), "open %s to start frame extraction?", full_clip_path.c_str());
                     LogPanel::Get().AddLog(ELogLevel::Info, buff);
+                    ImGui::SetWindowFocus("Frame Extractor");
+                    FrameExtractor::Get().LoadFrame1AsThumbnail(full_clip_path);
                     // TODO: Add related events...
                 }
             }
-            if (selected_video == file_name)
+            if (selected_video == full_clip_path)
             {
                 ImGui::Indent();ImGui::Indent();
                 // TODO: grab data somewhere
@@ -139,6 +140,7 @@ void IFCS::DataBrowser::RecursiveClipTreeNodeGenerator(const std::filesystem::pa
                         if (ImGui::IsMouseDoubleClicked(0))
                         {
                             LogPanel::Get().AddLog(ELogLevel::Warning, "Try to open this frame to edit?");
+                            ImGui::SetWindowFocus("Annotation");
                         }
                     }
                 }

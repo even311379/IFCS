@@ -9,7 +9,10 @@
 #include <yaml-cpp/yaml.h>
 #include <iostream>
 
+#include "Annotation.h"
+#include "CategoryManagement.h"
 #include "DataBrowser.h"
+#include "FrameExtractor.h"
 #include "Panel.h"
 #include "Log.h"
 #include "MainMenu.h"
@@ -19,6 +22,10 @@
 #include "ImguiNotify/tahoma.h"
 #include "ImguiNotify/fa_solid_900.h"
 #include "Spectrum/imgui_spectrum.h"
+
+#include <opencv2/core.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
 
 namespace IFCS
 {
@@ -88,7 +95,7 @@ namespace IFCS
 
         // load font
         // first loaded will become default font!
-        io.Fonts->AddFontFromFileTTF("Resources/Font/cjkFonts_allseto_v1.11.ttf", 18.0f, NULL,
+        Setting::Get().DefaultFont = io.Fonts->AddFontFromFileTTF("Resources/Font/cjkFonts_allseto_v1.11.ttf", 18.0f, NULL,
                                      io.Fonts->GetGlyphRangesChineseFull());
         ImFontConfig font_cfg;
         font_cfg.FontDataOwnedByAtlas = false;
@@ -96,14 +103,17 @@ namespace IFCS
         font_cfg.GlyphMaxAdvanceX = 16.0f;
         static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
         io.Fonts->AddFontFromMemoryTTF((void*)fa_solid_900, sizeof(fa_solid_900), 20.f, &font_cfg, icon_ranges);
-
-
-        // Setting::Get().RegisterFont("default", default_font);
-        // Setting::Get().RegisterFont("FA", fa_font);
-        // io.Fonts->AddFontFromMemoryTTF((void*)tahoma, sizeof(tahoma), 17.f, &font_cfg);
-        // ImGui::MergeIconsWithLatestFont(16.f, false);
+    	io.Fonts->Build();
+		// instead of dummy way to load same file twice... use deep copy and set scale 1.5?
+    	Setting::Get().TitleFont = new ImFont;
+		*Setting::Get().TitleFont = *Setting::Get().DefaultFont; // is this so called deep copy?
+    	Setting::Get().TitleFont->Scale = 1.5;
 
         // load static images?
+
+
+    	
+    	
     }
 
     void Application::run()
@@ -114,15 +124,29 @@ namespace IFCS
     	// setup this app
         BGPanel::Get().Setup();
         LogPanel::Get().Setup("Log", true, 0);
-    	DataBrowser::Get().Setup("DataBrowser", true, 0);
+    	DataBrowser::Get().Setup("Data Browser", true, 0);
+    	FrameExtractor::Get().Setup("Frame Extractor", true, 0);
+    	Annotation::Get().Setup("Annotation", true, 0);
+    	CategoryManagement::Get().Setup("Category Management", true, 0);
 
-    	
         Setting::Get().LoadEditorIni();
     	if (Setting::Get().ProjectIsLoaded)
 			glfwSetWindowTitle(window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
         TestPanel* test = new TestPanel();
         test->Setup("abstraction", true, 0);
 
+		/*// Try to read open static image into dear imgui
+    	cv::Mat image = cv::imread("lena.png", cv::IMREAD_COLOR);
+    	cv::cvtColor(image, image, cv::COLOR_BGR2RGBA);
+		GLuint texture;
+        glGenTextures( 1, &texture );
+        glBindTexture( GL_TEXTURE_2D, texture );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+        glPixelStorei( GL_UNPACK_ROW_LENGTH, 0 );
+        glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, image.cols, image.rows, 0, GL_RGBA, GL_UNSIGNED_BYTE, image.data );*/
+
+    	
     	int tick = 0;
         // WelcomePanel::Get().Setup("Welcome", false, 0);
         while (!glfwWindowShouldClose(window))
@@ -132,7 +156,10 @@ namespace IFCS
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
 
-            ImGui::ShowDemoWindow();
+        	/*ImGui::Begin("lena");
+        	ImGui::Image(reinterpret_cast<void*>( static_cast<intptr_t>( texture ) ), ImVec2( image.cols, image.rows ));
+        	ImGui::End();*/
+
 
             // render all the contents...
             BGPanel::Get().Render();
@@ -141,6 +168,9 @@ namespace IFCS
 
             // major panels
             DataBrowser::Get().Render();
+        	FrameExtractor::Get().Render();
+        	Annotation::Get().Render();
+        	CategoryManagement::Get().Render();
 
             // task modals
         	if (!Setting::Get().ProjectIsLoaded && !WelcomeModal::Get().IsChoosingFolder)
@@ -151,8 +181,8 @@ namespace IFCS
 
             
             // test panels
-            test->Render();
-            ImGui::ShowDemoWindow();
+            // test->Render();
+            // ImGui::ShowDemoWindow();
 
 
         	// third party close/end

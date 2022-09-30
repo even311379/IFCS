@@ -65,7 +65,7 @@ namespace Spectrum
             case 400: return ImGui::ColorConvertU32ToFloat4(Color(0x2680EB));
             case 500: return ImGui::ColorConvertU32ToFloat4(Color(0x1473E6));
             case 600: return ImGui::ColorConvertU32ToFloat4(Color(0x0D66D0));
-            case 700: return ImGui::ColorConvertU32ToFloat4(Color(0xE34850));
+            case 700: return ImGui::ColorConvertU32ToFloat4(Color(0x095ABA));
             default: return EMPTY();
             }
         }
@@ -332,6 +332,8 @@ namespace Spectrum
         }
     }
 
+// TODO: change tab color (active /unfocused)
+    
     void StyleColorsSpectrum(bool is_light)
     {
         ImGuiStyle* style = &ImGui::GetStyle();
@@ -401,5 +403,12 @@ namespace Spectrum
         colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
         colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.20f);
         colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.20f, 0.20f, 0.20f, 0.35f);
+
+        // more missing colors...
+        colors[ImGuiCol_Tab] = BLUE(700, is_light);
+        colors[ImGuiCol_TabHovered] = BLUE(600, is_light);
+        colors[ImGuiCol_TabActive] = BLUE(400, is_light);
+        colors[ImGuiCol_TabUnfocused] = BLUE(700, is_light);
+        colors[ImGuiCol_TabUnfocusedActive] = BLUE(400, is_light);
     }
 }

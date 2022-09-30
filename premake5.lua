@@ -39,6 +39,7 @@ project "IFCS"
         "Dependencies/glfw/include",
         "Dependencies/opencv/build/include",
         "Dependencies/yaml-cpp/include",
+        "Dependencies/pybind11/include",
         "%(AdditionalIncludeDirectories)"
     }
 
@@ -61,7 +62,8 @@ project "IFCS"
     
 --     copy all resource folder to build folder /s: include subdir, /i: auto create folder, /y override existing
     postbuildcommands {
-        "xcopy %{wks.location}%{prj.name}\\Resources %{wks.location}build\\%{cfg.buildcfg}\\Resources /s /i /y"
+        "xcopy %{wks.location}%{prj.name}\\Resources %{wks.location}build\\%{cfg.buildcfg}\\Resources /s /i /y",
+        "xcopy %{wks.location}%{prj.name}\\Config %{wks.location}build\\%{cfg.buildcfg}\\Config /s /i /y"
     }
     filter "configurations:Debug"
         defines { "IFCS_DEBUG" }

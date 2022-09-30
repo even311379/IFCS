@@ -37,6 +37,7 @@ namespace IFCS
         }
     }
 
+    // TODO: add format log?
     void LogPanel::AddLog(ELogLevel Level, const char* Message)
     {
         Data.push_back({Level, Utils::GetCurrentTimeString(), Message, true});
@@ -106,3 +107,22 @@ namespace IFCS
         }
     }
 }
+
+
+/*
+ * TODO: make this work in my code bank...
+ *
+// log to str and return it
+template<typename... Args>
+static std::string log_to_str(const std::string &msg, const Args &... args)
+{
+    std::ostringstream oss;
+    auto oss_sink = std::make_shared<spdlog::sinks::ostream_sink_mt>(oss);
+    spdlog::logger oss_logger("pattern_tester", oss_sink);
+    oss_logger.set_level(spdlog::level::info);
+
+    oss_logger.set_formatter(std::unique_ptr<spdlog::formatter>(new spdlog::pattern_formatter(args...)));
+
+    oss_logger.info(msg);
+    return oss.str();
+}*/

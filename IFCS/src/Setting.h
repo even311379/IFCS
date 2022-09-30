@@ -3,7 +3,7 @@
 #include <set>
 // #include <unordered_map>
 
-
+struct ImFont;
 
 namespace IFCS 
 {
@@ -36,9 +36,10 @@ namespace IFCS
         EWorkspace ActiveWorkspace = EWorkspace::Data;
         ESupportedLanguage PreferredLanguage = ESupportedLanguage::English;
         ETheme Theme = ETheme::Light;
-        
-
         bool ProjectIsLoaded = false;
+
+        ImFont* DefaultFont;
+        ImFont* TitleFont;
         
     private:
         // std::unordered_map<std::string, ImFont*> RegisteredFont;

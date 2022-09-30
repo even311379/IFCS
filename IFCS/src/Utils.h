@@ -102,5 +102,7 @@ namespace IFCS
         static bool Contains(C&& c, T e) { 
             return std::find(std::begin(c), std::end(c), e) != std::end(c);
         };
+
+
     }
 }
