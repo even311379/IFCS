@@ -16,7 +16,7 @@
 
 namespace IFCS
 {
-    namespace Utils 
+    namespace Utils
     {
         static char* GetCurrentTimeString()
         {
@@ -97,12 +97,24 @@ namespace IFCS
                 ImGui::EndTooltip();
             }
         }
-        
-        template<typename C, typename T>
-        static bool Contains(C&& c, T e) { 
+
+        template <typename C, typename T>
+        static bool Contains(C&& c, T e)
+        {
             return std::find(std::begin(c), std::end(c), e) != std::end(c);
         };
 
+        static std::vector<std::string> Split(const std::string& str, const char& delimiter)
+        {
+            std::vector<std::string> result;
+            std::stringstream ss(str);
+            std::string tok;
 
+            while (std::getline(ss, tok, delimiter))
+            {
+                result.push_back(tok);
+            }
+            return result;
+        }
     }
 }

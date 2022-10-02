@@ -25,6 +25,7 @@ void IFCS::MainMenu::Render()
             {
                 OpenSetting();
             }
+            ImGui::Separator();
             ImGui::MenuItem(LOCTEXT("ToolbarItem.Quit"));
             ImGui::EndMenu();
         }

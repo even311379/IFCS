@@ -1,6 +1,9 @@
 ﻿#pragma once
 #include <string>
 
+#include "imgui.h"
+#include "UUID.h"
+
 /*
  * defines common enum structs here...
  */
@@ -54,3 +57,22 @@ struct FLogData
 
 #define LOCTEXT(key) Utils::GetLocText(key).c_str()
 
+
+struct FCategory
+{
+    IFCS::UUID uid;
+    std::string DisplayName;
+    ImVec4 Color;
+    IFCS::UUID parent_uid = 0;
+    bool Visibility = true;
+    
+
+    // info
+    int UsedCountInThisFrame = 0;
+    int TotalUsedCount = 100;
+
+    FCategory(std::string InName, ImVec4 InColor, IFCS::UUID InParent, bool InVisibility = true)
+        : DisplayName(InName), Color(InColor), parent_uid(InParent), Visibility(InVisibility)
+    {}
+    inline bool HasParent() const { return parent_uid != 0; }
+};

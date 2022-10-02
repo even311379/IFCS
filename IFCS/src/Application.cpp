@@ -135,31 +135,13 @@ namespace IFCS
         TestPanel* test = new TestPanel();
         test->Setup("abstraction", true, 0);
 
-		/*// Try to read open static image into dear imgui
-    	cv::Mat image = cv::imread("lena.png", cv::IMREAD_COLOR);
-    	cv::cvtColor(image, image, cv::COLOR_BGR2RGBA);
-		GLuint texture;
-        glGenTextures( 1, &texture );
-        glBindTexture( GL_TEXTURE_2D, texture );
-        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-        glPixelStorei( GL_UNPACK_ROW_LENGTH, 0 );
-        glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, image.cols, image.rows, 0, GL_RGBA, GL_UNSIGNED_BYTE, image.data );*/
-
-    	
     	int tick = 0;
-        // WelcomePanel::Get().Setup("Welcome", false, 0);
         while (!glfwWindowShouldClose(window))
         {
             glfwPollEvents();
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
-
-        	/*ImGui::Begin("lena");
-        	ImGui::Image(reinterpret_cast<void*>( static_cast<intptr_t>( texture ) ), ImVec2( image.cols, image.rows ));
-        	ImGui::End();*/
-
 
             // render all the contents...
             BGPanel::Get().Render();

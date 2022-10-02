@@ -1,10 +1,9 @@
 ﻿#pragma once
 #include "Common.h"
 #include "imgui.h"
-/*
- * the base class to define a imgui panel
- */
 
+
+// override the basic imgui types 
 inline ImVec2 operator+(const ImVec2& lhs, const ImVec2& rhs)
 {
     return ImVec2(lhs.x + rhs.x, lhs.y + rhs.y);
@@ -20,6 +19,14 @@ inline ImVec2 operator-(const ImVec2& lhs, const ImVec2& rhs)
     return ImVec2(lhs.x - rhs.x, lhs.y - rhs.y);
 }
 
+inline ImVec2 operator*(const int& lhs, const ImVec2& rhs)
+{
+    return ImVec2(lhs * rhs.x, lhs * rhs.y);
+}
+
+/*
+ * the base class to define a imgui panel
+ */
 namespace IFCS
 {
     class Panel
@@ -27,7 +34,7 @@ namespace IFCS
     public:
         Panel();
         virtual ~Panel();
-        void Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose = true);
+        virtual void Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose = true);
         void Render();
         void SetVisibility(bool NewVisibility);
         bool GetVisibility() { return ShouldOpen; }
