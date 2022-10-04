@@ -11,16 +11,17 @@ namespace IFCS
     {
     public:
         MAKE_SINGLETON(CategoryManagement)
+        void Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose = true) override;
+        void UpdateCategoryStatics();
     protected:
         void RenderContent() override;
 
     private:
-        void LoadFromCategoryFile();
         std::vector<FCategory> Categories;
         UUID SelectedCatID;
         char NewCatName[64];
-        
-        
+        void Save();
+        void LoadCategoriesFromFile();
     };
     
 }

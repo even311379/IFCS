@@ -6,150 +6,173 @@
 #include <iostream>
 #include <spdlog/spdlog.h>
 #include <shellapi.h>
+#include <yaml-cpp/yaml.h>
 
 #include "FrameExtractor.h"
 #include "Log.h"
 #include "Utils.h"
 
-
-void IFCS::DataBrowser::RenderContent()
+namespace IFCS
 {
-    if (!Setting::Get().ProjectIsLoaded) return;
-
-    // Inside child window to have independent scroll
-    ImGui::Text("Data Browser");
-    ImVec2 ChildWindowSize = {ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y * 0.92f};
-    ImGuiWindowFlags window_flags = ImGuiWindowFlags_HorizontalScrollbar;
-    window_flags |= ImGuiWindowFlags_AlwaysVerticalScrollbar;
-    ImGui::BeginChild("DataBrowserWindow", ChildWindowSize, false, window_flags);
+    void DataBrowser::RenderContent()
     {
-        if (ImGui::TreeNodeEx((std::string(ICON_FA_VIDEO) + "    Video Clips").c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+        if (!Setting::Get().ProjectIsLoaded) return;
+
+        // Inside child window to have independent scroll
+        ImGui::Text("Data Browser");
+        ImVec2 ChildWindowSize = {ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y * 0.92f};
+        ImGuiWindowFlags window_flags = ImGuiWindowFlags_HorizontalScrollbar;
+        window_flags |= ImGuiWindowFlags_AlwaysVerticalScrollbar;
+        ImGui::BeginChild("DataBrowserWindow", ChildWindowSize, false, window_flags);
         {
-            std::string clips_folder_path = Setting::Get().ProjectPath + std::string("/training_clips");
-            if (ImGui::BeginPopupContextItem())
+            if (ImGui::TreeNodeEx((std::string(ICON_FA_VIDEO) + "    Video Clips").c_str(),
+                                  ImGuiTreeNodeFlags_DefaultOpen))
             {
-                if (ImGui::Button(LOCTEXT("Common.OpenFolderHere")))
+                std::string clips_folder_path = Setting::Get().ProjectPath + std::string("/TrainingClips");
+                if (ImGui::BeginPopupContextItem())
                 {
-                    ShellExecuteA(NULL, "open", clips_folder_path.c_str(), NULL, NULL, SW_SHOWDEFAULT);
-                    ImGui::CloseCurrentPopup();
+                    if (ImGui::Button(LOCTEXT("Common.OpenFolderHere")))
+                    {
+                        ShellExecuteA(NULL, "open", clips_folder_path.c_str(), NULL, NULL, SW_SHOWDEFAULT);
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::EndPopup();
                 }
-                ImGui::EndPopup();
-            }
-            RecursiveClipTreeNodeGenerator(clips_folder_path, 0);
-            ImGui::TreePop();
-        }
-
-        // TODO: add from raw image as very end...
-        // if (ImGui::TreeNodeEx((std::string(ICON_FA_IMAGE) + "    Raw Images").c_str()))
-        // {
-        //     for (int i = 0; i < 100; i++)
-        //     {
-        //         ImGui::Selectable("img");
-        //     }
-        //     ImGui::TreePop();
-        // }
-    }
-
-    ImGui::EndChild();
-    // ImGui::Button(ICON_FA_FILE_IMPORT);
-    // Utils::AddSimpleTooltip(LOCTEXT("ToolbarMenu.AddWks"));
-    // ImGui::SameLine();
-    // ImGui::Button(ICON_FA_FOLDER_PLUS);
-    // Utils::AddSimpleTooltip(LOCTEXT("ToolbarMenu.AddWks"));
-    // ImGui::SameLine();
-    // if (ImGui::Button(ICON_FA_FOLDER_OPEN, GetBtnSize()))
-    // {
-    // }
-    // Utils::AddSimpleTooltip(LOCTEXT("ToolbarMenu.AddWks"));
-    // ImGui::SameLine();
-    // if (ImGui::Button(ICON_FA_RECYCLE, GetBtnSize()))
-    // {
-    // }
-    // Utils::AddSimpleTooltip("Refresh folder content");
-    // ImGui::Separator();
-    ImGui::Checkbox("TT", &Test);
-    ImGui::SameLine();
-    ImGui::Checkbox("TT", &Test);
-    ImGui::InputText("Filter", FilterText, IM_ARRAYSIZE(FilterText));
-}
-
-ImVec2 IFCS::DataBrowser::GetBtnSize()
-{
-    return {ImGui::GetFont()->FontSize * 3, ImGui::GetFont()->FontSize * 1.5f};
-}
-
-// Copy and modify from https://discourse.dearimgui.org/t/how-to-mix-imgui-treenode-and-filesystem-to-print-the-current-directory-recursively/37
-void IFCS::DataBrowser::RecursiveClipTreeNodeGenerator(const std::filesystem::path& path, unsigned int depth)
-{
-    for (const auto& entry : std::filesystem::directory_iterator(path))
-    {
-        ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
-        if (std::filesystem::is_directory(entry.path()))
-        {
-            using namespace std::string_literals;
-            std::string s = ICON_FA_FOLDER + " "s + entry.path().filename().string().c_str();
-            if (ImGui::TreeNodeEx(s.c_str(), node_flags))
-            {
-                RecursiveClipTreeNodeGenerator(entry, depth + 1);
+                RecursiveClipTreeNodeGenerator(clips_folder_path, 0);
                 ImGui::TreePop();
             }
+
+            // TODO: add from raw image as very end...leave it when all major feature is done...
+            // if (ImGui::TreeNodeEx((std::string(ICON_FA_IMAGE) + "    Raw Images").c_str()))
+            // {
+            //     for (int i = 0; i < 100; i++)
+            //     {
+            //         ImGui::Selectable("img");
+            //     }
+            //     ImGui::TreePop();
+            // }
         }
-        else
+
+        ImGui::EndChild();
+        // TODO: filter options... leave it when all major feature is done...
+        // ImGui::Button(ICON_FA_FILE_IMPORT);
+        // Utils::AddSimpleTooltip(LOCTEXT("ToolbarMenu.AddWks"));
+        // ImGui::SameLine();
+        // ImGui::Button(ICON_FA_FOLDER_PLUS);
+        // Utils::AddSimpleTooltip(LOCTEXT("ToolbarMenu.AddWks"));
+        // ImGui::SameLine();
+        // if (ImGui::Button(ICON_FA_FOLDER_OPEN, GetBtnSize()))
+        // {
+        // }
+        // Utils::AddSimpleTooltip(LOCTEXT("ToolbarMenu.AddWks"));
+        // ImGui::SameLine();
+        // if (ImGui::Button(ICON_FA_RECYCLE, GetBtnSize()))
+        // {
+        // }
+        // Utils::AddSimpleTooltip("Refresh folder content");
+        // ImGui::Separator();
+        ImGui::Checkbox("TT", &Test);
+        ImGui::SameLine();
+        ImGui::Checkbox("TT", &Test);
+        ImGui::InputText("Filter", FilterText, IM_ARRAYSIZE(FilterText));
+    }
+
+    ImVec2 DataBrowser::GetBtnSize()
+    {
+        return {ImGui::GetFont()->FontSize * 3, ImGui::GetFont()->FontSize * 1.5f};
+    }
+
+    // Copy and modify from https://discourse.dearimgui.org/t/how-to-mix-imgui-treenode-and-filesystem-to-print-the-current-directory-recursively/37
+    void DataBrowser::RecursiveClipTreeNodeGenerator(const std::filesystem::path& path, unsigned int depth)
+    {
+        for (const auto& entry : std::filesystem::directory_iterator(path))
         {
-            // if (!Utils::Contains(AcceptedClipsFormat, entry.path().string())) return;
-            bool pass = false;
-            for (const std::string& Format : AcceptedClipsFormat)
+            ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+            if (std::filesystem::is_directory(entry.path()))
             {
-                if (entry.path().string().find(Format) != std::string::npos)
+                using namespace std::string_literals;
+                std::string s = ICON_FA_FOLDER + " "s + entry.path().filename().string().c_str();
+                if (ImGui::TreeNodeEx(s.c_str(), node_flags))
                 {
-                    pass = true;
-                    break;
+                    RecursiveClipTreeNodeGenerator(entry, depth + 1);
+                    ImGui::TreePop();
                 }
             }
-            if (!pass) return;
-            if (depth > 0)
+            else
             {
-                ImGui::Indent();
-            }
-            std::string file_name = entry.path().filename().string();
-            std::string full_clip_path = entry.path().string();
-            std::replace(full_clip_path.begin(), full_clip_path.end(), '/', '\\');
-            if (ImGui::Selectable(file_name.c_str(), selected_video==full_clip_path, ImGuiSelectableFlags_AllowDoubleClick))
-            {
-                selected_video = full_clip_path;
-                if (ImGui::IsMouseDoubleClicked(0))
+                // if (!Utils::Contains(AcceptedClipsFormat, entry.path().string())) return;
+                bool pass = false;
+                for (const std::string& Format : AcceptedClipsFormat)
                 {
-                    char buff[128];
-                    snprintf(buff, sizeof(buff), "open %s to start frame extraction?", full_clip_path.c_str());
-                    LogPanel::Get().AddLog(ELogLevel::Info, buff);
-                    ImGui::SetWindowFocus("Frame Extractor");
-                    FrameExtractor::Get().LoadFrame1AsThumbnail(full_clip_path);
-                    // TODO: Add related events...
-                }
-            }
-            if (selected_video == full_clip_path)
-            {
-                ImGui::Indent();ImGui::Indent();
-                // TODO: grab data somewhere
-                for (int i = 0; i < 5; i++)
-                {
-                    if (ImGui::Selectable("frame", false, ImGuiSelectableFlags_AllowDoubleClick))
+                    if (entry.path().string().find(Format) != std::string::npos)
                     {
-                        selected_video = file_name;
-                        // TODO: do something to update selection hint
-                        if (ImGui::IsMouseDoubleClicked(0))
-                        {
-                            LogPanel::Get().AddLog(ELogLevel::Warning, "Try to open this frame to edit?");
-                            ImGui::SetWindowFocus("Annotation");
-                        }
+                        pass = true;
+                        break;
                     }
                 }
-                ImGui::Unindent();ImGui::Unindent();
-            }
-            if (depth > 0)
-            {
-                ImGui::Unindent();
+                if (!pass) return;
+                if (depth > 0)
+                {
+                    ImGui::Indent();
+                }
+                std::string file_name = entry.path().filename().string();
+                std::string full_clip_path = entry.path().string();
+                std::replace(full_clip_path.begin(), full_clip_path.end(), '/', '\\');
+                if (ImGui::Selectable(file_name.c_str(), selected_video == full_clip_path,
+                                      ImGuiSelectableFlags_AllowDoubleClick))
+                {
+                    selected_video = full_clip_path;
+                    YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"));
+                    FramesNode = Node[selected_video];
+                    // for (YAML::const_iterator it = Node.begin(); it != Node.end(); it++)
+                    // {
+                    //     if (it->second["Source"].as<std::string>() == full_clip_path)
+                    //     {
+                    //         FramesNode = it->second["Frames"];
+                    //         break;
+                    //     }
+                    // }
+                    if (ImGui::IsMouseDoubleClicked(0))
+                    {
+                        char buff[128];
+                        snprintf(buff, sizeof(buff), "open %s to start frame extraction?", full_clip_path.c_str());
+                        LogPanel::Get().AddLog(ELogLevel::Info, buff);
+                        ImGui::SetWindowFocus("Frame Extractor");
+                        FrameExtractor::Get().LoadFrame1AsThumbnail(full_clip_path);
+                        // TODO: Add related events...
+                    }
+                }
+                if (selected_video == full_clip_path)
+                {
+                    ImGui::Indent();
+                    ImGui::Indent();
+                    // TODO: grab data somewhere
+                    for (YAML::const_iterator it=FramesNode.begin(); it!=FramesNode.end();it++)
+                    {
+                        int FrameCount = it->first.as<int>();
+                        int N_Annotations = it->second.as<YAML::Node>().size();
+                        char buff[128];
+                        snprintf(buff, sizeof(buff), "%d ...... (%d)", FrameCount, N_Annotations);
+                        if (ImGui::Selectable(buff, FrameCount==selected_frame, ImGuiSelectableFlags_AllowDoubleClick))
+                        {
+                            selected_frame = FrameCount;
+                            ImGui::SetWindowFocus("Annotation");
+                            // TODO: do something to update selection hint
+                            // if (ImGui::IsMouseDoubleClicked(0))
+                            // {
+                            //     LogPanel::Get().AddLog(ELogLevel::Warning, "Try to open this frame to edit?");
+                            // }
+                        }
+                    }
+                    ImGui::Unindent();
+                    ImGui::Unindent();
+                }
+                if (depth > 0)
+                {
+                    ImGui::Unindent();
+                }
             }
         }
     }
+
 }

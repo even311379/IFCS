@@ -44,8 +44,8 @@ namespace IFCS
         char* PlayIcon = ICON_FA_PLAY;
         bool IsPlaying = false;
         float PlayProgress = 0.f; //0 ~ 100
-        int CurrentFrame = 122;
-        std::vector<int> regions; // can not store array in vector... why?
+        int CurrentFrame = 1;
+        std::vector<int> Regions; // can not store array in vector... why?
 
         // video info:
         std::string ClipName;

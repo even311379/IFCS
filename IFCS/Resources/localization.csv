@@ -1,26 +1,29 @@
-LocTextID,Default(Eng),Tradition Chinese
-ToolbarMenu.Project,Project,專案
-ToolbarItem.NewProject,New Project,新專案
-ToolbarItem.LoadProject,Load Project,開啟專案
-ToolbarItem.ImportData,Import Data,導入資料
-ToolbarItem.ExportData,Export Data,輸出資料
-ToolbarItem.Setting,Setting,設定
-ToolbarItem.Quit,Quit,離開
-ToolbarMenu.Panels,Panels,面板
-ToolbarMenu.Data,Data,資料
-ToolbarItem.DataBrowser,Data Browser,資料瀏覽
-ToolbarMenu.Train,Train,訓練
-ToolbarMenu.Predict,Predict,預測
-ToolbarItem.Log,Log,記錄
-ToolbarMenu.Help,Help,求助
-ToolbarItem.About,About,關於
-ToolbarItem.Tutorial,Tutorial,教學
-ToolbarItem.Contact,Contact,聯絡
-ToolbarItem.Licence,Licence,授權
-ToolbarTxt.Wks,Workspaces: ,工作空間: 
-ToolbarMenu.ChooseWks,Click to switch workspace,點擊切換工作空間
-ToolbarMenu.WksData,Data Preparation,資料準備
-ToolbarMenu.WksTrain,Train Model,訓練模型
-ToolbarMenu.WksPredict,Predict,預測
-ToolbarMenu.AddWks,Add new workspace?,添加新的工作空間?
-Common.OpenFolderHere,Open folder here,開啟目錄到此
+LocTextID;Default(Eng);Tradition Chinese
+ToolbarMenu.Project;Project;專案
+ToolbarItem.NewProject;New Project;新專案
+ToolbarItem.LoadProject;Load Project;開啟專案
+ToolbarItem.ImportData;Import Data;導入資料
+ToolbarItem.ExportData;Export Data;輸出資料
+ToolbarItem.Setting;Setting;設定
+ToolbarItem.Quit;Quit;離開
+ToolbarMenu.Panels;Panels;面板
+ToolbarMenu.Data;Data;資料
+ToolbarItem.DataBrowser;Data Browser;資料瀏覽
+ToolbarMenu.Train;Train;訓練
+ToolbarMenu.Predict;Predict;預測
+ToolbarItem.Log;Log;記錄
+ToolbarMenu.Help;Help;求助
+ToolbarItem.About;About;關於
+ToolbarItem.Tutorial;Tutorial;教學
+ToolbarItem.Contact;Contact;聯絡
+ToolbarItem.Licence;Licence;授權
+ToolbarTxt.Wks;Workspaces: ;工作空間: 
+ToolbarMenu.ChooseWks;Click to switch workspace;點擊切換工作空間
+ToolbarMenu.WksData;Data Preparation;資料準備
+ToolbarMenu.WksTrain;Train Model;訓練模型
+ToolbarMenu.WksPredict;Predict;預測
+ToolbarMenu.AddWks;Add new workspace?;添加新的工作空間?
+Common.OpenFolderHere;Open folder here;開啟目錄到此
+FrameExtractor.ModeOption1;Remove all previous extracts, then extract;全部移除，重新抽取
+FrameExtractor.ModeOption2;No remove, extract to requested numbers;不移除，抽取到指定的數量
+FrameExtractor.ModeOption3;Remove frames without annotations, then extract to requested numbers;移除無標記，抽取到指定數量

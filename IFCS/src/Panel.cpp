@@ -1,5 +1,6 @@
 ﻿#include "Panel.h"
 #include "Log.h"
+#include "Setting.h"
 #include "Utils.h"
 #include "ImFileDialog/ImFileDialog.h"
 #include "ImguiNotify/font_awesome_5.h"

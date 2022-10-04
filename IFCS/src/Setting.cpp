@@ -79,10 +79,15 @@ namespace IFCS
     {
         RecentProjects.insert(ProjectPath);
         std::filesystem::create_directories(ProjectPath); // TODO: can not use chinese folder name
-        std::filesystem::create_directories(ProjectPath + std::string("/training_clips")); // lack of ..."i"...tra_ning ... waste me 2 hours...
-        std::filesystem::create_directories(ProjectPath + std::string("/training_images"));
-        std::filesystem::create_directories(ProjectPath + std::string("/models")); // TODO: check what to create in later dev cycle
-        std::filesystem::create_directories(ProjectPath + std::string("/prediction"));
+        std::filesystem::create_directories(ProjectPath + std::string("/TrainingClips")); // lack of ..."i"...tra_ning ... waste me 2 hours...
+        std::filesystem::create_directories(ProjectPath + std::string("/TrainingImages"));
+        std::filesystem::create_directories(ProjectPath + std::string("/Models")); // TODO: check what to create in later dev cycle
+        std::filesystem::create_directories(ProjectPath + std::string("/Prediction"));
+        std::filesystem::create_directories(ProjectPath + std::string("/Data"));
+        // should create empty files for future use...
+        std::ofstream output1(ProjectPath + std::string("/Data/Annotation.yaml"));
+        std::ofstream output2(ProjectPath + std::string("/Data/Categories.yaml"));
+        std::ofstream output3(ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
         Save();
     }
 }

@@ -9,6 +9,7 @@
 #include <yaml-cpp/yaml.h>
 #include <iostream>
 
+#include "Setting.h"
 #include "Annotation.h"
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
@@ -17,6 +18,8 @@
 #include "Log.h"
 #include "MainMenu.h"
 #include "Utils.h"
+
+
 #include "ImFileDialog/ImFileDialog.h"
 #include "ImguiNotify/imgui_notify.h"
 #include "ImguiNotify/tahoma.h"
@@ -26,6 +29,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
+
 
 namespace IFCS
 {
@@ -127,9 +131,8 @@ namespace IFCS
     	DataBrowser::Get().Setup("Data Browser", true, 0);
     	FrameExtractor::Get().Setup("Frame Extractor", true, 0);
     	Annotation::Get().Setup("Annotation", true, 0);
-    	CategoryManagement::Get().Setup("Category Management", true, 0);
-
         Setting::Get().LoadEditorIni();
+    	CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
     	if (Setting::Get().ProjectIsLoaded)
 			glfwSetWindowTitle(window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
         TestPanel* test = new TestPanel();
@@ -165,7 +168,6 @@ namespace IFCS
             // test panels
             // test->Render();
             // ImGui::ShowDemoWindow();
-
 
         	// third party close/end
         	HandleDialogClose();

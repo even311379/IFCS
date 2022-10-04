@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include <array>
 #include <filesystem>
+#include <yaml-cpp/node/node.h>
+
 #include "Panel.h"
 
 namespace IFCS
@@ -11,6 +13,7 @@ namespace IFCS
         MAKE_SINGLETON(DataBrowser)
         // void SynProjectData();
         std::string selected_video;
+        int selected_frame = -1;
     protected:
         void RenderContent() override;
     private:
@@ -18,7 +21,7 @@ namespace IFCS
         char FilterText[128];
         ImVec2 GetBtnSize();
         void RecursiveClipTreeNodeGenerator(const std::filesystem::path& path, unsigned int depth);
-        // void RecursiveImageTreeNodeGenerator();
+        YAML::Node FramesNode;
         // int clip_selection_mask = (1 << 2);
         // unsigned int clip_node_idx = 0u;
         // int clicked_clip_node = -1;

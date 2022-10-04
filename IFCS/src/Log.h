@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include <vector>
-#include "Common.h"
+#include "Utils.h"
 
 #include "Panel.h"
 
@@ -30,6 +30,7 @@ namespace IFCS
         bool bShowInfo = true;
         bool bShowWarning = true;
         bool bShowError = true;
+        
         char sFilterMessage[128] = "";
     };
 

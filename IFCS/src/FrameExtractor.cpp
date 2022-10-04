@@ -2,27 +2,57 @@
 
 // #include <GL/gl.h>
 
+#include <fstream>
+#include <numeric>
+#include <random>
+
 #include "Log.h"
 #include "Setting.h"
 #include "Utils.h"
+#include "DataBrowser.h"
 
 #include "ImguiNotify/font_awesome_5.h"
-#include "opencv2/opencv.hpp"
-
+#include "imgui_internal.h"
 #include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
 #include <GLFW/glfw3.h>
+
+#include "yaml-cpp/yaml.h"
+#include "opencv2/opencv.hpp"
 #include <spdlog/spdlog.h>
 
-#include "imgui_internal.h"
 #include <shellapi.h>
-#include "DataBrowser.h"
 
 namespace IFCS
 {
     void FrameExtractor::LoadFrame1AsThumbnail(const std::string& file_path)
     {
         ClipPath = file_path;
+        Regions.clear();
+        YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
+        if (Data[ClipPath])
+        {
+            Regions = Data[ClipPath].as<std::vector<int>>();
+            // for (int i = 0; i < Data[ClipPath].size(); i++)
+            // {
+            //     Regions.push_back(Data)
+            // }
+        }
+        // YAML::Node node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
+        // if (!node.IsNull())
+        // {
+        //     for (std::size_t i = 0; i < node.size(); i++)
+        //     {
+        //         if (node[i]["Source"].as<std::string>() == ClipPath)
+        //         {
+        //             for (std::size_t j = 0; j < node[i]["Regions"].size(); j++)
+        //             {
+        //                 Regions.push_back(node[i]["Regions"][j].as<int>());
+        //             }
+        //             break;
+        //         }
+        //     }
+        // }
+
         cv::Mat frame;
         {
             cv::VideoCapture cap(file_path);
@@ -33,10 +63,10 @@ namespace IFCS
             }
             std::vector<std::string> temp = Utils::Split(file_path, '\\');
             ClipName = temp.back();
-            Resolution[0] = cap.get(cv::CAP_PROP_FRAME_WIDTH);
-            Resolution[1] = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
-            FrameRate = cap.get(cv::CAP_PROP_FPS);
-            FrameCount = cap.get(cv::CAP_PROP_FRAME_COUNT);
+            Resolution[0] = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
+            Resolution[1] = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+            FrameRate = (float)cap.get(cv::CAP_PROP_FPS);
+            FrameCount = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
             float i = 1.0f;
             while (FrameCount > pow(10, i))
             {
@@ -110,10 +140,10 @@ namespace IFCS
 
 
         // if (BeginTimeline("MyTimeline", (1 - TimelinePan) / TimelineZoom * float(FrameCount), 6, N_regions))
-        if (BeginTimeline(regions.size() / 2))
+        if (BeginTimeline((int)Regions.size() / 2))
         // label, max_value, num_visible_rows, opt_exact_num_rows (for item culling)
         {
-            for (int r = 0; r < regions.size() / 2; r++)
+            for (int r = 0; r < Regions.size() / 2; r++)
             {
                 TimelineEvent(r);
             }
@@ -155,8 +185,8 @@ namespace IFCS
         snprintf(id, sizeof(id), "region %d", N);
         float values[2];
         float pan_amount = (TimelineZoom * TimelinePan * TimelineDisplayEnd);
-        values[0] = float(regions[N*2]) / float(FrameCount) * TimelineZoom * TimelineDisplayEnd - pan_amount;
-        values[1] = float(regions[N*2+1]) / float(FrameCount) * TimelineZoom * TimelineDisplayEnd - pan_amount;
+        values[0] = float(Regions[N * 2]) / float(FrameCount) * TimelineZoom * TimelineDisplayEnd - pan_amount;
+        values[1] = float(Regions[N * 2 + 1]) / float(FrameCount) * TimelineZoom * TimelineDisplayEnd - pan_amount;
 
         ++temp_TimelineIndex;
         if (TimelineRows > 0 && (temp_TimelineIndex < TimelineDisplayStart || temp_TimelineIndex >= TimelineDisplayEnd))
@@ -176,8 +206,8 @@ namespace IFCS
         {
             if (ImGui::Button("Delete this region?"))
             {
-                regions.erase(regions.begin() + 2*N);
-                regions.erase(regions.begin() + 2*N); // do it twice with same index since it will shrink?
+                Regions.erase(Regions.begin() + 2 * N);
+                Regions.erase(Regions.begin() + 2 * N); // do it twice with same index since it will shrink?
                 JustDeleteRegion = true;
                 ImGui::CloseCurrentPopup();
             }
@@ -254,8 +284,8 @@ namespace IFCS
         }
         if (!JustDeleteRegion)
         {
-            regions[N*2] = (values[0] + pan_amount) / TimelineDisplayEnd / TimelineZoom * float(FrameCount);
-            regions[N*2+1] = (values[1] + pan_amount) / TimelineDisplayEnd / TimelineZoom * float(FrameCount);
+            Regions[N * 2] = int((values[0] + pan_amount) / TimelineDisplayEnd / TimelineZoom * float(FrameCount));
+            Regions[N * 2 + 1] = int((values[1] + pan_amount) / TimelineDisplayEnd / TimelineZoom * float(FrameCount));
         }
 
         // TODO: clip end considering the zoom and pan
@@ -400,11 +430,11 @@ namespace IFCS
         ImGui::SetCursorPos(ImVec2(0, ImGui::GetCursorPosY() + row_height * 4.0f));
         if (ImGui::Button(ICON_FA_PLUS, ImVec2(96, 24)))
         {
-            int CurrentFrameStart = FrameCount / TimelineZoom * TimelinePan;
-            int CurrentFrameRange = FrameCount / TimelineZoom * (1 - TimelinePan);
+            int CurrentFrameStart = int((float)FrameCount / TimelineZoom * TimelinePan);
+            int CurrentFrameRange = int((float)FrameCount / TimelineZoom * (1 - TimelinePan));
             spdlog::info("frame start: {0} range: {1}... correct?", CurrentFrameStart, CurrentFrameRange);
-            regions.push_back(CurrentFrameStart + int(0.3f * (float)CurrentFrameRange));
-            regions.push_back(CurrentFrameStart + int(0.7f * (float)CurrentFrameRange));
+            Regions.push_back(CurrentFrameStart + int(0.3f * (float)CurrentFrameRange));
+            Regions.push_back(CurrentFrameStart + int(0.7f * (float)CurrentFrameRange));
         }
         if (ImGui::IsItemHovered())
         {
@@ -413,7 +443,7 @@ namespace IFCS
         ImGui::SameLine();
         ImGui::Dummy({columnOffset - 96, 0});
         ImGui::SameLine();
-        
+
         // ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX() + columnOffset, ImGui::GetCursorPosY() + row_height * 3.5f));
         // ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX() + columnOffset, ImGui::GetCursorPosY() - row_height));
     }
@@ -456,17 +486,23 @@ namespace IFCS
         ImGui::SameLine();
         if (ImGui::Button("Extract"))
         {
-            spdlog::info("finally...");
+            PerformExtraction();
         }
         ImGui::SameLine();
         ImGui::SetNextItemWidth(160.f);
 
-        // TODO: think of a better approach ...
-        //ExtractionOptions = Utils::GetLocText("") + "\0" +Utils::GetLocText("") + "\0" +Utils::GetLocText("") + "\0\0";
-        // ExtractionOptions = "re-extract\0delete_all\0hey\0\0";
-        ExtractionOptions = "aaaa\0bbbb\0cccc\0dddd\0eeee\0\0";
-        ImGui::Combo("##ExtractionOptionsCombo", &SelectedExtractionOption, "aaaa\0bbbb\0cccc\0dddd\0eeee\0\0");
-// add combo to choose extract modes?        ImGui::Combo();
+        // TODO: can not load this way... all become ????? ...
+        /*symotion-prefix)
+        const char* Options[] = {
+            LOCTEXT("FrameExtractor.ModeOption1"),LOCTEXT("FrameExtractor.ModeOption2"),
+            LOCTEXT("FrameExtractor.ModeOption3")
+        };
+        */
+        const char* Options[] = {
+            "Remove all previous extracts, then extract", "No remove, extract to requested numbers",
+            "Remove frames without annotations, then extract to requested numbers", "中文會變亂碼嗎?"
+        };
+        ImGui::Combo("##ExtractionOptionsCombo", &SelectedExtractionOption, Options, IM_ARRAYSIZE(Options));
     }
 
     void FrameExtractor::CheckZoomInput()
@@ -497,9 +533,9 @@ namespace IFCS
     void FrameExtractor::UpdateVideoFrame()
     {
         // make PlayProgress to current frame
-        int CurrentFrameStart = FrameCount / TimelineZoom * TimelinePan;
-        int CurrentFrameRange = FrameCount / TimelineZoom * (1 - TimelinePan);
-        CurrentFrame = CurrentFrameStart + PlayProgress / 100 * CurrentFrameRange - 1;
+        int CurrentFrameStart = int((float)FrameCount / TimelineZoom * TimelinePan);
+        int CurrentFrameRange = int((float)FrameCount / TimelineZoom * (1 - TimelinePan));
+        CurrentFrame = int(CurrentFrameStart + PlayProgress / 100 * CurrentFrameRange - 1);
         spdlog::info("current frame: {0}", CurrentFrame);
         // update texture
         cv::Mat frame;
@@ -523,8 +559,108 @@ namespace IFCS
     void FrameExtractor::PlayClip()
     {
     }
-    // TODO: grab  combo options...
+
     void FrameExtractor::PerformExtraction()
     {
+        // TODO: limit max num frames to extract...
+
+        // save extraction range?
+        YAML::Node RegionToExtractData = YAML::LoadFile(
+            Setting::Get().ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
+        // this should be enough!
+        for (int r : Regions)
+            RegionToExtractData[ClipPath].push_back(r);
+        /*
+        bool HasExistingVideo = false;
+        for (YAML::iterator it=RegionToExtractData.begin(); it!=RegionToExtractData.end();++it)
+        {
+            if (it->first.as<std::string>() == ClipPath)
+            {
+                it->second = YAML::NodeType::Sequence;
+                for (int r : Regions)
+                    it->second.push_back(r);
+                HasExistingVideo = true;
+                break;
+            }
+        }
+        if (!HasExistingVideo)
+        {
+            YAML::Node node;
+            node["Source"] = ClipPath;
+            for (int r : Regions)
+                node["Regions"].push_back(r);
+            RegionToExtractData.push_back(node);
+        }
+        */
+        YAML::Emitter Out;
+        Out << RegionToExtractData;
+        std::ofstream fout(Setting::Get().ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
+        fout << Out.c_str();
+
+        // TODO: grab  combo options... so far, just use remove all and extract to that amount...
+        // save extracted frames
+        // concat ranges, suffle, slice... done?
+        // concat with ordered unique frames
+        std::vector<int> PossibleFrames;
+        for (int R = 0; R < (int)Regions.size() / 2; R++)
+        {
+            std::vector<int> v(Regions[R * 2 + 1] - Regions[R * 2]);
+            std::iota(v.begin(), v.end(), Regions[R * 2]);
+            PossibleFrames.insert(PossibleFrames.end(), v.begin(), v.end());
+        }
+        std::sort(PossibleFrames.begin(), PossibleFrames.end()); // is sort required?
+        PossibleFrames.erase(std::unique(PossibleFrames.begin(), PossibleFrames.end()), PossibleFrames.end());
+
+        // shuffle
+        auto rd = std::random_device{};
+        auto rng = std::default_random_engine{rd()};
+        // std::random_device Device;
+        // std::default_random_engine DD(Device);
+        std::shuffle(std::begin(PossibleFrames), std::end(PossibleFrames), rng);
+        // subset ... and order again?
+        std::vector<int> ExtractedFrames = std::vector<int>(PossibleFrames.begin(),
+                                                            PossibleFrames.begin() + NumFramesToExtract);
+        std::sort(ExtractedFrames.begin(), ExtractedFrames.end()); // is sort required?
+
+        // write to YAML!
+        YAML::Node AnnotationData = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"));
+        // handle extract for existing clip
+        // follows extraction option 1... clear anything existing...
+        YAML::Node NewFramesNode;
+        for (int j : ExtractedFrames)
+        {
+            NewFramesNode[std::to_string(j)] = YAML::Node(YAML::NodeType::Map);
+        }
+        AnnotationData[ClipPath] = NewFramesNode;
+        /*bool HasExistingClip = false;
+        for (YAML::iterator it=AnnotationData.begin(); it!=AnnotationData.end();++it)
+        {
+            if (it->first.as<std::string>() == ClipPath)
+            {
+                YAML::Node NewFramesNode;
+                for (int j : ExtractedFrames)
+                {
+                    NewFramesNode[std::to_string(j)] = YAML::NodeType::Map;
+                }
+                it->second = NewFramesNode;
+                HasExistingClip = true;
+                break;
+            }
+        }
+        // handle extract for new clip
+        if (!HasExistingClip)
+        {
+            YAML::Node FramesNode;
+            for (int j : ExtractedFrames)
+            {
+                FramesNode[std::to_string(j)] = YAML::NodeType::Map;
+            }
+            AnnotationData[ClipPath] = FramesNode;
+        }*/
+
+        YAML::Emitter Out2;
+        Out2 << AnnotationData;
+        std::ofstream fout2(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"));
+        fout2 << Out2.c_str();
     }
 }

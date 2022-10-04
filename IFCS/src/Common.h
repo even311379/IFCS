@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <array>
 #include <string>
 
 #include "imgui.h"
@@ -8,71 +9,98 @@
  * defines common enum structs here...
  */
 
-enum class EWorkspace : uint8_t
+namespace YAML
 {
-    Data = 0,
-    Train = 1,
-    Predict = 2,
-};
+    class Node;
+}
+
+
+namespace IFCS
+{
+    enum class EWorkspace : uint8_t
+    {
+        Data = 0,
+        Train = 1,
+        Predict = 2,
+    };
+
+
+    // the value is the column position in csv...
+    enum class ESupportedLanguage : uint8_t
+    {
+        English = 0,
+        TraditionalChinese = 1,
+    };
+
+    enum class ETheme : uint8_t
+    {
+        Light = 0,
+        Dark = 1,
+    };
+
+    enum class ELogLevel : uint8_t
+    {
+        Info = 0,
+        Warning = 1,
+        Error = 2,
+    };
+
+    struct FLogData
+    {
+        ELogLevel LogLevel = ELogLevel::Info;
+        std::string TimeString;
+        std::string Message;
+        bool ShouldDisplay;
+    };
+
+    //TODO: when to serialize them to the yaml file?
     
+    struct FCategory
+    {
+        UUID ID;
+        std::string DisplayName;
+        ImVec4 Color;
+        UUID ParentID = 0;
+        bool Visibility = true;
 
-// the value is the column position in csv...
-enum class ESupportedLanguage : uint8_t
-{
-    English = 0,
-    TraditionalChinese = 1,
-};
+        // info
+        int UsedCountInThisFrame = 0;
+        int TotalUsedCount = 0;
+
+        FCategory(std::string NewDisplayName); // construct when user click add new
+        FCategory(UUID InID, YAML::Node InputNode); // construct when load from yaml
+        
+
+        inline bool HasParent() const { return ParentID != 0; }
+        YAML::Node Serialize() const; // DON't serialize ID... they will be the key in data...
+        void Deserialize(YAML::Node InputNode);
+    };
+
+    enum class EAnnotationEditMode : uint8_t
+    {
+        Add = 0,
+        Edit = 1,
+        Reassign = 2
+    };
     
-enum class ETheme : uint8_t
-{
-    Light = 0,
-    Dark = 1,
-};
-
-enum class ELogLevel : uint8_t
-{
-    Info = 0,
-    Warning = 1,
-    Error = 2,
-};
-
-struct FLogData
-{
-    ELogLevel LogLevel = ELogLevel::Info;
-    std::string TimeString;
-    std::string Message;
-    bool ShouldDisplay;
-};
-
-#define MAKE_SINGLETON(class_name) \
-    class_name()=default; \
-    static class_name& Get() \
-    { \
-        static class_name singleton; \
-        return singleton; \
-    }\
-    class_name(class_name const&) = delete;\
-    void operator=(class_name const&) = delete;\
+    enum class EBoxCorner : uint8_t
+    {
+        TopLeft = 0,
+        BottomLeft = 1,
+        BottomRight = 2,
+        TopRight = 3
+    };
     
-
-#define LOCTEXT(key) Utils::GetLocText(key).c_str()
-
-
-struct FCategory
-{
-    IFCS::UUID uid;
-    std::string DisplayName;
-    ImVec4 Color;
-    IFCS::UUID parent_uid = 0;
-    bool Visibility = true;
-    
-
-    // info
-    int UsedCountInThisFrame = 0;
-    int TotalUsedCount = 100;
-
-    FCategory(std::string InName, ImVec4 InColor, IFCS::UUID InParent, bool InVisibility = true)
-        : DisplayName(InName), Color(InColor), parent_uid(InParent), Visibility(InVisibility)
-    {}
-    inline bool HasParent() const { return parent_uid != 0; }
-};
+    struct FAnnotation
+    {
+        UUID ID;
+        UUID CategoryID;
+        std::array<float, 4> XYWH; // the four floats for center x , center y, width , height
+        FAnnotation(UUID InCategory, std::array<float, 4> InXYWH); // contruct when new annotation is created
+        FAnnotation(UUID InID, YAML::Node InputNode); // construct from yaml
+        YAML::Node Serialize() const;
+        void Deserialize(YAML::Node InputNode);
+        void Pan(std::array<float, 2> Changed);
+        void Resize(EBoxCorner WhichCorner, std::array<float, 2> Changed);
+    };
+}
