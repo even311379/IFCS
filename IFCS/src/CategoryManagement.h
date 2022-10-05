@@ -13,12 +13,13 @@ namespace IFCS
         MAKE_SINGLETON(CategoryManagement)
         void Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose = true) override;
         void UpdateCategoryStatics();
+        std::unordered_map<UUID, FCategory> Data;
+        FCategory* GetSelectedCategory();
+        UUID SelectedCatID;
     protected:
         void RenderContent() override;
 
     private:
-        std::vector<FCategory> Categories;
-        UUID SelectedCatID;
         char NewCatName[64];
         void Save();
         void LoadCategoriesFromFile();

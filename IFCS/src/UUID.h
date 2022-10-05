@@ -1,6 +1,6 @@
 ﻿#pragma once
-#include <cstdint>
 
+#include <xhash>
 // copy from Hazel engine
 
 namespace IFCS
@@ -15,10 +15,10 @@ namespace IFCS
     private:
         uint64_t m_UUID;
     };
-    
 }
+
 namespace std {
-	template <typename T> struct hash;
+	// template <typename T> struct hash;
 
 	template<>
 	struct hash<IFCS::UUID>

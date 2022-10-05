@@ -7,13 +7,24 @@
 #include <spdlog/spdlog.h>
 #include <shellapi.h>
 #include <yaml-cpp/yaml.h>
+#include "opencv2/opencv.hpp"
+#include "imgui_impl_glfw.h"
+#include <GLFW/glfw3.h>
 
+#include "Annotation.h"
 #include "FrameExtractor.h"
 #include "Log.h"
 #include "Utils.h"
+#include "Implot/implot.h"
 
 namespace IFCS
 {
+    std::string DataBrowser::GetClipName()
+    {
+        std::vector<std::string> temp = Utils::Split(SelectedVideo, '\\');
+        return temp.back();
+    }
+
     void DataBrowser::RenderContent()
     {
         if (!Setting::Get().ProjectIsLoaded) return;
@@ -83,9 +94,9 @@ namespace IFCS
     }
 
     // Copy and modify from https://discourse.dearimgui.org/t/how-to-mix-imgui-treenode-and-filesystem-to-print-the-current-directory-recursively/37
-    void DataBrowser::RecursiveClipTreeNodeGenerator(const std::filesystem::path& path, unsigned int depth)
+    void DataBrowser::RecursiveClipTreeNodeGenerator(const std::filesystem::path& Path, unsigned int Depth)
     {
-        for (const auto& entry : std::filesystem::directory_iterator(path))
+        for (const auto& entry : std::filesystem::directory_iterator(Path))
         {
             ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
             if (std::filesystem::is_directory(entry.path()))
@@ -94,13 +105,12 @@ namespace IFCS
                 std::string s = ICON_FA_FOLDER + " "s + entry.path().filename().string().c_str();
                 if (ImGui::TreeNodeEx(s.c_str(), node_flags))
                 {
-                    RecursiveClipTreeNodeGenerator(entry, depth + 1);
+                    RecursiveClipTreeNodeGenerator(entry, Depth + 1);
                     ImGui::TreePop();
                 }
             }
             else
             {
-                // if (!Utils::Contains(AcceptedClipsFormat, entry.path().string())) return;
                 bool pass = false;
                 for (const std::string& Format : AcceptedClipsFormat)
                 {
@@ -111,27 +121,19 @@ namespace IFCS
                     }
                 }
                 if (!pass) return;
-                if (depth > 0)
+                if (Depth > 0)
                 {
                     ImGui::Indent();
                 }
                 std::string file_name = entry.path().filename().string();
                 std::string full_clip_path = entry.path().string();
                 std::replace(full_clip_path.begin(), full_clip_path.end(), '/', '\\');
-                if (ImGui::Selectable(file_name.c_str(), selected_video == full_clip_path,
+                if (ImGui::Selectable(file_name.c_str(), SelectedVideo == full_clip_path,
                                       ImGuiSelectableFlags_AllowDoubleClick))
                 {
-                    selected_video = full_clip_path;
+                    SelectedVideo = full_clip_path;
                     YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"));
-                    FramesNode = Node[selected_video];
-                    // for (YAML::const_iterator it = Node.begin(); it != Node.end(); it++)
-                    // {
-                    //     if (it->second["Source"].as<std::string>() == full_clip_path)
-                    //     {
-                    //         FramesNode = it->second["Frames"];
-                    //         break;
-                    //     }
-                    // }
+                    FramesNode = Node[SelectedVideo];
                     if (ImGui::IsMouseDoubleClicked(0))
                     {
                         char buff[128];
@@ -142,21 +144,22 @@ namespace IFCS
                         // TODO: Add related events...
                     }
                 }
-                if (selected_video == full_clip_path)
+                if (SelectedVideo == full_clip_path)
                 {
                     ImGui::Indent();
                     ImGui::Indent();
                     // TODO: grab data somewhere
-                    for (YAML::const_iterator it=FramesNode.begin(); it!=FramesNode.end();it++)
+                    for (YAML::const_iterator it = FramesNode.begin(); it != FramesNode.end(); it++)
                     {
                         int FrameCount = it->first.as<int>();
                         int N_Annotations = it->second.as<YAML::Node>().size();
                         char buff[128];
                         snprintf(buff, sizeof(buff), "%d ...... (%d)", FrameCount, N_Annotations);
-                        if (ImGui::Selectable(buff, FrameCount==selected_frame, ImGuiSelectableFlags_AllowDoubleClick))
+                        if (ImGui::Selectable(buff, FrameCount == SelectedFrame, ImGuiSelectableFlags_AllowDoubleClick))
                         {
-                            selected_frame = FrameCount;
+                            SelectedFrame = FrameCount;
                             ImGui::SetWindowFocus("Annotation");
+                            LoadAnnotationImage();
                             // TODO: do something to update selection hint
                             // if (ImGui::IsMouseDoubleClicked(0))
                             // {
@@ -167,7 +170,7 @@ namespace IFCS
                     ImGui::Unindent();
                     ImGui::Unindent();
                 }
-                if (depth > 0)
+                if (Depth > 0)
                 {
                     ImGui::Unindent();
                 }
@@ -175,4 +178,30 @@ namespace IFCS
         }
     }
 
+    void DataBrowser::LoadAnnotationImage()
+    {
+        cv::Mat frame;
+        {
+            cv::VideoCapture cap(SelectedVideo);
+            if (!cap.isOpened())
+            {
+                LogPanel::Get().AddLog(ELogLevel::Error, "Fail to load video");
+                return;
+            }
+            cap.set(cv::CAP_PROP_POS_FRAMES, SelectedFrame);
+            cap >> frame;
+            cv::resize(frame, frame, cv::Size(1280, 720));
+            cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
+            cap.release();
+        }
+        glGenTextures(1, &Annotation::Get().ImageID);
+        glBindTexture(GL_TEXTURE_2D, Annotation::Get().ImageID);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        // This is required on WebGL for non power-of-two textures
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, frame.cols, frame.rows, 0, GL_RGBA, GL_UNSIGNED_BYTE, frame.data);
+        
+    }
 }

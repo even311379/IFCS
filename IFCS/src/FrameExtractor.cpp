@@ -32,26 +32,7 @@ namespace IFCS
         if (Data[ClipPath])
         {
             Regions = Data[ClipPath].as<std::vector<int>>();
-            // for (int i = 0; i < Data[ClipPath].size(); i++)
-            // {
-            //     Regions.push_back(Data)
-            // }
         }
-        // YAML::Node node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
-        // if (!node.IsNull())
-        // {
-        //     for (std::size_t i = 0; i < node.size(); i++)
-        //     {
-        //         if (node[i]["Source"].as<std::string>() == ClipPath)
-        //         {
-        //             for (std::size_t j = 0; j < node[i]["Regions"].size(); j++)
-        //             {
-        //                 Regions.push_back(node[i]["Regions"][j].as<int>());
-        //             }
-        //             break;
-        //         }
-        //     }
-        // }
 
         cv::Mat frame;
         {
@@ -78,8 +59,6 @@ namespace IFCS
             cap >> frame;
             cv::resize(frame, frame, cv::Size(960, 540)); // 16 : 9
             cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
-
-
             cap.release();
         }
         UpdateThumbnailFromFrame(frame);
@@ -139,9 +118,7 @@ namespace IFCS
         }
 
 
-        // if (BeginTimeline("MyTimeline", (1 - TimelinePan) / TimelineZoom * float(FrameCount), 6, N_regions))
         if (BeginTimeline((int)Regions.size() / 2))
-        // label, max_value, num_visible_rows, opt_exact_num_rows (for item culling)
         {
             for (int r = 0; r < Regions.size() / 2; r++)
             {
@@ -151,7 +128,6 @@ namespace IFCS
         EndTimeline();
         TimelineControlButtons();
 
-        // ImGui::Text("Basic Info");
     }
 
 
@@ -570,28 +546,6 @@ namespace IFCS
         // this should be enough!
         for (int r : Regions)
             RegionToExtractData[ClipPath].push_back(r);
-        /*
-        bool HasExistingVideo = false;
-        for (YAML::iterator it=RegionToExtractData.begin(); it!=RegionToExtractData.end();++it)
-        {
-            if (it->first.as<std::string>() == ClipPath)
-            {
-                it->second = YAML::NodeType::Sequence;
-                for (int r : Regions)
-                    it->second.push_back(r);
-                HasExistingVideo = true;
-                break;
-            }
-        }
-        if (!HasExistingVideo)
-        {
-            YAML::Node node;
-            node["Source"] = ClipPath;
-            for (int r : Regions)
-                node["Regions"].push_back(r);
-            RegionToExtractData.push_back(node);
-        }
-        */
         YAML::Emitter Out;
         Out << RegionToExtractData;
         std::ofstream fout(Setting::Get().ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
@@ -614,8 +568,6 @@ namespace IFCS
         // shuffle
         auto rd = std::random_device{};
         auto rng = std::default_random_engine{rd()};
-        // std::random_device Device;
-        // std::default_random_engine DD(Device);
         std::shuffle(std::begin(PossibleFrames), std::end(PossibleFrames), rng);
         // subset ... and order again?
         std::vector<int> ExtractedFrames = std::vector<int>(PossibleFrames.begin(),
@@ -632,31 +584,6 @@ namespace IFCS
             NewFramesNode[std::to_string(j)] = YAML::Node(YAML::NodeType::Map);
         }
         AnnotationData[ClipPath] = NewFramesNode;
-        /*bool HasExistingClip = false;
-        for (YAML::iterator it=AnnotationData.begin(); it!=AnnotationData.end();++it)
-        {
-            if (it->first.as<std::string>() == ClipPath)
-            {
-                YAML::Node NewFramesNode;
-                for (int j : ExtractedFrames)
-                {
-                    NewFramesNode[std::to_string(j)] = YAML::NodeType::Map;
-                }
-                it->second = NewFramesNode;
-                HasExistingClip = true;
-                break;
-            }
-        }
-        // handle extract for new clip
-        if (!HasExistingClip)
-        {
-            YAML::Node FramesNode;
-            for (int j : ExtractedFrames)
-            {
-                FramesNode[std::to_string(j)] = YAML::NodeType::Map;
-            }
-            AnnotationData[ClipPath] = FramesNode;
-        }*/
 
         YAML::Emitter Out2;
         Out2 << AnnotationData;

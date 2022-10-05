@@ -12,20 +12,19 @@ namespace IFCS
     public:
         MAKE_SINGLETON(DataBrowser)
         // void SynProjectData();
-        std::string selected_video;
-        int selected_frame = -1;
+        std::string SelectedVideo;
+        std::string GetClipName();
+        int SelectedFrame = -1;
     protected:
         void RenderContent() override;
     private:
         bool Test;
         char FilterText[128];
         ImVec2 GetBtnSize();
-        void RecursiveClipTreeNodeGenerator(const std::filesystem::path& path, unsigned int depth);
+        void RecursiveClipTreeNodeGenerator(const std::filesystem::path& Path, unsigned int Depth);
         YAML::Node FramesNode;
-        // int clip_selection_mask = (1 << 2);
-        // unsigned int clip_node_idx = 0u;
-        // int clicked_clip_node = -1;
         const std::array<std::string , 6> AcceptedClipsFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"};
+        void LoadAnnotationImage();
     };
     
 }

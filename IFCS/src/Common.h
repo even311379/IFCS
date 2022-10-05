@@ -57,7 +57,10 @@ namespace IFCS
     
     struct FCategory
     {
-        UUID ID;
+        FCategory(){}
+        FCategory(std::string NewDisplayName); // construct when user click add new
+        FCategory(YAML::Node InputNode); // construct when load from yaml
+        
         std::string DisplayName;
         ImVec4 Color;
         UUID ParentID = 0;
@@ -66,10 +69,6 @@ namespace IFCS
         // info
         int UsedCountInThisFrame = 0;
         int TotalUsedCount = 0;
-
-        FCategory(std::string NewDisplayName); // construct when user click add new
-        FCategory(UUID InID, YAML::Node InputNode); // construct when load from yaml
-        
 
         inline bool HasParent() const { return ParentID != 0; }
         YAML::Node Serialize() const; // DON't serialize ID... they will be the key in data...
@@ -80,7 +79,8 @@ namespace IFCS
     {
         Add = 0,
         Edit = 1,
-        Reassign = 2
+        Reassign = 2,
+        Remove = 3
     };
     
     enum class EBoxCorner : uint8_t
@@ -93,11 +93,13 @@ namespace IFCS
     
     struct FAnnotation
     {
-        UUID ID;
-        UUID CategoryID;
-        std::array<float, 4> XYWH; // the four floats for center x , center y, width , height
+        FAnnotation(){}
         FAnnotation(UUID InCategory, std::array<float, 4> InXYWH); // contruct when new annotation is created
-        FAnnotation(UUID InID, YAML::Node InputNode); // construct from yaml
+        FAnnotation(YAML::Node InputNode); // construct from yaml
+        
+        UUID CategoryID;
+        std::array<float, 4> XYWH = {0.f, 0.f, 0.f, 0.f}; // the four floats for center x , center y, width , height
+        
         YAML::Node Serialize() const;
         void Deserialize(YAML::Node InputNode);
         void Pan(std::array<float, 2> Changed);

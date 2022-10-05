@@ -15,29 +15,37 @@ namespace IFCS
         Panel::Setup(InName, InShouldOpen, InFlags, InCanClose);
         LoadCategoriesFromFile();
     }
-    
+
+    FCategory* CategoryManagement::GetSelectedCategory()
+    {
+        if (Data.find(SelectedCatID) == Data.end()) return nullptr;
+        return &Data[SelectedCatID];
+    }
+
     void CategoryManagement::RenderContent()
     {
         const float LineHeight = ImGui::GetTextLineHeightWithSpacing();
-        for (FCategory& cat : Categories)
+        for (auto& [ID, Cat] : Data)
         {
-            ImGui::PushID(cat.ID);
+            ImGui::PushID(ID);
             // TODO: move a few pixel down for this eye button? it's just not aligned correctly
-            const char* VisibilityIcon = cat.Visibility ? ICON_FA_EYE : ICON_FA_EYE_SLASH;
+            const char* VisibilityIcon = Cat.Visibility ? ICON_FA_EYE : ICON_FA_EYE_SLASH;
             if (ImGui::InvisibleButton("##vis_btn", ImGui::CalcTextSize(VisibilityIcon)))
             {
-                cat.Visibility = !cat.Visibility;
+                Cat.Visibility = !Cat.Visibility;
             }
             ImGui::SameLine();
             ImGui::SetCursorPosX(ImGui::CalcTextSize(VisibilityIcon).x);
             ImGui::Text(VisibilityIcon);
             ImGui::SameLine();
-            ImGui::ColorEdit3("##cat_color_picker", (float*)&cat.Color, ImGuiColorEditFlags_NoInputs);
+            ImGui::ColorEdit3("##cat_color_picker", (float*)&Cat.Color, ImGuiColorEditFlags_NoInputs);
             ImGui::SameLine();
-            ImGui::Selectable(cat.DisplayName.c_str(), cat.ID == SelectedCatID, ImGuiSelectableFlags_AllowDoubleClick,
-                              {120, LineHeight});
+            if (ImGui::Selectable(Cat.DisplayName.c_str(), ID == SelectedCatID, 0, {120, LineHeight}))
+            {
+                SelectedCatID = ID;
+            }
             ImGui::SameLine();
-            ImGui::Text("(%d/%d)", cat.UsedCountInThisFrame, cat.TotalUsedCount);
+            ImGui::Text("(%d/%d)", Cat.UsedCountInThisFrame, Cat.TotalUsedCount);
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("(use annotation in: this frame / all project)");
             ImGui::PopID();
@@ -48,7 +56,7 @@ namespace IFCS
         ImGui::SameLine();
         if (ImGui::Button("Add"))
         {
-            Categories.push_back(FCategory(NewCatName));
+            Data[UUID()] = FCategory(NewCatName);
             NewCatName[0] = 0;
             Save();
         }
@@ -57,19 +65,20 @@ namespace IFCS
     void CategoryManagement::LoadCategoriesFromFile()
     {
         if (!Setting::Get().ProjectIsLoaded) return;
+        Data.clear();
         YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Categories.yaml"));
         for (YAML::const_iterator it = Node.begin(); it != Node.end(); ++it)
         {
-            Categories.push_back(FCategory(it->first.as<uint64_t>(), it->second.as<YAML::Node>())); 
+            Data[UUID(it->first.as<uint64_t>())] = FCategory(it->second.as<YAML::Node>());
         }
     }
 
     void CategoryManagement::Save()
     {
         YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Categories.yaml"));
-        for (const FCategory& cat : Categories)
+        for (const auto& [ID, Cat] : Data)
         {
-            Node[std::to_string(cat.ID)] = cat.Serialize();
+            Node[std::to_string(ID)] = Cat.Serialize();
         }
         YAML::Emitter Out;
         Out << Node;
@@ -77,15 +86,13 @@ namespace IFCS
         Fout << Out.c_str();
     }
 
-
-
     // TODO: pass... need get access to Curent Edit Frame!
     void CategoryManagement::UpdateCategoryStatics()
     {
-        for (FCategory& cat : Categories)
+        for (auto& [ID, Cat] : Data)
         {
-            cat.TotalUsedCount = 100;
-            cat.UsedCountInThisFrame = 100;
+            /*Cat.TotalUsedCount = 100;
+            Cat.UsedCountInThisFrame = 100;*/
         }
     }
 }

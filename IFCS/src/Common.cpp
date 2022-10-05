@@ -8,14 +8,12 @@ namespace IFCS
 {
     FCategory::FCategory(std::string NewDisplayName)
     {
-        ID = UUID();
         DisplayName = NewDisplayName;
         Color = Utils::RandomPickColor(Setting::Get().Theme==ETheme::Light);
     }
 
-    FCategory::FCategory(UUID InID, YAML::Node InputNode)
+    FCategory::FCategory(YAML::Node InputNode)
     {
-        ID = InID;
         Deserialize(InputNode);
     }
 
@@ -38,12 +36,10 @@ namespace IFCS
     FAnnotation::FAnnotation(UUID InCategory, std::array<float, 4> InXYWH)
         : CategoryID(InCategory), XYWH(InXYWH)
     {
-        ID = UUID();
     }
 
-    FAnnotation::FAnnotation(UUID InID, YAML::Node InputNode)
+    FAnnotation::FAnnotation(YAML::Node InputNode)
     {
-        ID = InID;
         Deserialize(InputNode);
     }
 
@@ -58,7 +54,6 @@ namespace IFCS
     void FAnnotation::Deserialize(YAML::Node InputNode)
     {
         CategoryID = InputNode["CategoryID"].as<uint64_t>();
-        // can serialize array?
         XYWH = InputNode["XYWH"].as<std::array<float, 4>>();
     }
 
