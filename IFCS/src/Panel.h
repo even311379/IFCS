@@ -59,6 +59,8 @@ inline ImVec2 operator*(const ImVec2& lhs, const float& rhs)
  */
 namespace IFCS
 {
+
+    
     class Panel
     {
     public:
@@ -72,6 +74,8 @@ namespace IFCS
     protected:
         virtual void PreRender(); // setup more panel config
         virtual void RenderContent();
+        virtual void PostRender(); // setup more panel config
+        bool bAlwaysRender = false;
     private:
         const char* Name;
         bool ShouldOpen;
@@ -89,6 +93,7 @@ namespace IFCS
     protected:
         void PreRender() override;
         void RenderContent() override;
+        void PostRender() override;
     };
 
     // class LogPanel : public Panel

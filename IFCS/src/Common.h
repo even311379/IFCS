@@ -17,6 +17,10 @@ namespace YAML
 
 namespace IFCS
 {
+    // declare some global var here? or???
+    static const ImVec2 WorkArea = {1280, 720};
+
+    
     enum class EWorkspace : uint8_t
     {
         Data = 0,
@@ -53,6 +57,16 @@ namespace IFCS
         bool ShouldDisplay;
     };
 
+    struct FClipInfo
+    {
+        std::string ClipPath;
+        int FrameCount;
+        int Width;
+        int Height;
+        float FPS;
+        std::string GetClipFileName() const;
+    };
+
     //TODO: when to serialize them to the yaml file?
     
     struct FCategory
@@ -78,9 +92,7 @@ namespace IFCS
     enum class EAnnotationEditMode : uint8_t
     {
         Add = 0,
-        Edit = 1,
-        Reassign = 2,
-        Remove = 3
+        Edit = 1
     };
     
     enum class EBoxCorner : uint8_t

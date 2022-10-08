@@ -7,14 +7,21 @@
 
 namespace IFCS
 {
+
     class DataBrowser : public Panel
     {
     public:
         MAKE_SINGLETON(DataBrowser)
         // void SynProjectData();
-        std::string SelectedVideo;
-        std::string GetClipName();
+        FClipInfo SelectedClipInfo;
         int SelectedFrame = -1;
+        void LoadOtherFrame(bool IsNext); // ture for next, false for previous
+
+        std::string FrameTitle;
+        unsigned int LoadedFramePtr;
+        void LoadFrame(int FrameNumber);
+        bool AnyFrameLoaded = false;
+        // TODO: make access of opencv clip info centric to here...
     protected:
         void RenderContent() override;
     private:
@@ -23,8 +30,8 @@ namespace IFCS
         ImVec2 GetBtnSize();
         void RecursiveClipTreeNodeGenerator(const std::filesystem::path& Path, unsigned int Depth);
         YAML::Node FramesNode;
-        const std::array<std::string , 6> AcceptedClipsFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"};
-        void LoadAnnotationImage();
+        void UpdateFramesNode();
+        const std::array<std::string, 6> AcceptedClipsFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"};
+        void MakeFrameTitle();
     };
-    
 }

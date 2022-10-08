@@ -19,16 +19,10 @@
 
 namespace IFCS
 {
-    std::string DataBrowser::GetClipName()
-    {
-        std::vector<std::string> temp = Utils::Split(SelectedVideo, '\\');
-        return temp.back();
-    }
-
     void DataBrowser::RenderContent()
     {
         if (!Setting::Get().ProjectIsLoaded) return;
-
+        spdlog::info("data browser is rendering...");
         // Inside child window to have independent scroll
         ImGui::Text("Data Browser");
         ImVec2 ChildWindowSize = {ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y * 0.92f};
@@ -128,23 +122,23 @@ namespace IFCS
                 std::string file_name = entry.path().filename().string();
                 std::string full_clip_path = entry.path().string();
                 std::replace(full_clip_path.begin(), full_clip_path.end(), '/', '\\');
-                if (ImGui::Selectable(file_name.c_str(), SelectedVideo == full_clip_path,
+                if (ImGui::Selectable(file_name.c_str(), SelectedClipInfo.ClipPath == full_clip_path,
                                       ImGuiSelectableFlags_AllowDoubleClick))
                 {
-                    SelectedVideo = full_clip_path;
-                    YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"));
-                    FramesNode = Node[SelectedVideo];
+                    SelectedClipInfo.ClipPath = full_clip_path;
+                    UpdateFramesNode();
+                    // Open and setup frame extraction
                     if (ImGui::IsMouseDoubleClicked(0))
                     {
                         char buff[128];
                         snprintf(buff, sizeof(buff), "open %s to start frame extraction?", full_clip_path.c_str());
                         LogPanel::Get().AddLog(ELogLevel::Info, buff);
                         ImGui::SetWindowFocus("Frame Extractor");
-                        FrameExtractor::Get().LoadFrame1AsThumbnail(full_clip_path);
-                        // TODO: Add related events...
+                        LoadFrame(1);
+                        FrameExtractor::Get().LoadData();
                     }
                 }
-                if (SelectedVideo == full_clip_path)
+                if (SelectedClipInfo.ClipPath == full_clip_path)
                 {
                     ImGui::Indent();
                     ImGui::Indent();
@@ -152,19 +146,19 @@ namespace IFCS
                     for (YAML::const_iterator it = FramesNode.begin(); it != FramesNode.end(); it++)
                     {
                         int FrameCount = it->first.as<int>();
-                        int N_Annotations = it->second.as<YAML::Node>().size();
+                        int N_Annotations = int(it->second.as<YAML::Node>().size());
                         char buff[128];
                         snprintf(buff, sizeof(buff), "%d ...... (%d)", FrameCount, N_Annotations);
-                        if (ImGui::Selectable(buff, FrameCount == SelectedFrame, ImGuiSelectableFlags_AllowDoubleClick))
+                        // open and setup annotation panel
+                        if (ImGui::Selectable(buff, FrameCount == SelectedFrame))
                         {
+                            // TODO: reload frames node here will crash... where should I move it?
+                            // UpdateFramesNode();
+                            Annotation::Get().Save();
                             SelectedFrame = FrameCount;
+                            LoadFrame(SelectedFrame);
+                            Annotation::Get().Load();
                             ImGui::SetWindowFocus("Annotation");
-                            LoadAnnotationImage();
-                            // TODO: do something to update selection hint
-                            // if (ImGui::IsMouseDoubleClicked(0))
-                            // {
-                            //     LogPanel::Get().AddLog(ELogLevel::Warning, "Try to open this frame to edit?");
-                            // }
                         }
                     }
                     ImGui::Unindent();
@@ -178,30 +172,92 @@ namespace IFCS
         }
     }
 
-    void DataBrowser::LoadAnnotationImage()
+    void DataBrowser::UpdateFramesNode()
     {
+        YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"));
+        FramesNode = Node[SelectedClipInfo.ClipPath];
+    }
+
+    // TODO: incorrect edge behavior
+    void DataBrowser::LoadOtherFrame(bool IsNext)
+    {
+        std::queue<int> q;
+        bool PrepareToStop = false;
+        for (YAML::const_iterator it = FramesNode.begin(); it != FramesNode.end(); ++it)
+        {
+            int FrameNum = it->first.as<int>();
+            q.push(FrameNum);
+            if (q.size() > 3) q.pop();
+            if (PrepareToStop) break;
+            if (SelectedFrame == FrameNum)
+                PrepareToStop = true;
+        }
+        if (q.size() == 2) // in case that selected frame is the first or last frame;
+            return;
+        // UpdateFramesNode();
+        Annotation::Get().Save();
+        if (IsNext) SelectedFrame = q.back();
+        else SelectedFrame = q.front();
+        LoadFrame(SelectedFrame);
+        Annotation::Get().Load();
+        ImGui::SetWindowFocus("Annotation");
+    }
+
+    void DataBrowser::LoadFrame(int FrameNumber)
+    {
+        AnyFrameLoaded = true;
+
         cv::Mat frame;
         {
-            cv::VideoCapture cap(SelectedVideo);
+            cv::VideoCapture cap(SelectedClipInfo.ClipPath);
             if (!cap.isOpened())
             {
                 LogPanel::Get().AddLog(ELogLevel::Error, "Fail to load video");
                 return;
             }
-            cap.set(cv::CAP_PROP_POS_FRAMES, SelectedFrame);
+            SelectedClipInfo.Width = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
+            SelectedClipInfo.Height = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+            SelectedClipInfo.FPS = (float)cap.get(cv::CAP_PROP_FPS);
+            SelectedClipInfo.FrameCount = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
+            cap.set(cv::CAP_PROP_POS_FRAMES, FrameNumber);
             cap >> frame;
-            cv::resize(frame, frame, cv::Size(1280, 720));
+            cv::resize(frame, frame, cv::Size(1280, 720)); // 16 : 9
             cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
             cap.release();
         }
-        glGenTextures(1, &Annotation::Get().ImageID);
-        glBindTexture(GL_TEXTURE_2D, Annotation::Get().ImageID);
+        LoadedFramePtr = 0;
+        glGenTextures(1, &LoadedFramePtr);
+        glBindTexture(GL_TEXTURE_2D, LoadedFramePtr);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
         // This is required on WebGL for non power-of-two textures
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, frame.cols, frame.rows, 0, GL_RGBA, GL_UNSIGNED_BYTE, frame.data);
-        
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, frame.cols, frame.rows, 0, GL_RGBA,
+                     GL_UNSIGNED_BYTE, frame.data);
+        MakeFrameTitle();
+    }
+
+    void DataBrowser::MakeFrameTitle()
+    {
+        float i = 1.0f;
+        while (SelectedClipInfo.FrameCount > pow(10, i))
+        {
+            i += 1.0f;
+        }
+        int FrameCountDigits = int(i) - 1;
+        i = 1.0f;
+        while (SelectedFrame > pow(10, i))
+        {
+            i += 1.0f;
+        }
+        int CurrentFrameDigits = int(i) - 1;
+        std::string temp = std::to_string(SelectedFrame);
+        for (int i = 0; i < FrameCountDigits - CurrentFrameDigits; i++)
+        {
+            temp = std::string("0") + temp;
+        }
+        FrameTitle = SelectedClipInfo.GetClipFileName() + "......(" + temp + "/" + std::to_string(
+            SelectedClipInfo.FrameCount) + ")";
     }
 }

@@ -1,5 +1,7 @@
 ﻿#include "Annotation.h"
 
+#include <fstream>
+
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
 #include "imgui_internal.h"
@@ -14,12 +16,12 @@ namespace IFCS
 {
     void Annotation::RenderContent()
     {
-        std::string Title = "Bad Title...";
-        // std::string Title = DataBrowser::Get().GetClipName() + "......(" + std::to_string(
-        //     DataBrowser::Get().SelectedFrame) + ")";
+        if (!DataBrowser::Get().AnyFrameLoaded) return;
+
+        std::string Title = DataBrowser::Get().FrameTitle;
         ImGui::PushFont(Setting::Get().TitleFont);
-        ImVec2 TitleSize = ImGui::CalcTextSize(Title.c_str());
-        ImGui::SetCursorPosX((ImGui::GetWindowSize().x - TitleSize.x) * 0.5f);
+        float TitleWidth = ImGui::CalcTextSize(Title.c_str()).x;
+        ImGui::SetCursorPosX((ImGui::GetWindowSize().x - TitleWidth) * 0.5f);
         ImGui::Text(Title.c_str());
         ImGui::PopFont();
 
@@ -29,18 +31,18 @@ namespace IFCS
         ImGuiWindow* Win = ImGui::GetCurrentWindow();
         WorkStartPos = ImGui::GetItemRectMin();
         Win->DrawList->AddRectFilled(WorkStartPos, WorkStartPos + WorkArea, BgColor); // draw bg
-        Win->DrawList->AddImage((void*)(intptr_t)ImageID, WorkStartPos + PanAmount,
+        Win->DrawList->AddImage((void*)(intptr_t)DataBrowser::Get().LoadedFramePtr, WorkStartPos + PanAmount,
                                 WorkStartPos + PanAmount + GetZoom() * WorkArea); // image
         // render things from data
         for (const auto& [ID, A] : Data)
         {
             FCategory Category = CategoryManagement::Get().Data[A.CategoryID];
             if (!Category.Visibility) continue;
-            std::array<float, 4> TXYWH = TransformXYWH(A.XYWH);
-            float X = TXYWH[0];
-            float Y = TXYWH[1];
-            float W = TXYWH[2];
-            float H = TXYWH[3];
+            std::array<float, 4> TransformedXYWH = TransformXYWH(A.XYWH);
+            float X = TransformedXYWH[0];
+            float Y = TransformedXYWH[1];
+            float W = TransformedXYWH[2];
+            float H = TransformedXYWH[3];
             ImVec2 TL, BL, BR, TR, C; // top-left, bottom-left, bottom-right, top-right, center
             // TODO: zoom and pan?
             TL = {X - 0.5f * W, Y - 0.5f * H};
@@ -54,41 +56,59 @@ namespace IFCS
             // annotation box
             Win->DrawList->AddText(ImGui::GetFont(), 24.f, TL - ImVec2(0, 30.f), Color,
                                    Category.DisplayName.c_str()); // display name
-            float CircleRadius = 12.f;
+            float CircleRadius = 6.f;
+            float PanControlRadius = 12.f;
+            ImGui::PushID(int(ID));
+            const bool IsMouseDragging = ImGui::IsMouseDragging(0);
+            // TODO: maybe change color when hover control btn?
             if (CurrentMode == EAnnotationEditMode::Edit)
             {
-                Win->DrawList->AddCircleFilled(C, CircleRadius, Color); // pan controller Center
-                Win->DrawList->AddCircleFilled(TL, CircleRadius, Color); // resize top left
-                Win->DrawList->AddCircleFilled(BL, CircleRadius, Color); // resize bottom left
-                Win->DrawList->AddCircleFilled(BR, CircleRadius, Color); // resize bottom right
-                Win->DrawList->AddCircleFilled(TR, CircleRadius, Color); // resize top right
-                // TODO: add many invisible buttons?
-            }
-            else if (CurrentMode == EAnnotationEditMode::Reassign)
-            {
-                Win->DrawList->AddText(ImGui::GetFont(), 28.f, TL - ImVec2(30.f, 30), Color,
-                                       ICON_FA_LONG_ARROW_ALT_RIGHT); // Assign icon!!
-            }
-            else if (CurrentMode == EAnnotationEditMode::Remove)
-            {
-                // it's not stable enough to detect hover...
-                // ImVec2 mouse_pos_projected_on_segment = ImLineClosestPoint(TL, BR, ImGui::GetMousePos());
-                // ImVec2 mouse_pos_delta_to_segment = mouse_pos_projected_on_segment - ImGui::GetMousePos();
-                // if ((ImLengthSqr(mouse_pos_delta_to_segment) <= 30 * 30)) // is segment hovered
-
-                // TODO: hoverring way to control may be a bad idea... since multi box may overlap together...
-                ImVec2 MP = ImGui::GetMousePos();
-                if (TL.x <= MP.x && MP.x <= BR.x && TL.y <= MP.y && MP.y <= BR.y)
+                // pan controller Center
+                Win->DrawList->AddCircleFilled(C, PanControlRadius, Color);
+                ImGui::SetCursorScreenPos(C - ImVec2(PanControlRadius, PanControlRadius));
+                ImGui::InvisibleButton("Pan", ImVec2(PanControlRadius * 2, PanControlRadius * 2));
+                bool IsPanActive = ImGui::IsItemActive();
+                if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                if (IsPanActive && IsMouseDragging)
                 {
-                    Win->DrawList->AddRectFilled(TL + 1.f, BR - 1.f, ImGui::ColorConvertFloat4ToU32(Spectrum::RED()));
-                    ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-                    if (ImGui::IsMouseClicked(0))
-                    {
-                        LogPanel::Get().AddLog(ELogLevel::Warning, "Remove an annotation!");
-                    // TODO: implement real delete...
-                    }
+                    ImVec2 Delta = ImGui::GetIO().MouseDelta / GetZoom();
+                    Data[ID].Pan({Delta.x, Delta.y});
                 }
+                // resize top left
+                ResizeImpl(Win, EBoxCorner::TopLeft, TL, Color, IsMouseDragging, ID);
+                // resize bottom left
+                ResizeImpl(Win, EBoxCorner::BottomLeft, BL, Color, IsMouseDragging, ID);
+                // resize bottom right
+                ResizeImpl(Win, EBoxCorner::BottomRight, BR, Color, IsMouseDragging, ID);
+                // resize top right
+                ResizeImpl(Win, EBoxCorner::TopRight, TR, Color, IsMouseDragging, ID);
+
+                // trash
+                ImVec2 TrashPos = TR + ImVec2(24.f, -36);
+                Win->DrawList->AddText(ImGui::GetFont(), 36.f, TrashPos, Color,
+                                       ICON_FA_TRASH_ALT);
+                ImGui::SetCursorScreenPos(TrashPos);
+                if (ImGui::InvisibleButton("Trash", ImVec2(36, 36)))
+                {
+                    spdlog::info("Trash is clicked");
+                    Trash(ID);
+                }
+                if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                
+                // reassign
+                ImVec2 ReassignPos = TL - ImVec2(48, 36);
+                Win->DrawList->AddText(ImGui::GetFont(), 36.f, ReassignPos, Color,
+                                       ICON_FA_LONG_ARROW_ALT_RIGHT);
+                ImGui::SetCursorScreenPos(ReassignPos);
+                if (ImGui::InvisibleButton("Reassign", ImVec2(36, 36)))
+                {
+                    spdlog::info("Reassign is clicked");
+                    Reassign(ID);
+                }
+                if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                
             }
+            ImGui::PopID();
         }
         // render working stuff
         if (IsAdding)
@@ -96,7 +116,6 @@ namespace IFCS
             ImU32 NewColor = ImGui::ColorConvertFloat4ToU32(CategoryManagement::Get().GetSelectedCategory()->Color);
             Win->DrawList->AddRect(AddPointStart, ImGui::GetMousePos(), NewColor, 0, 0, 3);
         }
-        spdlog::info("pan {}, {}: zoom: {}", PanAmount.x, PanAmount.y, GetZoom());
         ImGui::EndChild();
         if (ImGui::IsItemHovered())
         {
@@ -133,13 +152,17 @@ namespace IFCS
                 GetAbsRectMinMax(AddPointStart, ImGui::GetMousePos(), AbsMin, AbsMax);
                 std::array<float, 4> NewXYWH = MouseRectToXYWH(AbsMin, AbsMax);
                 Data[UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
-                // TODO: when to save?
+                IsSaved = false;
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_W))
+            {
+                CurrentMode = EAnnotationEditMode::Add;
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_E))
+            {
+                CurrentMode = EAnnotationEditMode::Edit;
             }
         }
-        // else
-        // {
-        //     IsAdding = false;
-        // }
 
         ImGui::SetCursorPosX(ButtonsOffset);
         ImGui::BeginGroup();
@@ -150,43 +173,109 @@ namespace IFCS
             {
                 CurrentMode = EAnnotationEditMode::Add;
             }
+            Utils::AddSimpleTooltip("Add annotation");
             ImGui::SameLine();
             if (ImGui::Button(ICON_FA_VECTOR_SQUARE, BtnSize)) // edit
             {
                 CurrentMode = EAnnotationEditMode::Edit;
             }
-            ImGui::SameLine();
-            if (ImGui::Button(ICON_FA_LONG_ARROW_ALT_RIGHT, BtnSize)) // reassign
-            {
-                CurrentMode = EAnnotationEditMode::Reassign;
-            }
-            ImGui::SameLine();
-            if (ImGui::Button(ICON_FA_TRASH, BtnSize)) // remove
-            {
-                CurrentMode = EAnnotationEditMode::Remove;
-            }
+            Utils::AddSimpleTooltip("Edit annotation");
             ImGui::SameLine();
             if (ImGui::Button(ICON_FA_SYNC, BtnSize)) // reset pan zoom
             {
                 PanAmount = ImVec2(0, 0);
                 ZoomLevel = 0;
             }
+            Utils::AddSimpleTooltip("Reset zoon and pan");
+            ImGui::SameLine();
+            if (ImGui::Button(ICON_FA_CHEVRON_LEFT, BtnSize)) // reset pan zoom
+            {
+                DataBrowser::Get().LoadOtherFrame(false);
+            }
+            Utils::AddSimpleTooltip("Previous frame");
+            ImGui::SameLine();
+            if (ImGui::Button(ICON_FA_CHEVRON_RIGHT, BtnSize)) // reset pan zoom
+            {
+                DataBrowser::Get().LoadOtherFrame(true);
+            }
+            Utils::AddSimpleTooltip("Next frame");
             ImGui::PopFont();
         }
         ImGui::EndGroup();
         ButtonsOffset = (ImGui::GetContentRegionAvail().x - ImGui::GetItemRectSize().x) * 0.5f;
     }
 
+    void Annotation::PostRender()
+    {
+        if (ToTrashID != 0)
+        {
+            Data.erase(ToTrashID);
+            ToTrashID = 0;
+        }
+    }
+
     void Annotation::Save()
     {
+        YAML::Node DataNode;
+        for (const auto& [k,v] : Data)
+            DataNode[std::to_string(k)] = v.Serialize();
+
+        YAML::Node OutNode = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"));
+        OutNode[DataBrowser::Get().SelectedClipInfo.ClipPath][std::to_string(DataBrowser::Get().SelectedFrame)] =
+            DataNode;
+
+        YAML::Emitter Out;
+        Out << OutNode;
+        std::ofstream Fout(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"));
+        Fout << Out.c_str();
+        IsSaved = true;
     }
 
     void Annotation::Load()
     {
-        YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"));
-        // for (YAML::const_iterator it = Node.begin(); it != Node.end(); ++it)
-        //     Data[it->first.as<uint64_t>()] = FAnnotation(it->second.as<YAML::Node>());
-        // load image here...
+        Data.clear();
+        YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"))[
+            DataBrowser::Get().SelectedClipInfo.ClipPath][std::to_string(DataBrowser::Get().SelectedFrame)];
+        for (YAML::const_iterator it = Node.begin(); it != Node.end(); ++it)
+        {
+            Data[UUID(it->first.as<uint64_t>())] = FAnnotation(it->second);
+        }
+    }
+
+    void Annotation::ResizeImpl(ImGuiWindow* WinPtr, const EBoxCorner& WhichCorner, const ImVec2& InPos,
+        const ImU32& InColor, const bool& IsDragging, const UUID& InID)
+    {
+        float CircleRadius = 9.f;
+        WinPtr->DrawList->AddCircleFilled(InPos, CircleRadius, InColor);
+        ImGui::SetCursorScreenPos(InPos - ImVec2(CircleRadius, CircleRadius));
+        std::string ResizeID;
+        switch (WhichCorner)
+        {
+        case EBoxCorner::TopLeft: ResizeID = "TopLeft"; break;
+        case EBoxCorner::BottomLeft: ResizeID = "BottomLeft"; break;
+        case EBoxCorner::BottomRight: ResizeID = "BottomRight"; break;
+        case EBoxCorner::TopRight: ResizeID = "TopRight"; break;
+        }
+        ImGui::InvisibleButton(ResizeID.c_str(), ImVec2(CircleRadius * 2, CircleRadius * 2));
+        bool IsResizeTLActive = ImGui::IsItemActive();
+        if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+        if (IsResizeTLActive && IsDragging)
+        {
+            ImVec2 Delta = ImGui::GetIO().MouseDelta / GetZoom();
+            Data[InID].Resize(WhichCorner, {Delta.x, Delta.y});
+        }
+    }
+
+    void Annotation::Reassign(UUID ID)
+    {
+        UUID NewCat = CategoryManagement::Get().SelectedCatID;
+        if (NewCat != 0)
+            Data[ID].CategoryID = NewCat;
+    }
+
+    void Annotation::Trash(UUID ID)
+    {
+        ToTrashID = ID;
     }
 
     float Annotation::GetZoom()
@@ -217,6 +306,7 @@ namespace IFCS
         OutMax.y = std::max(p0.y, p1.y);
     }
 
+    // TODO: pan is incorrect!
     std::array<float, 4> Annotation::MouseRectToXYWH(ImVec2 RectMin, ImVec2 RectMax)
     {
         ImVec2 ModRectMax;
@@ -224,7 +314,7 @@ namespace IFCS
         ModRectMax.x = RectMax.x >= WorkAreaMax.x ? WorkAreaMax.x : RectMax.x;
         ModRectMax.y = RectMax.y >= WorkAreaMax.y ? WorkAreaMax.y : RectMax.y;
         ImVec2 RawRectDiff = ModRectMax - RectMin;
-        RectMin = RectMin - WorkStartPos - PanAmount;
+        RectMin = RectMin - WorkStartPos - PanAmount / GetZoom();
         RectMax = RectMin + RawRectDiff / GetZoom();
         return {
             (RectMax.x + RectMin.x) / 2,
@@ -245,13 +335,5 @@ namespace IFCS
             TMax.x - TMin.x,
             TMax.y - TMin.y
         };
-        // int OldZoomLevel = ZoomLevel;
-        // ImVec2 ZoomPos = ImGui::GetMousePos() - ImGui::GetItemRectMin();
-        // ZoomLevel += int(Wheel);
-        // if (ZoomLevel < -3) ZoomLevel = -3;
-        // if (ZoomLevel > 3) ZoomLevel = 3;
-        // // make same position after zoom
-        // ImVec2 ImgPos = (ZoomPos - PanAmount) / GetZoom(OldZoomLevel);
-        // PanAmount = ZoomPos - ImgPos * GetZoom();
     }
 }

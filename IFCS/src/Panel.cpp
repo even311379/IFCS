@@ -37,9 +37,11 @@ namespace IFCS
                 PreRender();
                 ImGui::Begin(Name, CanClose ? &ShouldOpen : nullptr, Flags);
                 {
+                    // if (ImGui::IsWindowAppearing() || bAlwaysRender) // TODO: just checked once ? not working...
                     RenderContent();
                 }
                 ImGui::End();
+                PostRender();
             }
         }
     }
@@ -52,6 +54,10 @@ namespace IFCS
     {
     }
 
+    void Panel::PostRender()
+    {
+    }
+
     void Panel::SetVisibility(bool NewVisibility)
     {
         ShouldOpen = NewVisibility;
@@ -59,6 +65,7 @@ namespace IFCS
 
     void BGPanel::Setup()
     {
+        bAlwaysRender = true;
         ImGuiWindowFlags BGFlags = ImGuiWindowFlags_NoDocking;
         BGFlags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
             ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
@@ -78,10 +85,14 @@ namespace IFCS
 
     void BGPanel::RenderContent()
     {
-        ImGui::PopStyleVar(3);
         ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
         ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
         ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+    }
+
+    void BGPanel::PostRender()
+    {
+        ImGui::PopStyleVar(3);
     }
 
     void TestPanel::RenderContent()

@@ -6,7 +6,6 @@
 
 namespace IFCS
 {
-    
     class CategoryManagement : public Panel
     {
     public:
@@ -15,7 +14,7 @@ namespace IFCS
         void UpdateCategoryStatics();
         std::unordered_map<UUID, FCategory> Data;
         FCategory* GetSelectedCategory();
-        UUID SelectedCatID;
+        UUID SelectedCatID = 0;
     protected:
         void RenderContent() override;
 
@@ -24,5 +23,4 @@ namespace IFCS
         void Save();
         void LoadCategoriesFromFile();
     };
-    
 }

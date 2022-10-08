@@ -22,13 +22,8 @@
 
 #include "ImFileDialog/ImFileDialog.h"
 #include "ImguiNotify/imgui_notify.h"
-#include "ImguiNotify/tahoma.h"
 #include "ImguiNotify/fa_solid_900.h"
 #include "Spectrum/imgui_spectrum.h"
-
-#include <opencv2/core.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/imgproc.hpp>
 
 
 namespace IFCS
@@ -114,9 +109,6 @@ namespace IFCS
     	Setting::Get().TitleFont->Scale = 1.5;
 
         // load static images?
-
-
-    	
     	
     }
 
@@ -172,7 +164,6 @@ namespace IFCS
         	// third party close/end
         	HandleDialogClose();
         	
-
             // end of render content
             // Rendering
             ImGui::Render();

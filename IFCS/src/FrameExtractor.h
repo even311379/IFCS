@@ -15,15 +15,16 @@ namespace IFCS
     {
     public:
         MAKE_SINGLETON(FrameExtractor)
-        void LoadFrame1AsThumbnail(const std::string& file_path);
+        void LoadData();
+        // regions is specific to this panel... should store it here...
+        // and also copy clip info here~... no need to put it in loop
     protected:
         void RenderContent() override;
 
-
     private:
-        bool HasLoadAnyThumbnail = false;
-        unsigned int Thumbnail;
-        ImVec2 VideoSize;
+        // copied info
+        FClipInfo ClipInfo;
+        std::vector<int> Regions;
 
         // timeline from https://github.com/ocornut/imgui/issues/76#issuecomment-287739415 as template and modified a lot
         bool BeginTimeline(int opt_exact_num_rows=0);
@@ -44,20 +45,8 @@ namespace IFCS
         char* PlayIcon = ICON_FA_PLAY;
         bool IsPlaying = false;
         float PlayProgress = 0.f; //0 ~ 100
-        int CurrentFrame = 1;
-        std::vector<int> Regions; // can not store array in vector... why?
-
-        // video info:
-        std::string ClipName;
-        std::string ClipPath;
-        int Resolution[2];
-        float FrameRate;
-        int FrameCount;
-        int FrameCountDigits; // for display title ...
 
         // video actions:
-        void UpdateThumbnailFromFrame(cv::Mat mat);
-        void UpdateVideoFrame();
         void PlayClip();
         int NumFramesToExtract;
 

@@ -41,10 +41,7 @@ namespace IFCS
         ImFont* DefaultFont;
         ImFont* TitleFont;
         
-    private:
-        // std::unordered_map<std::string, ImFont*> RegisteredFont;
-        // load setting vars from init file
-        
+   // TODO: last edit frame and clip?     
         
     };
     

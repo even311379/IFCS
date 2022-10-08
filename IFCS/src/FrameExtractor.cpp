@@ -24,73 +24,33 @@
 
 namespace IFCS
 {
-    void FrameExtractor::LoadFrame1AsThumbnail(const std::string& file_path)
+    void FrameExtractor::LoadData()
     {
-        ClipPath = file_path;
-        Regions.clear();
         YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
-        if (Data[ClipPath])
+        ClipInfo = DataBrowser::Get().SelectedClipInfo; 
+        if (Data[ClipInfo.ClipPath])
         {
-            Regions = Data[ClipPath].as<std::vector<int>>();
+            Regions = Data[ClipInfo.ClipPath].as<std::vector<int>>();
         }
-
-        cv::Mat frame;
-        {
-            cv::VideoCapture cap(file_path);
-            if (!cap.isOpened())
-            {
-                LogPanel::Get().AddLog(ELogLevel::Error, "Fail to load video");
-                return;
-            }
-            std::vector<std::string> temp = Utils::Split(file_path, '\\');
-            ClipName = temp.back();
-            Resolution[0] = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
-            Resolution[1] = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
-            FrameRate = (float)cap.get(cv::CAP_PROP_FPS);
-            FrameCount = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
-            float i = 1.0f;
-            while (FrameCount > pow(10, i))
-            {
-                i += 1.0f;
-            }
-            FrameCountDigits = int(i) - 1;
-
-            cap.set(cv::CAP_PROP_POS_FRAMES, 1);
-            cap >> frame;
-            cv::resize(frame, frame, cv::Size(960, 540)); // 16 : 9
-            cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
-            cap.release();
-        }
-        UpdateThumbnailFromFrame(frame);
-        VideoSize = {static_cast<float>(frame.cols), static_cast<float>(frame.rows)};
-        HasLoadAnyThumbnail = true;
     }
 
+    // TODO: about hide rendering when unfocused? to save resource? to prevent click.... wow... clicks define here will get triggered even if its in behind...
     void FrameExtractor::RenderContent()
     {
-        if (!HasLoadAnyThumbnail) return;
-        // so tedious to set strings good... c++ rocks....
-        float i = 1.0f;
-        while (CurrentFrame > pow(10, i))
-        {
-            i += 1.0f;
-        }
-        int CurrentFrameDigits = int(i) - 1;
-        std::string temp = std::to_string(CurrentFrame);
-        for (int i = 0; i < FrameCountDigits - CurrentFrameDigits; i++)
-        {
-            temp = std::string("0") + temp;
-        }
-        std::string Title = ClipName + "......(" + temp + "/" + std::to_string(FrameCount) + ")";
+
+        // spdlog::info("should not see me if I am docked behine...");
+        if (!DataBrowser::Get().AnyFrameLoaded) return;
+
+        std::string Title = DataBrowser::Get().FrameTitle;
         ImGui::PushFont(Setting::Get().TitleFont);
         float TitleWidth = ImGui::CalcTextSize(Title.c_str()).x;
         ImGui::SetCursorPosX((ImGui::GetWindowSize().x - TitleWidth) * 0.5f);
         ImGui::Text(Title.c_str());
         ImGui::PopFont();
-        ImGui::SetCursorPosX((ImGui::GetWindowWidth() - VideoSize.x) * 0.5f);
-        ImGui::Image((void*)(intptr_t)Thumbnail, VideoSize);
-        // ImGui::SetCursorPos((ImVec2{(ImGui::GetWindowWidth() - VideoSize.x) * 0.5f, VideoSize.y + 40}));
-        ImGui::SetCursorPosX((ImGui::GetWindowWidth() - VideoSize.x) * 0.5f);
+        // TODO: can not fit with (1280, 720) (no enough y space...)
+        ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 1024) * 0.5f);
+        ImGui::Image((void*)(intptr_t)DataBrowser::Get().LoadedFramePtr, ImVec2(1024, 576));
+        ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 1024) * 0.5f);
 
         if (ImGui::BeginTable("table_clip_info", 4))
         {
@@ -98,36 +58,35 @@ namespace IFCS
             ImGui::TableNextColumn();
             ImGui::BulletText("Clip resolution");
             ImGui::TableNextColumn();
-            ImGui::Text("%d X %d", Resolution[0], Resolution[1]);
+            ImGui::Text("%d X %d", ClipInfo.Width, ClipInfo.Height);
             ImGui::TableNextColumn();
             ImGui::BulletText("clip length");
             ImGui::TableNextColumn();
-            int minute = FrameCount / int(FrameRate) / 60;
-            int sec = (FrameCount / int(FrameRate)) % 60;
+            int minute = ClipInfo.FrameCount / int(ClipInfo.FPS) / 60;
+            int sec = (ClipInfo.FrameCount / int(ClipInfo.FPS)) % 60;
             ImGui::Text("%dm%ds", minute, sec);
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
             ImGui::BulletText("Frame rate");
             ImGui::TableNextColumn();
-            ImGui::Text("%f", FrameRate);
+            ImGui::Text("%f", ClipInfo.FPS);
             ImGui::TableNextColumn();
             ImGui::BulletText("frame count");
             ImGui::TableNextColumn();
-            ImGui::Text("%d", FrameCount);
+            ImGui::Text("%d", ClipInfo.FrameCount);
             ImGui::EndTable();
         }
 
-
-        if (BeginTimeline((int)Regions.size() / 2))
+        int N_Regions = (int)Regions.size() / 2;
+        if (BeginTimeline( N_Regions))
         {
-            for (int r = 0; r < Regions.size() / 2; r++)
+            for (int r = 0; r < N_Regions; r++)
             {
                 TimelineEvent(r);
             }
         }
         EndTimeline();
         TimelineControlButtons();
-
     }
 
 
@@ -161,8 +120,8 @@ namespace IFCS
         snprintf(id, sizeof(id), "region %d", N);
         float values[2];
         float pan_amount = (TimelineZoom * TimelinePan * TimelineDisplayEnd);
-        values[0] = float(Regions[N * 2]) / float(FrameCount) * TimelineZoom * TimelineDisplayEnd - pan_amount;
-        values[1] = float(Regions[N * 2 + 1]) / float(FrameCount) * TimelineZoom * TimelineDisplayEnd - pan_amount;
+        values[0] = float(Regions[N * 2]) / float(ClipInfo.FrameCount) * TimelineZoom * TimelineDisplayEnd - pan_amount;
+        values[1] = float(Regions[N * 2 + 1]) / float(ClipInfo.FrameCount) * TimelineZoom * TimelineDisplayEnd - pan_amount;
 
         ++temp_TimelineIndex;
         if (TimelineRows > 0 && (temp_TimelineIndex < TimelineDisplayStart || temp_TimelineIndex >= TimelineDisplayEnd))
@@ -260,11 +219,11 @@ namespace IFCS
         }
         if (!JustDeleteRegion)
         {
-            Regions[N * 2] = int((values[0] + pan_amount) / TimelineDisplayEnd / TimelineZoom * float(FrameCount));
-            Regions[N * 2 + 1] = int((values[1] + pan_amount) / TimelineDisplayEnd / TimelineZoom * float(FrameCount));
+            Regions[N * 2] = int((values[0] + pan_amount) / TimelineDisplayEnd / TimelineZoom * float(ClipInfo.FrameCount));
+            Regions[N * 2 + 1] = int((values[1] + pan_amount) / TimelineDisplayEnd / TimelineZoom * float(ClipInfo.FrameCount));
         }
 
-        // TODO: clip end considering the zoom and pan
+        // TODO: limit clip end considering the zoom and pan
         // if (values[1] > (float)TimelineDisplayEnd)
         // {
         //     values[0] -= values[1] - (float)TimelineDisplayEnd;
@@ -327,7 +286,6 @@ namespace IFCS
             }
         }
 
-        // ImGui::Columns(1);
         ImGui::PopStyleColor();
         ImGui::EndChild();
 
@@ -356,7 +314,7 @@ namespace IFCS
             a.y = start.y;
 
             ImFormatString(tmp, sizeof(tmp), "%.0f",
-                           (float(i) / (float)NumVerticalGridLines / TimelineZoom + TimelinePan) * FrameCount);
+                           (float(i) / (float)NumVerticalGridLines / TimelineZoom + TimelinePan) * ClipInfo.FrameCount);
             win->DrawList->AddText(a, text_color, tmp);
         } // use with:
         ImVec2 mouse_pos_projected_on_segment = ImLineClosestPoint(start, end, ImGui::GetMousePos());
@@ -374,8 +332,11 @@ namespace IFCS
             }
             if (ImGui::IsMouseReleased(0))
             {
-                spdlog::info("mouse released after move progress?? ... should update video frame?");
-                UpdateVideoFrame();
+                spdlog::info("Update frame view");
+                int CurrentFrameStart = int((float)ClipInfo.FrameCount / TimelineZoom * TimelinePan);
+                int CurrentFrameRange = int((float)ClipInfo.FrameCount / TimelineZoom * (1 - TimelinePan));
+                int CurrentFrame = int(CurrentFrameStart + PlayProgress / 100 * CurrentFrameRange - 1);
+                DataBrowser::Get().LoadFrame(CurrentFrame);
             }
         }
         // draw pan-zoom control bar
@@ -406,8 +367,8 @@ namespace IFCS
         ImGui::SetCursorPos(ImVec2(0, ImGui::GetCursorPosY() + row_height * 4.0f));
         if (ImGui::Button(ICON_FA_PLUS, ImVec2(96, 24)))
         {
-            int CurrentFrameStart = int((float)FrameCount / TimelineZoom * TimelinePan);
-            int CurrentFrameRange = int((float)FrameCount / TimelineZoom * (1 - TimelinePan));
+            int CurrentFrameStart = int((float)ClipInfo.FrameCount / TimelineZoom * TimelinePan);
+            int CurrentFrameRange = int((float)ClipInfo.FrameCount / TimelineZoom * (1 - TimelinePan));
             spdlog::info("frame start: {0} range: {1}... correct?", CurrentFrameStart, CurrentFrameRange);
             Regions.push_back(CurrentFrameStart + int(0.3f * (float)CurrentFrameRange));
             Regions.push_back(CurrentFrameStart + int(0.7f * (float)CurrentFrameRange));
@@ -493,43 +454,6 @@ namespace IFCS
         }
     }
 
-    void FrameExtractor::UpdateThumbnailFromFrame(cv::Mat mat)
-    {
-        Thumbnail = 0;
-        glGenTextures(1, &Thumbnail);
-        glBindTexture(GL_TEXTURE_2D, Thumbnail);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-        // This is required on WebGL for non power-of-two textures
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, mat.cols, mat.rows, 0, GL_RGBA, GL_UNSIGNED_BYTE, mat.data);
-    }
-
-    void FrameExtractor::UpdateVideoFrame()
-    {
-        // make PlayProgress to current frame
-        int CurrentFrameStart = int((float)FrameCount / TimelineZoom * TimelinePan);
-        int CurrentFrameRange = int((float)FrameCount / TimelineZoom * (1 - TimelinePan));
-        CurrentFrame = int(CurrentFrameStart + PlayProgress / 100 * CurrentFrameRange - 1);
-        spdlog::info("current frame: {0}", CurrentFrame);
-        // update texture
-        cv::Mat frame;
-        {
-            cv::VideoCapture cap(ClipPath);
-            if (!cap.isOpened())
-            {
-                LogPanel::Get().AddLog(ELogLevel::Error, "Fail to load video");
-                return;
-            }
-            cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
-            cap >> frame;
-            resize(frame, frame, cv::Size(960, 540)); // 16 : 9
-            cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
-            cap.release();
-        }
-        UpdateThumbnailFromFrame(frame);
-    }
 
     // TODO: async...
     void FrameExtractor::PlayClip()
@@ -545,7 +469,7 @@ namespace IFCS
             Setting::Get().ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
         // this should be enough!
         for (int r : Regions)
-            RegionToExtractData[ClipPath].push_back(r);
+            RegionToExtractData[ClipInfo.ClipPath].push_back(r);
         YAML::Emitter Out;
         Out << RegionToExtractData;
         std::ofstream fout(Setting::Get().ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
@@ -583,7 +507,14 @@ namespace IFCS
         {
             NewFramesNode[std::to_string(j)] = YAML::Node(YAML::NodeType::Map);
         }
-        AnnotationData[ClipPath] = NewFramesNode;
+        
+        // Also add video size here... and there is no need to convert XYWH to 0~1 back and forth in my code base...
+        // NewFramesNode["Width"] = ClipInfo.Width;
+        // NewFramesNode["Height"] = ClipInfo.Height;
+        // ...... no need to do so, and it's not correct to do so... all frame size is fixed to 1280 x 720...
+        // has nothing to do with original size...
+        
+        AnnotationData[ClipInfo.ClipPath] = NewFramesNode;
 
         YAML::Emitter Out2;
         Out2 << AnnotationData;
