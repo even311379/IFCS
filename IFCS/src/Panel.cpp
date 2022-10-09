@@ -1,4 +1,6 @@
 ﻿#include "Panel.h"
+
+#include "imgui_internal.h"
 #include "Log.h"
 #include "Setting.h"
 #include "Utils.h"
@@ -85,14 +87,87 @@ namespace IFCS
 
     void BGPanel::RenderContent()
     {
-        ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
-        ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
-        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+        ImGuiDockNodeFlags Flags = ImGuiDockNodeFlags_PassthruCentralNode;
+        ImGuiID DockspaceID = ImGui::GetID("MyDockSpace");
+        ImGui::DockSpace(DockspaceID, ImVec2(0.0f, 0.0f), Flags);
+        if (SetDataWksNow)
+        {
+            ImGui::DockBuilderRemoveNode(DockspaceID);
+            ImGui::DockBuilderAddNode(DockspaceID, Flags | ImGuiDockNodeFlags_DockSpace);
+            ImGui::DockBuilderSetNodeSize(DockspaceID, ImGui::GetMainViewport()->Size);
+            
+            ImGuiID Left;
+            ImGuiID Center;
+            ImGuiID Right;
+            ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Left, 0.2f, &Left, &Center);
+            ImGui::DockBuilderSplitNode(Center, ImGuiDir_Right, 0.3f, &Right, nullptr);
+            ImGui::DockBuilderDockWindow("Data Browser", Left);
+            ImGui::DockBuilderDockWindow("Annotation", Center);
+            ImGui::DockBuilderDockWindow("Frame Extractor", Center);
+            ImGui::DockBuilderDockWindow("Category Management", Right);
+            ImGui::DockBuilderFinish(DockspaceID);
+            SetDataWksNow = false;
+        }
+        if (SetTrainWksNow)
+        {
+            ImGui::DockBuilderRemoveNode(DockspaceID);
+            ImGui::DockBuilderAddNode(DockspaceID, Flags | ImGuiDockNodeFlags_DockSpace);
+            ImGui::DockBuilderSetNodeSize(DockspaceID, ImGui::GetMainViewport()->Size);
+            
+            ImGuiID Left;
+            ImGuiID CenterUp;
+            ImGuiID CenterDown;
+            ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Left, 0.2f, &Left, &CenterUp);
+            ImGui::DockBuilderSplitNode(CenterUp, ImGuiDir_Down, 0.4f, &CenterDown, nullptr);
+            ImGui::DockBuilderDockWindow("Data Browser", Left);
+            ImGui::DockBuilderDockWindow("Training Set Generator", CenterUp);
+            ImGui::DockBuilderDockWindow("Model Generator", CenterUp);
+            ImGui::DockBuilderDockWindow("Training Set Viewer", CenterDown);
+            ImGui::DockBuilderDockWindow("Model Viewer", CenterDown);
+            ImGui::DockBuilderFinish(DockspaceID);
+            SetTrainWksNow = false;
+        }
+        if (SetPredictWksNow)
+        {
+            ImGui::DockBuilderRemoveNode(DockspaceID);
+            ImGui::DockBuilderAddNode(DockspaceID, Flags | ImGuiDockNodeFlags_DockSpace);
+            ImGui::DockBuilderSetNodeSize(DockspaceID, ImGui::GetMainViewport()->Size);
+            
+            ImGuiID Left;
+            ImGuiID Right;
+            ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Left, 0.2f, &Left, &Right);
+            ImGui::DockBuilderDockWindow("Data Browser", Left);
+            ImGui::DockBuilderDockWindow("Prediction", Right);
+            ImGui::DockBuilderFinish(DockspaceID);
+            SetPredictWksNow = false;
+        }
     }
 
     void BGPanel::PostRender()
     {
         ImGui::PopStyleVar(3);
+    }
+
+    void UtilPanel::RenderContent()
+    {
+        const char* Options[] = {"Data", "Train","Predict"};
+        ImGui::Combo("Save to Wks", &SelectedWksToSave, Options, IM_ARRAYSIZE(Options));
+        if (ImGui::Button("Save Wks"))
+        {
+            if (SelectedWksToSave == 0)
+            {
+                ImGui::SaveIniSettingsToDisk("Config/DataWks.ini");
+            }
+            else if (SelectedWksToSave == 1)
+            {
+                ImGui::SaveIniSettingsToDisk("Config/TrainWks.ini");
+            }
+            else if (SelectedWksToSave == 2)
+            {
+                ImGui::SaveIniSettingsToDisk("Config/PredictWks.ini");
+            }
+        }
+        ImGui::Separator();
     }
 
     void TestPanel::RenderContent()

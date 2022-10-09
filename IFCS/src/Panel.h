@@ -59,8 +59,6 @@ inline ImVec2 operator*(const ImVec2& lhs, const float& rhs)
  */
 namespace IFCS
 {
-
-    
     class Panel
     {
     public:
@@ -90,16 +88,24 @@ namespace IFCS
     public:
         MAKE_SINGLETON(BGPanel)
         void Setup();
+        bool SetDataWksNow = false;
+        bool SetTrainWksNow = false;
+        bool SetPredictWksNow = false;
     protected:
         void PreRender() override;
         void RenderContent() override;
         void PostRender() override;
     };
 
-    // class LogPanel : public Panel
-    // {
-    //     
-    // }
+    class UtilPanel : public Panel
+    {
+    public:
+        MAKE_SINGLETON(UtilPanel)
+    protected:
+        void RenderContent() override;
+    private:
+        int SelectedWksToSave;
+    };
     
 
     class TestPanel : public Panel

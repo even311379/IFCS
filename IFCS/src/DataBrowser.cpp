@@ -22,7 +22,6 @@ namespace IFCS
     void DataBrowser::RenderContent()
     {
         if (!Setting::Get().ProjectIsLoaded) return;
-        spdlog::info("data browser is rendering...");
         // Inside child window to have independent scroll
         ImGui::Text("Data Browser");
         ImVec2 ChildWindowSize = {ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y * 0.92f};

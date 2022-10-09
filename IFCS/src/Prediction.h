@@ -1,13 +1,15 @@
 ﻿#pragma once
 #include "Panel.h"
+#include "Utils.h"
 
 namespace IFCS
 {
-    class TrainingSetViewer : public Panel
+    class Prediction : public Panel
     {
     public:
-        MAKE_SINGLETON(TrainingSetViewer)
+        MAKE_SINGLETON(Prediction)
     protected:
         void RenderContent() override;
     };
+    
 }

@@ -17,6 +17,11 @@
 #include "Panel.h"
 #include "Log.h"
 #include "MainMenu.h"
+#include "ModelGenerator.h"
+#include "ModelViewer.h"
+#include "Prediction.h"
+#include "TrainingSetGenerator.h"
+#include "TrainingSetViewer.h"
 #include "Utils.h"
 
 
@@ -119,18 +124,27 @@ namespace IFCS
 
     	// setup this app
         BGPanel::Get().Setup();
-        LogPanel::Get().Setup("Log", true, 0);
+        LogPanel::Get().Setup("Log", false, 0);
     	DataBrowser::Get().Setup("Data Browser", true, 0);
     	FrameExtractor::Get().Setup("Frame Extractor", true, 0);
     	Annotation::Get().Setup("Annotation", true, 0);
+    	TrainingSetGenerator::Get().Setup("Training Set Generator", true, 0);
+    	ModelGenerator::Get().Setup("Model Generator", true, 0);
+    	TrainingSetViewer::Get().Setup("Training Set Viewer", true, 0);
+    	ModelViewer::Get().Setup("Model Viewer", true, 0);
+    	Prediction::Get().Setup("Prediction", true, 0);
         Setting::Get().LoadEditorIni();
     	CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
     	if (Setting::Get().ProjectIsLoaded)
 			glfwSetWindowTitle(window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
-        TestPanel* test = new TestPanel();
-        test->Setup("abstraction", true, 0);
 
-    	int tick = 0;
+
+    	// DEV
+        // TestPanel* test = new TestPanel();
+        // test->Setup("abstraction", true, 0);
+    	// UtilPanel::Get().Setup("Util", true, 0);
+
+    	// int tick = 0;
         while (!glfwWindowShouldClose(window))
         {
             glfwPollEvents();
@@ -149,6 +163,13 @@ namespace IFCS
         	Annotation::Get().Render();
         	CategoryManagement::Get().Render();
 
+        	TrainingSetGenerator::Get().Render();
+        	TrainingSetViewer::Get().Render();
+        	ModelGenerator::Get().Render();
+        	ModelViewer::Get().Render();
+
+        	Prediction::Get().Render();
+
             // task modals
         	if (!Setting::Get().ProjectIsLoaded && !WelcomeModal::Get().IsChoosingFolder)
         	{
@@ -157,13 +178,14 @@ namespace IFCS
 			WelcomeModal::Get().Render();
 
             
-            // test panels
+            // Dev panels
             // test->Render();
             // ImGui::ShowDemoWindow();
+        	// UtilPanel::Get().Render();
 
         	// third party close/end
         	HandleDialogClose();
-        	
+
             // end of render content
             // Rendering
             ImGui::Render();
@@ -175,7 +197,7 @@ namespace IFCS
             glClear(GL_COLOR_BUFFER_BIT);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
             glfwSwapBuffers(window);
-        	tick ++;
+        	// tick ++;
         }
     }
 

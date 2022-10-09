@@ -7,5 +7,7 @@ namespace IFCS
     {
     public:
         MAKE_SINGLETON(ModelGenerator)
+    protected:
+        void RenderContent() override;
     };
 }

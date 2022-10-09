@@ -40,6 +40,8 @@ namespace IFCS
 
         ImFont* DefaultFont;
         ImFont* TitleFont;
+
+        void SetWorkspace(EWorkspace NewWorkspace);
         
    // TODO: last edit frame and clip?     
         

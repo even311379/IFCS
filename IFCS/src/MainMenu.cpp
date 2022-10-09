@@ -1,6 +1,17 @@
 ﻿#include "MainMenu.h"
+
+#include "Annotation.h"
+#include "CategoryManagement.h"
+#include "DataBrowser.h"
+#include "FrameExtractor.h"
 #include "imgui.h"
 #include "Log.h"
+#include "ModelGenerator.h"
+#include "ModelViewer.h"
+#include "Prediction.h"
+#include "Setting.h"
+#include "TrainingSetGenerator.h"
+#include "TrainingSetViewer.h"
 #include "Utils.h"
 #include "ImguiNotify/font_awesome_5.h"
 
@@ -34,18 +45,51 @@ void IFCS::MainMenu::Render()
             // TODO: more panels to add later...
             if (ImGui::BeginMenu(LOCTEXT("ToolbarMenu.Data")))
             {
-                ImGui::MenuItem(LOCTEXT("ToolbarItem.DataBrowser"));
+                if (ImGui::MenuItem("Annotation", "", Annotation::Get().GetVisibility()))
+                {
+                    Annotation::Get().ToggleVisibility();
+                }
+                if (ImGui::MenuItem("FrameExtractor", "", FrameExtractor::Get().GetVisibility()))
+                {
+                    FrameExtractor::Get().ToggleVisibility();
+                }
+                if (ImGui::MenuItem("CategoryManagement", "", CategoryManagement::Get().GetVisibility()))
+                {
+                    CategoryManagement::Get().ToggleVisibility();
+                }
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu(LOCTEXT("ToolbarMenu.Train")))
             {
-                ImGui::MenuItem(LOCTEXT("ToolbarItem.DataBrowser"));
+                if (ImGui::MenuItem("TrainingSetGenerator", "", TrainingSetGenerator::Get().GetVisibility()))
+                {
+                    TrainingSetGenerator::Get().ToggleVisibility();
+                }
+                if (ImGui::MenuItem("TrainingSetViewer", "", TrainingSetViewer::Get().GetVisibility()))
+                {
+                    TrainingSetViewer::Get().ToggleVisibility();
+                }
+                if (ImGui::MenuItem("ModelGenerator", "", ModelGenerator::Get().GetVisibility()))
+                {
+                    ModelGenerator::Get().ToggleVisibility();
+                }
+                if (ImGui::MenuItem("ModelViewer", "", ModelViewer::Get().GetVisibility()))
+                {
+                    ModelViewer::Get().ToggleVisibility();
+                }
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu(LOCTEXT("ToolbarMenu.Predict")))
             {
-                ImGui::MenuItem(LOCTEXT("ToolbarItem.DataBrowser"));
+                if (ImGui::MenuItem("Prediction", "", Prediction::Get().GetVisibility()))
+                {
+                    Prediction::Get().ToggleVisibility();
+                }
                 ImGui::EndMenu();
+            }
+            if (ImGui::MenuItem(LOCTEXT("ToolbarItem.DataBrowser"), "", DataBrowser::Get().GetVisibility()))
+            {
+                DataBrowser::Get().ToggleVisibility();
             }
             if (ImGui::MenuItem(LOCTEXT("ToolbarItem.Log"), "", LogPanel::Get().GetVisibility(), true))
             {
@@ -65,14 +109,52 @@ void IFCS::MainMenu::Render()
         ImGui::Text(LOCTEXT("ToolbarTxt.Wks"));
         Utils::AddSimpleTooltip(LOCTEXT("ToolbarMenu.ChooseWks"));
         ImGui::Text("|");
-        ImGui::MenuItem(LOCTEXT("ToolbarMenu.WksData"));
+        if (ImGui::MenuItem(LOCTEXT("ToolbarMenu.WksData")))
+        {
+            Annotation::Get().SetVisibility(true);
+            FrameExtractor::Get().SetVisibility(true);
+            CategoryManagement::Get().SetVisibility(true);
+            TrainingSetGenerator::Get().SetVisibility(false);
+            TrainingSetViewer::Get().SetVisibility(false);
+            ModelGenerator::Get().SetVisibility(false);
+            ModelViewer::Get().SetVisibility(false);
+            Prediction::Get().SetVisibility(false);
+            DataBrowser::Get().SetVisibility(true);
+            Setting::Get().SetWorkspace(EWorkspace::Data);
+
+        }
         ImGui::Text("|");
-        ImGui::MenuItem(LOCTEXT("ToolbarMenu.WksTrain"));
+        if (ImGui::MenuItem(LOCTEXT("ToolbarMenu.WksTrain")))
+        {
+            Annotation::Get().SetVisibility(false);
+            FrameExtractor::Get().SetVisibility(false);
+            CategoryManagement::Get().SetVisibility(false);
+            TrainingSetGenerator::Get().SetVisibility(true);
+            TrainingSetViewer::Get().SetVisibility(true);
+            ModelGenerator::Get().SetVisibility(true);
+            ModelViewer::Get().SetVisibility(true);
+            Prediction::Get().SetVisibility(false);
+            DataBrowser::Get().SetVisibility(true);
+            Setting::Get().SetWorkspace(EWorkspace::Train);
+        }
         ImGui::Text("|");
-        ImGui::MenuItem(LOCTEXT("ToolbarMenu.WksPredict"));
-        ImGui::Text("|");
-        ImGui::MenuItem(ICON_FA_PLUS);
-        Utils::AddSimpleTooltip(LOCTEXT("ToolbarMenu.AddWks"));
+        if (ImGui::MenuItem(LOCTEXT("ToolbarMenu.WksPredict")))
+        {
+            Annotation::Get().SetVisibility(false);
+            FrameExtractor::Get().SetVisibility(false);
+            CategoryManagement::Get().SetVisibility(false);
+            TrainingSetGenerator::Get().SetVisibility(false);
+            TrainingSetViewer::Get().SetVisibility(false);
+            ModelGenerator::Get().SetVisibility(false);
+            ModelViewer::Get().SetVisibility(false);
+            Prediction::Get().SetVisibility(true);
+            DataBrowser::Get().SetVisibility(true);
+            Setting::Get().SetWorkspace(EWorkspace::Predict);
+        }
+        // very unlikely to add custom workspace... like blender...
+        // ImGui::Text("|");
+        // ImGui::MenuItem(ICON_FA_PLUS);
+        // Utils::AddSimpleTooltip(LOCTEXT("ToolbarMenu.AddWks"));
 
         ImGui::EndMainMenuBar();
     }

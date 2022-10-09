@@ -7,7 +7,8 @@ namespace IFCS
     {
     public:
         MAKE_SINGLETON(ModelViewer)
-        
+    protected:
+        void RenderContent() override;
     };
     
 }
