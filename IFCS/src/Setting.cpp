@@ -2,14 +2,82 @@
 
 #include <filesystem>
 #include <fstream>
+#include <stdbool.h>
 #include <spdlog/spdlog.h>
+
+#include "Annotation.h"
+#include "CategoryManagement.h"
+#include "DataBrowser.h"
+#include "FrameExtractor.h"
+#include "ModelGenerator.h"
+#include "ModelViewer.h"
 #include "Panel.h"
+#include "Prediction.h"
+#include "TrainingSetGenerator.h"
+#include "TrainingSetViewer.h"
 #include "yaml-cpp/yaml.h"
 
 namespace IFCS
 {
     Setting::Setting()
     {
+    }
+
+    // TODO: the way modal works is very different from example code, what could it get wrong?
+    void Setting::RenderModal()
+    {
+        const ImVec2 Center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(Center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        if (ImGui::BeginPopupModal("Setting", &IsModalOpen, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::BulletText("Choose Theme:");
+            ImGui::SameLine();
+            ImGui::RadioButton("Light", &ThemeToUse, 0);
+            ImGui::SameLine();
+            ImGui::RadioButton("Dark", &ThemeToUse, 1);
+            ImGui::BulletText("Prefered Language:");
+            ImGui::SameLine();
+            // TODO: this is a static way... not considering future expansion yet...
+            const static char* LanguageOptions[] = {"English", "Traditional Chinese"};
+            ImGui::SetNextItemWidth(240.f);
+            ImGui::Combo("##Language_options", &LanguageToUse, LanguageOptions, IM_ARRAYSIZE(LanguageOptions));
+            const static char* AppSizeOptions[] = {
+                "FHD (1920 x 1080)", "2K (2560 x 1440)", "4k (3840 x 2160)", "Custom"
+            };
+            ImGui::BulletText("App size: ");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(240.f);
+            ImGui::Combo("##AppSize", &AppSizeToUse, AppSizeOptions, IM_ARRAYSIZE(AppSizeOptions));
+            if (AppSizeToUse == 3)
+            {
+                ImGui::Separator();
+                ImGui::Indent();
+                ImGui::BeginGroup();
+                {
+                    ImGui::BulletText("Custom App size: ");
+                    ImGui::SetNextItemWidth(120.f);
+                    ImGui::SliderInt("Width", &CustomWidth, 1280, 3840);
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(120.f);
+                    ImGui::SliderInt("Height", &CustomHeight, 720, 2160);
+                    ImGui::BulletText("Size Adjustment: ");
+                    ImGui::SetNextItemWidth(120.f);
+                    ImGui::DragFloat("Widgets", &WidgetResizeScale, 0.2f, 0.1f, 10.f);
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(120.f);
+                    ImGui::DragFloat("Font", &GlobalFontScaling, 0.2f, 0.1f, 5.0f);
+                }
+                ImGui::EndGroup();
+                ImGui::Unindent();
+            }
+            ImGui::Separator();
+            if (ImGui::Button("OK", ImVec2(ImGui::GetWindowWidth() * 0.2f, ImGui::GetFontSize() * 1.5f)))
+            {
+                ImGui::CloseCurrentPopup();
+                IsModalOpen = false;
+            }
+            ImGui::EndPopup();
+        }
     }
 
     void Setting::LoadEditorIni()
@@ -75,6 +143,11 @@ namespace IFCS
         ProjectIsLoaded = true;
     }
 
+    void Setting::Tick1()
+    {
+        SetWorkspace(ActiveWorkspace);
+    }
+
     void Setting::CreateStartup()
     {
         RecentProjects.insert(ProjectPath);
@@ -95,16 +168,33 @@ namespace IFCS
 
     void Setting::SetWorkspace(EWorkspace NewWorkspace)
     {
+        Annotation::Get().SetVisibility(false);
+        FrameExtractor::Get().SetVisibility(false);
+        CategoryManagement::Get().SetVisibility(false);
+        TrainingSetGenerator::Get().SetVisibility(false);
+        TrainingSetViewer::Get().SetVisibility(false);
+        ModelGenerator::Get().SetVisibility(false);
+        ModelViewer::Get().SetVisibility(false);
+        Prediction::Get().SetVisibility(false);
+        DataBrowser::Get().SetVisibility(true);
         ActiveWorkspace = NewWorkspace;
         switch (ActiveWorkspace)
         {
         case EWorkspace::Data:
+            Annotation::Get().SetVisibility(true);
+            FrameExtractor::Get().SetVisibility(true);
+            CategoryManagement::Get().SetVisibility(true);
             BGPanel::Get().SetDataWksNow = true;
             break;
         case EWorkspace::Train:
+            TrainingSetGenerator::Get().SetVisibility(true);
+            TrainingSetViewer::Get().SetVisibility(true);
+            ModelGenerator::Get().SetVisibility(true);
+            ModelViewer::Get().SetVisibility(true);
             BGPanel::Get().SetTrainWksNow = true;
             break;
         case EWorkspace::Predict:
+            Prediction::Get().SetVisibility(true);
             BGPanel::Get().SetPredictWksNow = true;
             break;
         }

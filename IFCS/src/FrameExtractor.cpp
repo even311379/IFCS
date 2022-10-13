@@ -103,13 +103,6 @@ namespace IFCS
         if (ImGui::GetColumnOffset(1) >= contentRegionWidth * 0.48f)
             ImGui::SetColumnOffset(1, contentRegionWidth * 0.15f);
 
-        // if (opt_exact_num_rows > 0)
-        // {
-        //     // Item culling
-        //     TimelineRows = opt_exact_num_rows;
-        //     ImGui::CalcListClipping(TimelineRows, row_height, &TimelineDisplayStart, &TimelineDisplayEnd);
-        //     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (TimelineDisplayStart * row_height));
-        // }
         return rv;
     }
 
@@ -169,7 +162,7 @@ namespace IFCS
             bool active = ImGui::IsItemActive();
             if (active || ImGui::IsItemHovered())
             {
-                ImGui::SetTooltip("%f", values[i]);
+                ImGui::SetTooltip("%d", ValueToFrame(values[i]));
                 {
                     ImVec2 a(pos.x, ImGui::GetWindowContentRegionMin().y + win->Pos.y + win->Scroll.y);
                     ImVec2 b(pos.x, ImGui::GetWindowContentRegionMax().y + win->Pos.y + win->Scroll.y);
@@ -179,6 +172,7 @@ namespace IFCS
             }
             if (active && isMouseDraggingZero)
             {
+                // TODO: the drag speed is mismatched when zoom
                 values[i] += ImGui::GetIO().MouseDelta.x / columnWidth * static_cast<float>(TimelineDisplayEnd);
                 changed = hovered = true;
             }
@@ -193,7 +187,6 @@ namespace IFCS
         start.y += TIMELINE_RADIUS * 0.5f;
         ImVec2 end = start + ImVec2(columnWidth * (values[1] - values[0]) / TimelineDisplayEnd - 2 * TIMELINE_RADIUS,
                                     TIMELINE_RADIUS);
-
         ImGui::PushID(-1);
         ImGui::SetCursorScreenPos(start);
         ImGui::InvisibleButton(id, end - start);
@@ -219,21 +212,20 @@ namespace IFCS
         }
         if (!JustDeleteRegion)
         {
-            Regions[N * 2] = int((values[0] + pan_amount) / TimelineDisplayEnd / TimelineZoom * float(ClipInfo.FrameCount));
-            Regions[N * 2 + 1] = int((values[1] + pan_amount) / TimelineDisplayEnd / TimelineZoom * float(ClipInfo.FrameCount));
+            int MinRegionFrame = ValueToFrame(values[0]);
+            int MaxRegionFrame = ValueToFrame(values[1]);
+            if (MaxRegionFrame > ClipInfo.FrameCount)
+            {
+                MaxRegionFrame = ClipInfo.FrameCount;
+            }
+            if (MinRegionFrame < 0)
+            {
+                MinRegionFrame = 0;
+            }
+            Regions[N * 2] = MinRegionFrame;
+            Regions[N * 2 + 1] = MaxRegionFrame; 
         }
 
-        // TODO: limit clip end considering the zoom and pan
-        // if (values[1] > (float)TimelineDisplayEnd)
-        // {
-        //     values[0] -= values[1] - (float)TimelineDisplayEnd;
-        //     values[1] = (float)TimelineDisplayEnd;
-        // }
-        // if (values[0] < 0)
-        // {
-        //     values[1] -= values[0];
-        //     values[0] = 0;
-        // }
 
         if (hovered) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
 
@@ -349,6 +341,7 @@ namespace IFCS
         ImVec2 pz_control_end = {pz_control_start.x + (1.f / float(TimelineZoom)) * columnWidth, pz_end.y};
         win->DrawList->AddRectFilled(pz_control_start, pz_control_end, color, rounding); // control bar
 
+        // TODO: this hover detection is too complex... there is simpler way..., make zoom able area on gray area too?
         mouse_pos_projected_on_segment = ImLineClosestPoint(pz_control_start, pz_control_end, ImGui::GetMousePos());
         mouse_pos_delta_to_segment = mouse_pos_projected_on_segment - ImGui::GetMousePos();
         is_segment_hovered = (ImLengthSqr(mouse_pos_delta_to_segment) <= 30 * 30);
@@ -373,16 +366,11 @@ namespace IFCS
             Regions.push_back(CurrentFrameStart + int(0.3f * (float)CurrentFrameRange));
             Regions.push_back(CurrentFrameStart + int(0.7f * (float)CurrentFrameRange));
         }
-        if (ImGui::IsItemHovered())
-        {
-            ImGui::SetTooltip("Add new region to perform frame extraction...");
-        }
+        Utils::AddSimpleTooltip("Add new region to perform frame extraction...");
         ImGui::SameLine();
         ImGui::Dummy({columnOffset - 96, 0});
         ImGui::SameLine();
 
-        // ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX() + columnOffset, ImGui::GetCursorPosY() + row_height * 3.5f));
-        // ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX() + columnOffset, ImGui::GetCursorPosY() - row_height));
     }
 
     void FrameExtractor::TimelineControlButtons()
@@ -419,14 +407,22 @@ namespace IFCS
         ImGui::Dummy({200, 0});
         ImGui::SameLine();
         ImGui::SetNextItemWidth(160.f);
-        ImGui::InputInt("frames to ", &NumFramesToExtract);
+        int MaxExtract = 0;
+        for (size_t i = 0; i < Regions.size()/2; i++)
+        {
+            MaxExtract += (Regions[i*2 + 1] - Regions[i*2] + 1);
+        }
+
+        if (NumFramesToExtract > MaxExtract)
+            NumFramesToExtract = MaxExtract;
+        ImGui::DragInt("frames to ", &NumFramesToExtract, 1, 1, MaxExtract);
         ImGui::SameLine();
         if (ImGui::Button("Extract"))
         {
             PerformExtraction();
         }
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(160.f);
+        ImGui::SetNextItemWidth(240.f);
 
         // TODO: can not load this way... all become ????? ...
         /*symotion-prefix)
@@ -440,6 +436,12 @@ namespace IFCS
             "Remove frames without annotations, then extract to requested numbers", "中文會變亂碼嗎?"
         };
         ImGui::Combo("##ExtractionOptionsCombo", &SelectedExtractionOption, Options, IM_ARRAYSIZE(Options));
+    }
+
+    int FrameExtractor::ValueToFrame(const float ValueInTimeline) const
+    {
+        const float pan_amount = (TimelineZoom * TimelinePan * TimelineDisplayEnd);
+        return int((ValueInTimeline + pan_amount) / TimelineDisplayEnd / TimelineZoom * float(ClipInfo.FrameCount));
     }
 
     void FrameExtractor::CheckZoomInput()
@@ -462,8 +464,6 @@ namespace IFCS
 
     void FrameExtractor::PerformExtraction()
     {
-        // TODO: limit max num frames to extract...
-
         // save extraction range?
         YAML::Node RegionToExtractData = YAML::LoadFile(
             Setting::Get().ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
@@ -507,12 +507,6 @@ namespace IFCS
         {
             NewFramesNode[std::to_string(j)] = YAML::Node(YAML::NodeType::Map);
         }
-        
-        // Also add video size here... and there is no need to convert XYWH to 0~1 back and forth in my code base...
-        // NewFramesNode["Width"] = ClipInfo.Width;
-        // NewFramesNode["Height"] = ClipInfo.Height;
-        // ...... no need to do so, and it's not correct to do so... all frame size is fixed to 1280 x 720...
-        // has nothing to do with original size...
         
         AnnotationData[ClipInfo.ClipPath] = NewFramesNode;
 

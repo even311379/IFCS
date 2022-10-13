@@ -34,7 +34,7 @@
 namespace IFCS
 {
     Application::Application()
-        : window(nullptr)
+        : Window(nullptr)
     {
     }
 
@@ -44,7 +44,7 @@ namespace IFCS
         ImGui_ImplGlfw_Shutdown();
         ImPlot::DestroyContext();
         ImGui::DestroyContext();
-        glfwDestroyWindow(window);
+        glfwDestroyWindow(Window);
         glfwTerminate();
     }
 
@@ -66,11 +66,11 @@ namespace IFCS
 
 
         // TODO: set window size by config file 
-        window = glfwCreateWindow(1920, 1030, "IFCS", NULL, NULL);
-        if (window == NULL) return;
-        glfwSetWindowPos(window, 0, 50);
-    	glfwSetWindowAttrib(window, GLFW_RESIZABLE, 0);
-        glfwMakeContextCurrent(window);
+        Window = glfwCreateWindow(1920, 1030, "IFCS", NULL, NULL);
+        if (Window == NULL) return;
+        glfwSetWindowPos(Window, 0, 50);
+    	glfwSetWindowAttrib(Window, GLFW_RESIZABLE, 0);
+        glfwMakeContextCurrent(Window);
         glfwSwapInterval(1); // enable vsync
 
         // create imgui/ implot
@@ -91,7 +91,7 @@ namespace IFCS
         }
 
         // setup platform renderer content should call lastly? after create content?
-        ImGui_ImplGlfw_InitForOpenGL(window, true);
+        ImGui_ImplGlfw_InitForOpenGL(Window, true);
         ImGui_ImplOpenGL3_Init(glsl_version);
 
         // setup theme
@@ -123,6 +123,7 @@ namespace IFCS
     	CreateFileDialog();
 
     	// setup this app
+    	MainMenu::Get().SetApp(this);
         BGPanel::Get().Setup();
         LogPanel::Get().Setup("Log", false, 0);
     	DataBrowser::Get().Setup("Data Browser", true, 0);
@@ -136,7 +137,7 @@ namespace IFCS
         Setting::Get().LoadEditorIni();
     	CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
     	if (Setting::Get().ProjectIsLoaded)
-			glfwSetWindowTitle(window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
+			glfwSetWindowTitle(Window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
 
 
     	// DEV
@@ -144,8 +145,8 @@ namespace IFCS
         // test->Setup("abstraction", true, 0);
     	// UtilPanel::Get().Setup("Util", true, 0);
 
-    	// int tick = 0;
-        while (!glfwWindowShouldClose(window))
+    	int tick = 0;
+        while (!glfwWindowShouldClose(Window))
         {
             glfwPollEvents();
             ImGui_ImplOpenGL3_NewFrame();
@@ -175,29 +176,45 @@ namespace IFCS
         	{
         		ImGui::OpenPopup("Welcome");
         	}
+        	if (Setting::Get().IsModalOpen)
+        	{
+        		ImGui::OpenPopup("Setting");
+        	}
 			WelcomeModal::Get().Render();
+        	Setting::Get().RenderModal();
 
-            
             // Dev panels
             // test->Render();
             // ImGui::ShowDemoWindow();
         	// UtilPanel::Get().Render();
+        	// ImPlot::ShowDemoWindow();
 
         	// third party close/end
         	HandleDialogClose();
 
+        	if (tick == 1)
+        	{
+        		Setting::Get().Tick1();
+        	}
+
             // end of render content
             // Rendering
             ImGui::Render();
-            int display_w, display_h;
-            glfwGetFramebufferSize(window, &display_w, &display_h);
-            glViewport(0, 0, display_w, display_h);
-            glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w,
-                         clear_color.w);
+            int DisplayWidth, DisplayHeight;
+            glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
+            glViewport(0, 0, DisplayWidth, DisplayHeight);
+            glClearColor(ClearColor.x * ClearColor.w, ClearColor.y * ClearColor.w, ClearColor.z * ClearColor.w,
+                         ClearColor.w);
             glClear(GL_COLOR_BUFFER_BIT);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-            glfwSwapBuffers(window);
-        	// tick ++;
+            glfwSwapBuffers(Window);
+
+			if (RequestToQuit)
+			{
+				glfwDestroyWindow(Window);
+			}
+        	
+        	tick ++;
         }
     }
 
@@ -216,7 +233,7 @@ namespace IFCS
 			// glGenerateMipmap(GL_TEXTURE_2D);
 			glBindTexture(GL_TEXTURE_2D, 0);
 
-			return (void*)tex;
+			return (void*)(intptr_t)tex;
 		};
 		ifd::FileDialog::Instance().DeleteTexture = [](void* tex) {
 			GLuint texID = (GLuint)((uintptr_t)tex);

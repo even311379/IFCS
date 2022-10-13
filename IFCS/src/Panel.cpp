@@ -99,8 +99,8 @@ namespace IFCS
             ImGuiID Left;
             ImGuiID Center;
             ImGuiID Right;
-            ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Left, 0.2f, &Left, &Center);
-            ImGui::DockBuilderSplitNode(Center, ImGuiDir_Right, 0.3f, &Right, nullptr);
+            ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Left, 0.15f, &Left, &Center);
+            ImGui::DockBuilderSplitNode(Center, ImGuiDir_Right, 0.2f, &Right, nullptr);
             ImGui::DockBuilderDockWindow("Data Browser", Left);
             ImGui::DockBuilderDockWindow("Annotation", Center);
             ImGui::DockBuilderDockWindow("Frame Extractor", Center);
@@ -118,7 +118,7 @@ namespace IFCS
             ImGuiID CenterUp;
             ImGuiID CenterDown;
             ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Left, 0.2f, &Left, &CenterUp);
-            ImGui::DockBuilderSplitNode(CenterUp, ImGuiDir_Down, 0.4f, &CenterDown, nullptr);
+            ImGui::DockBuilderSplitNode(CenterUp, ImGuiDir_Down, 0.3f, &CenterDown, nullptr);
             ImGui::DockBuilderDockWindow("Data Browser", Left);
             ImGui::DockBuilderDockWindow("Training Set Generator", CenterUp);
             ImGui::DockBuilderDockWindow("Model Generator", CenterUp);
@@ -207,13 +207,15 @@ namespace IFCS
 
     void WelcomeModal::Render()
     {
+        // TODO: better looking
+        // TODO: start from exising project?
         ImVec2 center = ImGui::GetMainViewport()->GetCenter();
         ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
         if (ImGui::BeginPopupModal("Welcome", NULL, ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImGui::Text("Welcome to IFCS!");
             ImGui::Text("The first step is to setup PROJECT!");
-            ImGui::Text("All you hardwork will be stored at there");
+            ImGui::Text("All your hardwork will be stored at there");
             ImGui::Dummy(ImVec2(10, 30));
             ImGui::Separator();
             ImGui::Dummy(ImVec2(10, 30));
@@ -235,10 +237,9 @@ namespace IFCS
             {
                 Setting::Get().Project = TempProjectName;
             }
-            float windowWidth = ImGui::GetWindowSize().x;
-            ImGui::SetCursorPosX(windowWidth * 0.4f);
+            ImGui::SetCursorPosX(ImGui::GetWindowWidth()* 0.4f);
             ImGui::BeginDisabled(!CheckValidInputs());
-            if (ImGui::Button("OK", ImVec2(windowWidth * 0.2f, ImGui::GetFont()->FontSize * 1.5f)))
+            if (ImGui::Button("OK", ImVec2(ImGui::GetWindowWidth() * 0.2f, ImGui::GetFontSize() * 1.5f)))
             {
                 Setting::Get().ProjectPath = std::string(TempProjectLocation) + Setting::Get().Project;
                 Setting::Get().CreateStartup();
@@ -250,7 +251,7 @@ namespace IFCS
                 ImGui::SameLine();
                 ImGui::TextColored(Spectrum::RED(400, Setting::Get().Theme == ETheme::Light), "Fill in valid content");
             }
-            ImGui::End();
+            ImGui::EndPopup();
         }
     }
 

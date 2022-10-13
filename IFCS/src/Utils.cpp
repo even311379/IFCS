@@ -161,5 +161,19 @@ namespace IFCS
             std::uniform_int_distribution<std::size_t> dist(0, ColorOptions.size() - 1);
             return ColorOptions[dist(gen)];
         }
+
+        // copy from https://stackoverflow.com/a/7560564/5579437
+        int RandomIntInRange(int Min, int Max)
+        {
+            std::random_device rd; // obtain a random number from hardware
+            std::mt19937 gen(rd()); // seed the generator
+            std::uniform_int_distribution<> distr(Min, Max); // define the range
+            return distr(gen);
+        }
+
+        bool RandomBool()
+        {
+            return RandomIntInRange(0, 1);
+        }
     }
 }

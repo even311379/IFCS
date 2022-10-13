@@ -306,16 +306,20 @@ namespace IFCS
         OutMax.y = std::max(p0.y, p1.y);
     }
 
-    // TODO: pan is incorrect!
     std::array<float, 4> Annotation::MouseRectToXYWH(ImVec2 RectMin, ImVec2 RectMax)
     {
-        ImVec2 ModRectMax;
-        ImVec2 WorkAreaMax = WorkStartPos + WorkArea;
-        ModRectMax.x = RectMax.x >= WorkAreaMax.x ? WorkAreaMax.x : RectMax.x;
-        ModRectMax.y = RectMax.y >= WorkAreaMax.y ? WorkAreaMax.y : RectMax.y;
-        ImVec2 RawRectDiff = ModRectMax - RectMin;
-        RectMin = RectMin - WorkStartPos - PanAmount / GetZoom();
+        // ImVec2 ModRectMax;
+        // ImVec2 WorkAreaMax = WorkStartPos + WorkArea;
+        // // TODO: fix more clamp response...
+        // ModRectMax.x = RectMax.x >= WorkAreaMax.x ? WorkAreaMax.x : RectMax.x;
+        // ModRectMax.y = RectMax.y >= WorkAreaMax.y ? WorkAreaMax.y : RectMax.y;
+        ImVec2 RawRectDiff = RectMax - RectMin;
+        RectMin = (RectMin - WorkStartPos - PanAmount) / GetZoom();
         RectMax = RectMin + RawRectDiff / GetZoom();
+        if (RectMin.x <= 0) RectMin.x = 0;
+        if (RectMin.y <= 0) RectMin.y = 0;
+        if (RectMax.x >= WorkArea.x) RectMax.x = WorkArea.x;
+        if (RectMax.y >= WorkArea.y) RectMax.y = WorkArea.y;
         return {
             (RectMax.x + RectMin.x) / 2,
             (RectMax.y + RectMin.y) / 2,

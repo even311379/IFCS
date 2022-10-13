@@ -1,9 +1,8 @@
 ﻿#pragma once
 #include <array>
 #include <filesystem>
-#include <yaml-cpp/node/node.h>
-
 #include "Panel.h"
+
 
 namespace IFCS
 {
@@ -22,6 +21,8 @@ namespace IFCS
         void LoadFrame(int FrameNumber);
         bool AnyFrameLoaded = false;
         // TODO: make access of opencv clip info centric to here...
+        std::vector<std::string> GetAllClips() const;
+        std::vector<std::string> GetAllFolders() const;
     protected:
         void RenderContent() override;
     private:
@@ -29,7 +30,9 @@ namespace IFCS
         char FilterText[128];
         ImVec2 GetBtnSize();
         void RecursiveClipTreeNodeGenerator(const std::filesystem::path& Path, unsigned int Depth);
-        YAML::Node FramesNode;
+        // TODO: remove this var.... 
+        // YAML::Node FramesNode;
+        std::unordered_map<int, size_t> FramesData;
         void UpdateFramesNode();
         const std::array<std::string, 6> AcceptedClipsFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"};
         void MakeFrameTitle();

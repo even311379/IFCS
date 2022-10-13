@@ -10,7 +10,10 @@ namespace IFCS
         MAKE_SINGLETON(MainMenu)
         ~MainMenu();
         void Render();
-        void OpenSetting();
+
+        void SetApp(class Application* InApp);
+    private:
+        class Application* App;
         
     };
 }

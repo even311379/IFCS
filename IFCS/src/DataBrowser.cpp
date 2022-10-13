@@ -59,22 +59,6 @@ namespace IFCS
 
         ImGui::EndChild();
         // TODO: filter options... leave it when all major feature is done...
-        // ImGui::Button(ICON_FA_FILE_IMPORT);
-        // Utils::AddSimpleTooltip(LOCTEXT("ToolbarMenu.AddWks"));
-        // ImGui::SameLine();
-        // ImGui::Button(ICON_FA_FOLDER_PLUS);
-        // Utils::AddSimpleTooltip(LOCTEXT("ToolbarMenu.AddWks"));
-        // ImGui::SameLine();
-        // if (ImGui::Button(ICON_FA_FOLDER_OPEN, GetBtnSize()))
-        // {
-        // }
-        // Utils::AddSimpleTooltip(LOCTEXT("ToolbarMenu.AddWks"));
-        // ImGui::SameLine();
-        // if (ImGui::Button(ICON_FA_RECYCLE, GetBtnSize()))
-        // {
-        // }
-        // Utils::AddSimpleTooltip("Refresh folder content");
-        // ImGui::Separator();
         ImGui::Checkbox("TT", &Test);
         ImGui::SameLine();
         ImGui::Checkbox("TT", &Test);
@@ -85,6 +69,8 @@ namespace IFCS
     {
         return {ImGui::GetFont()->FontSize * 3, ImGui::GetFont()->FontSize * 1.5f};
     }
+
+    // TODO: crashed when click around frames? in release mode?
 
     // Copy and modify from https://discourse.dearimgui.org/t/how-to-mix-imgui-treenode-and-filesystem-to-print-the-current-directory-recursively/37
     void DataBrowser::RecursiveClipTreeNodeGenerator(const std::filesystem::path& Path, unsigned int Depth)
@@ -127,7 +113,7 @@ namespace IFCS
                     SelectedClipInfo.ClipPath = full_clip_path;
                     UpdateFramesNode();
                     // Open and setup frame extraction
-                    if (ImGui::IsMouseDoubleClicked(0))
+                    if (ImGui::IsMouseDoubleClicked(0) && Setting::Get().ActiveWorkspace == EWorkspace::Data)
                     {
                         char buff[128];
                         snprintf(buff, sizeof(buff), "open %s to start frame extraction?", full_clip_path.c_str());
@@ -137,27 +123,45 @@ namespace IFCS
                         FrameExtractor::Get().LoadData();
                     }
                 }
+                // TODO: try different flags?
+                if (Setting::Get().ActiveWorkspace == EWorkspace::Train)
+                {
+                    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+                    {
+                        ImGui::SetDragDropPayload("FolderOrClip", &full_clip_path, sizeof(int)); // for test now
+                        ImGui::Text("Drag something?");
+                        ImGui::EndDragDropSource();
+                    }
+                }
                 if (SelectedClipInfo.ClipPath == full_clip_path)
                 {
                     ImGui::Indent();
                     ImGui::Indent();
-                    // TODO: grab data somewhere
-                    for (YAML::const_iterator it = FramesNode.begin(); it != FramesNode.end(); it++)
+                    for (const auto& [k, v] : FramesData)
                     {
-                        int FrameCount = it->first.as<int>();
-                        int N_Annotations = int(it->second.as<YAML::Node>().size());
+                        const int FrameCount = k;
+                        const int N_Annotations = int(v);
                         char buff[128];
                         snprintf(buff, sizeof(buff), "%d ...... (%d)", FrameCount, N_Annotations);
                         // open and setup annotation panel
                         if (ImGui::Selectable(buff, FrameCount == SelectedFrame))
                         {
                             // TODO: reload frames node here will crash... where should I move it?
+                            // TODO: crash if no image load yet (if open extractor first and it is fine...)
                             // UpdateFramesNode();
-                            Annotation::Get().Save();
-                            SelectedFrame = FrameCount;
-                            LoadFrame(SelectedFrame);
-                            Annotation::Get().Load();
-                            ImGui::SetWindowFocus("Annotation");
+                            if (Setting::Get().ActiveWorkspace == EWorkspace::Data)
+                            {
+                                Annotation::Get().Save();
+                                SelectedFrame = FrameCount;
+                                SelectedClipInfo.ClipPath = full_clip_path;
+                                LoadFrame(SelectedFrame);
+                                Annotation::Get().Load();
+                                ImGui::SetWindowFocus("Annotation");
+                            }
+                            else
+                            {
+                                SelectedFrame = FrameCount;
+                            }
                         }
                     }
                     ImGui::Unindent();
@@ -173,8 +177,13 @@ namespace IFCS
 
     void DataBrowser::UpdateFramesNode()
     {
-        YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"));
-        FramesNode = Node[SelectedClipInfo.ClipPath];
+        YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"))[
+            SelectedClipInfo.ClipPath];
+        // FramesNode =
+        for (YAML::const_iterator it = Node.begin(); it != Node.end(); ++it)
+        {
+            FramesData.insert({it->first.as<int>(), it->second.size()});
+        }
     }
 
     // TODO: incorrect edge behavior
@@ -182,9 +191,9 @@ namespace IFCS
     {
         std::queue<int> q;
         bool PrepareToStop = false;
-        for (YAML::const_iterator it = FramesNode.begin(); it != FramesNode.end(); ++it)
+        for (const auto& [k, v] : FramesData)
         {
-            int FrameNum = it->first.as<int>();
+            int FrameNum = k;
             q.push(FrameNum);
             if (q.size() > 3) q.pop();
             if (PrepareToStop) break;
@@ -235,6 +244,40 @@ namespace IFCS
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, frame.cols, frame.rows, 0, GL_RGBA,
                      GL_UNSIGNED_BYTE, frame.data);
         MakeFrameTitle();
+    }
+
+    std::vector<std::string> DataBrowser::GetAllClips() const
+    {
+        std::vector<std::string> Out;
+        for (const auto& p : std::filesystem::recursive_directory_iterator(
+                 Setting::Get().ProjectPath + std::string("/TrainingClips")))
+        {
+            if (!std::filesystem::is_directory(p))
+            {
+                
+                bool pass = false;
+                for (const std::string& Format : AcceptedClipsFormat)
+                {
+                    if (p.path().string().find(Format) != std::string::npos)
+                    {
+                        pass = true;
+                        break;
+                    }
+                }
+                if (pass)
+                {
+                    Out.push_back(p.path().filename().string());
+                }
+            }
+        }
+        return Out;
+    }
+
+    // TODO: finish this...
+    std::vector<std::string> DataBrowser::GetAllFolders() const
+    {
+        std::vector<std::string> Out;
+        return Out;
     }
 
     void DataBrowser::MakeFrameTitle()

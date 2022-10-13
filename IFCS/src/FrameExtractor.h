@@ -3,11 +3,11 @@
 #include "Panel.h"
 #include "ImguiNotify/font_awesome_5.h"
 
-// forward declare with namesapce...
-namespace cv
-{
-    class Mat;
-}
+// // forward declare with namesapce...
+// namespace cv
+// {
+//     class Mat;
+// }
 
 namespace IFCS
 {
@@ -36,6 +36,7 @@ namespace IFCS
         float TimelineDisplayStart = 0.f; // in pixel? .. nothing to do with real time stamp
         float TimelineDisplayEnd = 100.f; // in pixel? just an arbitrary value...
         int temp_TimelineIndex = -1;
+        int ValueToFrame(float ValueInTimeline) const;
         
         float TimelineZoom = 1.0f;  // 1 ~ 50
         float TimelinePan = 0.0f; // 0.0 ~ 1.0f

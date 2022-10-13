@@ -1,6 +1,7 @@
 ﻿#include "MainMenu.h"
 
 #include "Annotation.h"
+#include "Application.h"
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
 #include "FrameExtractor.h"
@@ -14,7 +15,6 @@
 #include "TrainingSetViewer.h"
 #include "Utils.h"
 #include "ImguiNotify/font_awesome_5.h"
-
 
 
 IFCS::MainMenu::~MainMenu()
@@ -32,17 +32,21 @@ void IFCS::MainMenu::Render()
             ImGui::MenuItem(LOCTEXT("ToolbarItem.ImportData"));
             ImGui::MenuItem(LOCTEXT("ToolbarItem.ExportData"));
             ImGui::Separator();
-            if (ImGui::MenuItem(LOCTEXT("ToolbarItem.Setting"),"", false, true))
+            if (ImGui::MenuItem(LOCTEXT("ToolbarItem.Setting")))
             {
-                OpenSetting();
+                // ImGui::OpenPopup("Setting");
+                Setting::Get().IsModalOpen = true;
+                spdlog::info("Setting popup is clicked...");
             }
             ImGui::Separator();
-            ImGui::MenuItem(LOCTEXT("ToolbarItem.Quit"));
+            if (ImGui::MenuItem(LOCTEXT("ToolbarItem.Quit")))
+            {
+                App->RequestToQuit = true;
+            }
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu(LOCTEXT("ToolbarMenu.Panels")))
         {
-            // TODO: more panels to add later...
             if (ImGui::BeginMenu(LOCTEXT("ToolbarMenu.Data")))
             {
                 if (ImGui::MenuItem("Annotation", "", Annotation::Get().GetVisibility()))
@@ -111,44 +115,16 @@ void IFCS::MainMenu::Render()
         ImGui::Text("|");
         if (ImGui::MenuItem(LOCTEXT("ToolbarMenu.WksData")))
         {
-            Annotation::Get().SetVisibility(true);
-            FrameExtractor::Get().SetVisibility(true);
-            CategoryManagement::Get().SetVisibility(true);
-            TrainingSetGenerator::Get().SetVisibility(false);
-            TrainingSetViewer::Get().SetVisibility(false);
-            ModelGenerator::Get().SetVisibility(false);
-            ModelViewer::Get().SetVisibility(false);
-            Prediction::Get().SetVisibility(false);
-            DataBrowser::Get().SetVisibility(true);
             Setting::Get().SetWorkspace(EWorkspace::Data);
-
         }
         ImGui::Text("|");
         if (ImGui::MenuItem(LOCTEXT("ToolbarMenu.WksTrain")))
         {
-            Annotation::Get().SetVisibility(false);
-            FrameExtractor::Get().SetVisibility(false);
-            CategoryManagement::Get().SetVisibility(false);
-            TrainingSetGenerator::Get().SetVisibility(true);
-            TrainingSetViewer::Get().SetVisibility(true);
-            ModelGenerator::Get().SetVisibility(true);
-            ModelViewer::Get().SetVisibility(true);
-            Prediction::Get().SetVisibility(false);
-            DataBrowser::Get().SetVisibility(true);
             Setting::Get().SetWorkspace(EWorkspace::Train);
         }
         ImGui::Text("|");
         if (ImGui::MenuItem(LOCTEXT("ToolbarMenu.WksPredict")))
         {
-            Annotation::Get().SetVisibility(false);
-            FrameExtractor::Get().SetVisibility(false);
-            CategoryManagement::Get().SetVisibility(false);
-            TrainingSetGenerator::Get().SetVisibility(false);
-            TrainingSetViewer::Get().SetVisibility(false);
-            ModelGenerator::Get().SetVisibility(false);
-            ModelViewer::Get().SetVisibility(false);
-            Prediction::Get().SetVisibility(true);
-            DataBrowser::Get().SetVisibility(true);
             Setting::Get().SetWorkspace(EWorkspace::Predict);
         }
         // very unlikely to add custom workspace... like blender...
@@ -160,6 +136,8 @@ void IFCS::MainMenu::Render()
     }
 }
 
-void IFCS::MainMenu::OpenSetting()
+void IFCS::MainMenu::SetApp(Application* InApp)
 {
+    App = InApp;
 }
+

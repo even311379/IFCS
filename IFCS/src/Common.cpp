@@ -53,7 +53,12 @@ namespace IFCS
     {
         YAML::Node OutNode;
         OutNode["CategoryID"] = std::to_string(CategoryID);
-        OutNode["XYWH"] = XYWH;
+        std::array<float, 4> ToSave = XYWH;
+        ToSave[0] /= WorkArea.x;
+        ToSave[1] /= WorkArea.y;
+        ToSave[2] /= WorkArea.x;
+        ToSave[3] /= WorkArea.y;
+        OutNode["XYWH"] = ToSave;
         return OutNode;
     }
 
@@ -61,6 +66,10 @@ namespace IFCS
     {
         CategoryID = InputNode["CategoryID"].as<uint64_t>();
         XYWH = InputNode["XYWH"].as<std::array<float, 4>>();
+        XYWH[0] *= WorkArea.x;
+        XYWH[1] *= WorkArea.y;
+        XYWH[2] *= WorkArea.x;
+        XYWH[3] *= WorkArea.y;
     }
 
     // TODO: XYWH is not saved as 0 ~ 1 format, but real pixel size now...

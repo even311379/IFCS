@@ -25,10 +25,12 @@ namespace IFCS
         Setting(Setting const&) = delete;
         void operator=(Setting const&) = delete;
 
+        void RenderModal();
         
         void LoadEditorIni();
         void LoadUserIni();
         void Save();
+        void Tick1();
         void CreateStartup();
         std::string ProjectPath;
         std::set<std::string> RecentProjects;
@@ -42,9 +44,20 @@ namespace IFCS
         ImFont* TitleFont;
 
         void SetWorkspace(EWorkspace NewWorkspace);
+
+        bool IsModalOpen;
+    private:
+        // modal  vars
+        int ThemeToUse = 0;
+        int LanguageToUse = 0;
+        int AppSizeToUse = 0;
+        int CustomWidth = 1280;
+        int CustomHeight = 720;
+        float WidgetResizeScale = 1.f;
+        float GlobalFontScaling = 1.f; 
         
-   // TODO: last edit frame and clip?     
         
     };
+   // TODO: last edit frame and clip?     
     
 }

@@ -25,31 +25,38 @@ namespace IFCS
     void CategoryManagement::RenderContent()
     {
         const float LineHeight = ImGui::GetTextLineHeightWithSpacing();
-        for (auto& [ID, Cat] : Data)
+        ImVec2 ChildWindowSize = ImGui::GetContentRegionAvail();
+        ChildWindowSize.y *= 0.92f;
+        ImGuiWindowFlags Flags = ImGuiWindowFlags_HorizontalScrollbar;
+        ImGui::BeginChild("CategoriesArea", ChildWindowSize, false, Flags);
         {
-            ImGui::PushID(int(ID));
-            // TODO: move a few pixel down for this eye button? it's just not aligned correctly
-            const char* VisibilityIcon = Cat.Visibility ? ICON_FA_EYE : ICON_FA_EYE_SLASH;
-            if (ImGui::InvisibleButton("##vis_btn", ImGui::CalcTextSize(VisibilityIcon)))
+            for (auto& [ID, Cat] : Data)
             {
-                Cat.Visibility = !Cat.Visibility;
+                ImGui::PushID(int(ID));
+                // TODO: move a few pixel down for this eye button? it's just not aligned correctly
+                const char* VisibilityIcon = Cat.Visibility ? ICON_FA_EYE : ICON_FA_EYE_SLASH;
+                if (ImGui::InvisibleButton("##vis_btn", ImGui::CalcTextSize(VisibilityIcon)))
+                {
+                    Cat.Visibility = !Cat.Visibility;
+                }
+                ImGui::SameLine();
+                ImGui::SetCursorPosX(ImGui::CalcTextSize(VisibilityIcon).x);
+                ImGui::Text(VisibilityIcon);
+                ImGui::SameLine();
+                ImGui::ColorEdit3("##cat_color_picker", (float*)&Cat.Color, ImGuiColorEditFlags_NoInputs);
+                ImGui::SameLine();
+                if (ImGui::Selectable(Cat.DisplayName.c_str(), ID == SelectedCatID, 0, {120, LineHeight}))
+                {
+                    SelectedCatID = ID;
+                }
+                ImGui::SameLine();
+                ImGui::Text("(%d/%d)", Cat.UsedCountInThisFrame, Cat.TotalUsedCount);
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("(use annotation in: this frame / all project)");
+                ImGui::PopID();
             }
-            ImGui::SameLine();
-            ImGui::SetCursorPosX(ImGui::CalcTextSize(VisibilityIcon).x);
-            ImGui::Text(VisibilityIcon);
-            ImGui::SameLine();
-            ImGui::ColorEdit3("##cat_color_picker", (float*)&Cat.Color, ImGuiColorEditFlags_NoInputs);
-            ImGui::SameLine();
-            if (ImGui::Selectable(Cat.DisplayName.c_str(), ID == SelectedCatID, 0, {120, LineHeight}))
-            {
-                SelectedCatID = ID;
-            }
-            ImGui::SameLine();
-            ImGui::Text("(%d/%d)", Cat.UsedCountInThisFrame, Cat.TotalUsedCount);
-            if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("(use annotation in: this frame / all project)");
-            ImGui::PopID();
         }
+        ImGui::EndChild();
         ImGui::Separator();
         ImGui::SetNextItemWidth(120);
         ImGui::InputText("##new cat name", NewCatName, IM_ARRAYSIZE(NewCatName));
@@ -70,6 +77,8 @@ namespace IFCS
         for (YAML::const_iterator it = Node.begin(); it != Node.end(); ++it)
         {
             Data[UUID(it->first.as<uint64_t>())] = FCategory(it->second.as<YAML::Node>());
+            if (it == Node.begin())
+                SelectedCatID = UUID(it->first.as<uint64_t>());
         }
     }
 

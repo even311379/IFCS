@@ -36,6 +36,9 @@ namespace IFCS
         std::vector<std::string> Split(const std::string& str, const char& delimiter);
 
         ImVec4 RandomPickColor(bool IsLight = true);
+
+        int RandomIntInRange(int Min, int Max);
+        bool RandomBool();
     }
 }
 
