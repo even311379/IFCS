@@ -15,6 +15,7 @@
 #include "Prediction.h"
 #include "TrainingSetGenerator.h"
 #include "TrainingSetViewer.h"
+#include "Spectrum/imgui_spectrum.h"
 #include "yaml-cpp/yaml.h"
 
 namespace IFCS
@@ -32,9 +33,17 @@ namespace IFCS
         {
             ImGui::BulletText("Choose Theme:");
             ImGui::SameLine();
-            ImGui::RadioButton("Light", &ThemeToUse, 0);
+            if (ImGui::RadioButton("Light", &ThemeToUse, 0))
+            {
+                Theme = ETheme::Light;
+                Spectrum::StyleColorsSpectrum();
+            }
             ImGui::SameLine();
-            ImGui::RadioButton("Dark", &ThemeToUse, 1);
+            if (ImGui::RadioButton("Dark", &ThemeToUse, 1))
+            {
+                Theme = ETheme::Dark;
+                Spectrum::StyleColorsSpectrum(false);
+            }
             ImGui::BulletText("Prefered Language:");
             ImGui::SameLine();
             // TODO: this is a static way... not considering future expansion yet...

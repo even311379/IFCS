@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include <array>
 #include <filesystem>
+#include <map>
+
 #include "Panel.h"
 
 
@@ -13,7 +15,7 @@ namespace IFCS
         MAKE_SINGLETON(DataBrowser)
         // void SynProjectData();
         FClipInfo SelectedClipInfo;
-        int SelectedFrame = -1;
+        int SelectedFrame = 0;
         void LoadOtherFrame(bool IsNext); // ture for next, false for previous
 
         std::string FrameTitle;
@@ -32,7 +34,7 @@ namespace IFCS
         void RecursiveClipTreeNodeGenerator(const std::filesystem::path& Path, unsigned int Depth);
         // TODO: remove this var.... 
         // YAML::Node FramesNode;
-        std::unordered_map<int, size_t> FramesData;
+        std::map<int, size_t> FramesData;
         void UpdateFramesNode();
         const std::array<std::string, 6> AcceptedClipsFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"};
         void MakeFrameTitle();

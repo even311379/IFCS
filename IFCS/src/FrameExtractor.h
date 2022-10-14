@@ -24,6 +24,7 @@ namespace IFCS
     private:
         // copied info
         FClipInfo ClipInfo;
+        bool ClipInfoIsLoaded = false;
         std::vector<int> Regions;
 
         // timeline from https://github.com/ocornut/imgui/issues/76#issuecomment-287739415 as template and modified a lot

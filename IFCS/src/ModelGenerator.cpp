@@ -10,6 +10,15 @@ namespace IFCS
 {
     void ModelGenerator::RenderContent()
     {
+        ImGui::InputText("##ToConda", CondaPath, IM_ARRAYSIZE(CondaPath), ImGuiInputTextFlags_ReadOnly);
+        ImGui::SameLine();
+        if (ImGui::Button("Choose Conda Path"))
+        {
+            
+        }
+        
+        
+        ImGui::Separator();
         // test get console output...
         ImGuiInputTextFlags Flags = ImGuiInputTextFlags_AllowTabInput;
         Flags |= ImGuiInputTextFlags_CtrlEnterForNewLine;

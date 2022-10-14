@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <set>
 #include <opencv2/core/mat.hpp>
 
 #include "Panel.h"
@@ -20,16 +21,22 @@ namespace IFCS
         void GenerateTrainingSet();
         void UpdatePreviewAugmentations();
         cv::Mat GenerateAugentationImage(cv::Mat InMat);
-        void IncludeGenClip(std::string InClip);
-        void IncludeGenFolder(std::string InFolder);
-        std::vector<std::string> IncludedGenClips;
-        std::vector<std::string> IncludedGenFolders;
+        void IncludeGenClip(const std::string& InClip);
+        void IncludeGenFolder(const std::string& InFolder);
+        std::set<std::string> IncludedGenClips;
+        std::set<std::string> IncludedGenFolders;
         int NumIncludedFrames = 0;
         int NumIncludedImages = 0; // leave for future update...
+        int TotalExportImages = 1;
+        int NumIncludedAnnotation = 0;
+        void UpdateExportInfo();
 
-        int TrainSplit = 85;
-        int TestSplit = 15;
-        int ValidSplit = 0;
+        void DrawSplitWidget();
+        float SplitControlPos1 = 0.75f;
+        float SplitControlPos2 = 0.90f;
+        float SplitPercent[3] = {75.f, 15.f, 10.f};
+        int SplitImgs[3] = {0, 0, 0};
+
         int SelectedResizeRule = 0;
         int NewSize[2] = {640, 360};
 
@@ -43,7 +50,7 @@ namespace IFCS
         bool bApplyHue;
         int HueAmount = 1;
         bool bApplyRotation;
-        int RotationAmount;
+        int MaxRotationAmount;
         bool bApplyFlipX;
         int FlipXPercent = 10;
         bool bApplyFlipY;
@@ -67,10 +74,9 @@ namespace IFCS
         unsigned int Var7;
         unsigned int Var8;
         unsigned int Var9;
-        
-        
+
+
         bool bApplyDefaultCategories = true;
         bool bApplySMOTE = false;
     };
-    
 }

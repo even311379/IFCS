@@ -18,7 +18,7 @@ namespace IFCS
         
     private:
         // TODO: make save when quit app
-        bool IsSaved = true; // use this to notify user?
+        bool IsCurrentFrameModified = false; // use this to notify user?
         // TODO: I can implement undo system with array of data...
         std::unordered_map<UUID, FAnnotation> Data;
         
@@ -31,7 +31,7 @@ namespace IFCS
         ImVec2 PanAmount;
         int ZoomLevel = 0;
         float GetZoom();
-        float GetZoom(int InZoom);
+        static float GetZoom(int InZoom);
         bool IsAdding = false;
         ImVec2 AddPointStart;
 

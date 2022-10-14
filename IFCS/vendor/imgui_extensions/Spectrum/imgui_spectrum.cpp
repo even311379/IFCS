@@ -263,6 +263,7 @@ namespace Spectrum
         }
     }
 
+    // Addition add one for button
     ImVec4 SEAFOAM(int weight, bool IsLight)
     {
         if (IsLight)
@@ -273,6 +274,7 @@ namespace Spectrum
             case 500: return ImGui::ColorConvertU32ToFloat4(Color(0x16878C));
             case 600: return ImGui::ColorConvertU32ToFloat4(Color(0xF7997D));
             case 700: return ImGui::ColorConvertU32ToFloat4(Color(0x098C6F));
+            case 1000: return {0 / 255.f, 99 / 255.f, 95 / 255.f, 1.f};
             default: return EMPTY();
             }
         }
@@ -282,6 +284,7 @@ namespace Spectrum
         case 500: return ImGui::ColorConvertU32ToFloat4(Color(0x20A3A8));
         case 600: return ImGui::ColorConvertU32ToFloat4(Color(0x23B2B8));
         case 700: return ImGui::ColorConvertU32ToFloat4(Color(0x26C0C7));
+        case 1000: return {93 / 255.f, 214 / 255.f, 207 / 255.f, 1.f};
         default: return EMPTY();
         }
     }
@@ -332,8 +335,8 @@ namespace Spectrum
         }
     }
 
-// TODO: change tab color (active /unfocused)
-    
+    // TODO: change tab color (active /unfocused)
+
     void StyleColorsSpectrum(bool is_light)
     {
         ImGuiStyle* style = &ImGui::GetStyle();
@@ -355,7 +358,7 @@ namespace Spectrum
         colors[ImGuiCol_FrameBgHovered] = GRAY(400, is_light);
         colors[ImGuiCol_FrameBgActive] = GRAY(500, is_light);
 
-        
+
         colors[ImGuiCol_TitleBg] = GRAY(300, is_light);
         // those titlebar values are totally made up, spectrum does not have this.
         colors[ImGuiCol_TitleBgActive] = GRAY(200, is_light);
@@ -369,16 +372,16 @@ namespace Spectrum
         colors[ImGuiCol_SliderGrab] = GRAY(700, is_light);
         colors[ImGuiCol_SliderGrabActive] = GRAY(800, is_light);
 
-        /* the default btn is way too bad..
-        colors[ImGuiCol_Button] = ImGui::ColorConvertU32ToFloat4(GRAY75); // match default button to Spectrum's 'Action Button'.
-        colors[ImGuiCol_ButtonHovered] = ImGui::ColorConvertU32ToFloat4(GRAY50);
-        colors[ImGuiCol_ButtonActive] = ImGui::ColorConvertU32ToFloat4(GRAY200);
-        */
+        // the default btn is way too bad..
+        // colors[ImGuiCol_Button] = GRAY(75, is_light); // match default button to Spectrum's 'Action Button'.
+        // colors[ImGuiCol_ButtonHovered] = GRAY(50, is_light);
+        // colors[ImGuiCol_ButtonActive] = GRAY(200, is_light);
+
         // change to seafoam 500, 600, 700
-        colors[ImGuiCol_Button] = SEAFOAM(700, is_light);
-        // match default button to Spectrum's 'Action Button'.
+        colors[ImGuiCol_Button] = SEAFOAM(400, is_light);
         colors[ImGuiCol_ButtonHovered] = SEAFOAM(600, is_light);
-        colors[ImGuiCol_ButtonActive] = SEAFOAM(500, is_light);
+        colors[ImGuiCol_ButtonActive] = SEAFOAM(700, is_light);
+        // match default button to Spectrum's 'Action Button'.
 
         colors[ImGuiCol_Header] = BLUE(400, is_light);
         colors[ImGuiCol_HeaderHovered] = BLUE(500, is_light);
@@ -399,7 +402,7 @@ namespace Spectrum
             colors[ImGuiCol_NavHighlight] = ImVec4(0.173f, 0.173f, 0.173f, 0.04f);
         else
             colors[ImGuiCol_NavHighlight] = ImVec4(1.0f, 1.0f, 1.0f, 0.04f);
-            
+
         colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
         colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.20f);
         colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.20f, 0.20f, 0.20f, 0.35f);

@@ -10,6 +10,11 @@ namespace IFCS
     protected:
         void RenderContent() override;
     private:
+        char CondaPath[128];
+
+
+
+        
         char Script[1024 * 16];
         std::string Exec(const char* cmd);
         bool RunSomething = false;

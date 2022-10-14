@@ -8,7 +8,7 @@ namespace IFCS
 {
     std::string FClipInfo::GetClipFileName() const
     {
-        std::vector<std::string> temp = Utils::Split(ClipPath, '\\');
+        std::vector<std::string> temp = Utils::Split(ClipPath, '/');
         return temp.back();
     }
 

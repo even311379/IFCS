@@ -1,10 +1,10 @@
 ﻿#include "FrameExtractor.h"
 
-// #include <GL/gl.h>
 
 #include <fstream>
 #include <numeric>
 #include <random>
+
 
 #include "Log.h"
 #include "Setting.h"
@@ -27,7 +27,9 @@ namespace IFCS
     void FrameExtractor::LoadData()
     {
         YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
-        ClipInfo = DataBrowser::Get().SelectedClipInfo; 
+        ClipInfo = DataBrowser::Get().SelectedClipInfo;
+        ClipInfoIsLoaded = true;
+        Regions.clear();
         if (Data[ClipInfo.ClipPath])
         {
             Regions = Data[ClipInfo.ClipPath].as<std::vector<int>>();
@@ -39,7 +41,7 @@ namespace IFCS
     {
 
         // spdlog::info("should not see me if I am docked behine...");
-        if (!DataBrowser::Get().AnyFrameLoaded) return;
+        if (!ClipInfoIsLoaded) return;
 
         std::string Title = DataBrowser::Get().FrameTitle;
         ImGui::PushFont(Setting::Get().TitleFont);
@@ -320,10 +322,10 @@ namespace IFCS
                 IsPlaying = false;
                 PlayIcon = ICON_FA_PLAY;
                 PlayProgress = (ImGui::GetMousePos().x - start.x) / (end.x - start.x) * TimelineDisplayEnd;
-                spdlog::info("mouse clicked in region...");
             }
             if (ImGui::IsMouseReleased(0))
             {
+                // TODO: will crash occasionally... why?
                 spdlog::info("Update frame view");
                 int CurrentFrameStart = int((float)ClipInfo.FrameCount / TimelineZoom * TimelinePan);
                 int CurrentFrameRange = int((float)ClipInfo.FrameCount / TimelineZoom * (1 - TimelinePan));
@@ -415,6 +417,7 @@ namespace IFCS
 
         if (NumFramesToExtract > MaxExtract)
             NumFramesToExtract = MaxExtract;
+        if (Regions.size() == 0) MaxExtract = 1;
         ImGui::DragInt("frames to ", &NumFramesToExtract, 1, 1, MaxExtract);
         ImGui::SameLine();
         if (ImGui::Button("Extract"))
@@ -465,9 +468,10 @@ namespace IFCS
     void FrameExtractor::PerformExtraction()
     {
         // save extraction range?
+        //// read old and override
         YAML::Node RegionToExtractData = YAML::LoadFile(
             Setting::Get().ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
-        // this should be enough!
+        RegionToExtractData[ClipInfo.ClipPath] = YAML::Node(YAML::NodeType::Sequence);
         for (int r : Regions)
             RegionToExtractData[ClipInfo.ClipPath].push_back(r);
         YAML::Emitter Out;
@@ -479,23 +483,19 @@ namespace IFCS
         // save extracted frames
         // concat ranges, suffle, slice... done?
         // concat with ordered unique frames
-        std::vector<int> PossibleFrames;
+        std::set<int> PossibleFrames;
         for (int R = 0; R < (int)Regions.size() / 2; R++)
         {
-            std::vector<int> v(Regions[R * 2 + 1] - Regions[R * 2]);
+            std::vector<int> v(Regions[R * 2 + 1] - Regions[R * 2] + 1);
             std::iota(v.begin(), v.end(), Regions[R * 2]);
-            PossibleFrames.insert(PossibleFrames.end(), v.begin(), v.end());
+            for (int i : v)
+                PossibleFrames.insert(i);
         }
-        std::sort(PossibleFrames.begin(), PossibleFrames.end()); // is sort required?
-        PossibleFrames.erase(std::unique(PossibleFrames.begin(), PossibleFrames.end()), PossibleFrames.end());
 
-        // shuffle
-        auto rd = std::random_device{};
-        auto rng = std::default_random_engine{rd()};
-        std::shuffle(std::begin(PossibleFrames), std::end(PossibleFrames), rng);
-        // subset ... and order again?
-        std::vector<int> ExtractedFrames = std::vector<int>(PossibleFrames.begin(),
-                                                            PossibleFrames.begin() + NumFramesToExtract);
+        // sample
+        std::vector<int> ExtractedFrames;
+        std::sample(PossibleFrames.begin(), PossibleFrames.end(), std::back_inserter(ExtractedFrames),
+            NumFramesToExtract, std::mt19937_64{std::random_device{}()});
         std::sort(ExtractedFrames.begin(), ExtractedFrames.end()); // is sort required?
 
         // write to YAML!

@@ -175,5 +175,16 @@ namespace IFCS
         {
             return RandomIntInRange(0, 1);
         }
+
+        auto Round(const float& InValue, const int& N_Digits) -> float
+        {
+            const float v = std::nearbyint(InValue * static_cast<float>(std::pow(10.f, N_Digits)));
+            return v / static_cast<float>(std::pow(10, N_Digits));
+        }
+
+        bool FloatCompare(float A, float B, float Tolerance)
+        {
+            return (std::fabs(A - B) < Tolerance);
+        }
     }
 }

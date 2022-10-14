@@ -73,6 +73,7 @@ namespace IFCS
                 {
                     ImVec2 Delta = ImGui::GetIO().MouseDelta / GetZoom();
                     Data[ID].Pan({Delta.x, Delta.y});
+                    IsCurrentFrameModified = true;
                 }
                 // resize top left
                 ResizeImpl(Win, EBoxCorner::TopLeft, TL, Color, IsMouseDragging, ID);
@@ -90,11 +91,10 @@ namespace IFCS
                 ImGui::SetCursorScreenPos(TrashPos);
                 if (ImGui::InvisibleButton("Trash", ImVec2(36, 36)))
                 {
-                    spdlog::info("Trash is clicked");
                     Trash(ID);
                 }
                 if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-                
+
                 // reassign
                 ImVec2 ReassignPos = TL - ImVec2(48, 36);
                 Win->DrawList->AddText(ImGui::GetFont(), 36.f, ReassignPos, Color,
@@ -106,7 +106,6 @@ namespace IFCS
                     Reassign(ID);
                 }
                 if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-                
             }
             ImGui::PopID();
         }
@@ -152,7 +151,7 @@ namespace IFCS
                 GetAbsRectMinMax(AddPointStart, ImGui::GetMousePos(), AbsMin, AbsMax);
                 std::array<float, 4> NewXYWH = MouseRectToXYWH(AbsMin, AbsMax);
                 Data[UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
-                IsSaved = false;
+                IsCurrentFrameModified = true;
             }
             if (ImGui::IsKeyPressed(ImGuiKey_W))
             {
@@ -216,10 +215,12 @@ namespace IFCS
 
     void Annotation::Save()
     {
+        if (!IsCurrentFrameModified) return;
         YAML::Node DataNode;
         for (const auto& [k,v] : Data)
             DataNode[std::to_string(k)] = v.Serialize();
 
+        // TODO: this make out of order, but it shouldn't...
         YAML::Node OutNode = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"));
         OutNode[DataBrowser::Get().SelectedClipInfo.ClipPath][std::to_string(DataBrowser::Get().SelectedFrame)] =
             DataNode;
@@ -228,7 +229,7 @@ namespace IFCS
         Out << OutNode;
         std::ofstream Fout(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"));
         Fout << Out.c_str();
-        IsSaved = true;
+        IsCurrentFrameModified = true;
     }
 
     void Annotation::Load()
@@ -243,26 +244,31 @@ namespace IFCS
     }
 
     void Annotation::ResizeImpl(ImGuiWindow* WinPtr, const EBoxCorner& WhichCorner, const ImVec2& InPos,
-        const ImU32& InColor, const bool& IsDragging, const UUID& InID)
+                                const ImU32& InColor, const bool& IsDragging, const UUID& InID)
     {
-        float CircleRadius = 9.f;
+        const float CircleRadius = 9.f;
         WinPtr->DrawList->AddCircleFilled(InPos, CircleRadius, InColor);
         ImGui::SetCursorScreenPos(InPos - ImVec2(CircleRadius, CircleRadius));
         std::string ResizeID;
         switch (WhichCorner)
         {
-        case EBoxCorner::TopLeft: ResizeID = "TopLeft"; break;
-        case EBoxCorner::BottomLeft: ResizeID = "BottomLeft"; break;
-        case EBoxCorner::BottomRight: ResizeID = "BottomRight"; break;
-        case EBoxCorner::TopRight: ResizeID = "TopRight"; break;
+        case EBoxCorner::TopLeft: ResizeID = "TopLeft";
+            break;
+        case EBoxCorner::BottomLeft: ResizeID = "BottomLeft";
+            break;
+        case EBoxCorner::BottomRight: ResizeID = "BottomRight";
+            break;
+        case EBoxCorner::TopRight: ResizeID = "TopRight";
+            break;
         }
         ImGui::InvisibleButton(ResizeID.c_str(), ImVec2(CircleRadius * 2, CircleRadius * 2));
-        bool IsResizeTLActive = ImGui::IsItemActive();
+        bool IsResizeActive = ImGui::IsItemActive();
         if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-        if (IsResizeTLActive && IsDragging)
+        if (IsResizeActive && IsDragging)
         {
             ImVec2 Delta = ImGui::GetIO().MouseDelta / GetZoom();
             Data[InID].Resize(WhichCorner, {Delta.x, Delta.y});
+            IsCurrentFrameModified = true;
         }
     }
 
@@ -276,6 +282,7 @@ namespace IFCS
     void Annotation::Trash(UUID ID)
     {
         ToTrashID = ID;
+        IsCurrentFrameModified = true;
     }
 
     float Annotation::GetZoom()

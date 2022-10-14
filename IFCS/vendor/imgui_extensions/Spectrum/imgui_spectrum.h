@@ -1,6 +1,8 @@
 #pragma once
 
 /*
+https://spectrum.adobe.com/page/color-palette/
+ 
 Color definitions in ImGui are a good starting point, 
 but do not cover all the intricacies of Spectrum's possible colors
 in controls and widgets. 

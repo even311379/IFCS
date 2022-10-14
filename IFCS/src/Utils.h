@@ -39,6 +39,8 @@ namespace IFCS
 
         int RandomIntInRange(int Min, int Max);
         bool RandomBool();
+        float Round(const float& InValue, const int& N_Digits);
+        bool FloatCompare(float A, float B, float Tolerance = 0.005f);
     }
 }
 

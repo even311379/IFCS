@@ -81,7 +81,7 @@ namespace IFCS
             if (std::filesystem::is_directory(entry.path()))
             {
                 using namespace std::string_literals;
-                std::string s = ICON_FA_FOLDER + " "s + entry.path().filename().string().c_str();
+                std::string s = ICON_FA_FOLDER + " "s + entry.path().filename().u8string().c_str();
                 if (ImGui::TreeNodeEx(s.c_str(), node_flags))
                 {
                     RecursiveClipTreeNodeGenerator(entry, Depth + 1);
@@ -104,22 +104,23 @@ namespace IFCS
                 {
                     ImGui::Indent();
                 }
-                std::string file_name = entry.path().filename().string();
-                std::string full_clip_path = entry.path().string();
-                std::replace(full_clip_path.begin(), full_clip_path.end(), '/', '\\');
-                if (ImGui::Selectable(file_name.c_str(), SelectedClipInfo.ClipPath == full_clip_path,
+                std::string ClipName = entry.path().filename().u8string();
+                std::string FullClipName = entry.path().u8string();
+                std::replace(FullClipName.begin(), FullClipName.end(), '\\', '/');
+                if (ImGui::Selectable(ClipName.c_str(), SelectedClipInfo.ClipPath == FullClipName,
                                       ImGuiSelectableFlags_AllowDoubleClick))
                 {
-                    SelectedClipInfo.ClipPath = full_clip_path;
+                    SelectedClipInfo.ClipPath = FullClipName;
+                    // TODO: first click is out of order?
                     UpdateFramesNode();
                     // Open and setup frame extraction
                     if (ImGui::IsMouseDoubleClicked(0) && Setting::Get().ActiveWorkspace == EWorkspace::Data)
                     {
                         char buff[128];
-                        snprintf(buff, sizeof(buff), "open %s to start frame extraction?", full_clip_path.c_str());
-                        LogPanel::Get().AddLog(ELogLevel::Info, buff);
+                        // snprintf(buff, sizeof(buff), "open %s to start frame extraction?", FullClipName.c_str());
+                        // LogPanel::Get().AddLog(ELogLevel::Info, buff);
                         ImGui::SetWindowFocus("Frame Extractor");
-                        LoadFrame(1);
+                        LoadFrame(0);
                         FrameExtractor::Get().LoadData();
                     }
                 }
@@ -128,12 +129,16 @@ namespace IFCS
                 {
                     if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
                     {
-                        ImGui::SetDragDropPayload("FolderOrClip", &full_clip_path, sizeof(int)); // for test now
-                        ImGui::Text("Drag something?");
+                        char Send[128];
+                        strcpy(Send, FullClipName.c_str());
+                        ImGui::SetDragDropPayload("FolderOrClip", &Send, sizeof(Send));
+                        // for test now
+                        ImGui::Text(Send);
                         ImGui::EndDragDropSource();
                     }
                 }
-                if (SelectedClipInfo.ClipPath == full_clip_path)
+                if (SelectedClipInfo.ClipPath == FullClipName && Setting::Get().ActiveWorkspace == EWorkspace::Data)
+                // only show frames in data workspace
                 {
                     ImGui::Indent();
                     ImGui::Indent();
@@ -148,20 +153,12 @@ namespace IFCS
                         {
                             // TODO: reload frames node here will crash... where should I move it?
                             // TODO: crash if no image load yet (if open extractor first and it is fine...)
-                            // UpdateFramesNode();
-                            if (Setting::Get().ActiveWorkspace == EWorkspace::Data)
-                            {
-                                Annotation::Get().Save();
-                                SelectedFrame = FrameCount;
-                                SelectedClipInfo.ClipPath = full_clip_path;
-                                LoadFrame(SelectedFrame);
-                                Annotation::Get().Load();
-                                ImGui::SetWindowFocus("Annotation");
-                            }
-                            else
-                            {
-                                SelectedFrame = FrameCount;
-                            }
+                            Annotation::Get().Save();
+                            SelectedFrame = FrameCount;
+                            SelectedClipInfo.ClipPath = FullClipName;
+                            LoadFrame(SelectedFrame);
+                            Annotation::Get().Load();
+                            ImGui::SetWindowFocus("Annotation");
                         }
                     }
                     ImGui::Unindent();
@@ -177,9 +174,9 @@ namespace IFCS
 
     void DataBrowser::UpdateFramesNode()
     {
+        FramesData.clear();
         YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"))[
             SelectedClipInfo.ClipPath];
-        // FramesNode =
         for (YAML::const_iterator it = Node.begin(); it != Node.end(); ++it)
         {
             FramesData.insert({it->first.as<int>(), it->second.size()});
@@ -202,7 +199,6 @@ namespace IFCS
         }
         if (q.size() == 2) // in case that selected frame is the first or last frame;
             return;
-        // UpdateFramesNode();
         Annotation::Get().Save();
         if (IsNext) SelectedFrame = q.back();
         else SelectedFrame = q.front();
@@ -246,6 +242,7 @@ namespace IFCS
         MakeFrameTitle();
     }
 
+    // TODO: remove project path for better looking?
     std::vector<std::string> DataBrowser::GetAllClips() const
     {
         std::vector<std::string> Out;
@@ -254,7 +251,6 @@ namespace IFCS
         {
             if (!std::filesystem::is_directory(p))
             {
-                
                 bool pass = false;
                 for (const std::string& Format : AcceptedClipsFormat)
                 {
@@ -266,7 +262,9 @@ namespace IFCS
                 }
                 if (pass)
                 {
-                    Out.push_back(p.path().filename().string());
+                    std::string full_path = p.path().u8string();
+                    std::replace(full_path.begin(), full_path.end(), '\\', '/');
+                    Out.push_back(full_path);
                 }
             }
         }
