@@ -22,6 +22,14 @@ namespace IFCS
         return &Data[SelectedCatID];
     }
 
+    std::vector<UUID> CategoryManagement::GetRegisterCIDs() const
+    {
+        std::vector<UUID> Out;
+        for (auto& [k,v] : Data)
+            Out.push_back(k);
+        return Out;
+    }
+
     void CategoryManagement::RenderContent()
     {
         const float LineHeight = ImGui::GetTextLineHeightWithSpacing();

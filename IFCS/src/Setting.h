@@ -25,6 +25,7 @@ namespace IFCS
         Setting(Setting const&) = delete;
         void operator=(Setting const&) = delete;
 
+
         void RenderModal();
         
         void LoadEditorIni();
@@ -46,6 +47,13 @@ namespace IFCS
         void SetWorkspace(EWorkspace NewWorkspace);
 
         bool IsModalOpen;
+        std::string CondaPath;
+        std::string YoloV7Path;
+        std::string PythonEnv;
+        char TempCondaPath[128];
+        char TempYoloV7Path[128];
+        char TempPythonEnv[128];
+        bool IsYoloEnvSet() const;
     private:
         // modal  vars
         int ThemeToUse = 0;
@@ -54,9 +62,12 @@ namespace IFCS
         int CustomWidth = 1280;
         int CustomHeight = 720;
         float WidgetResizeScale = 1.f;
-        float GlobalFontScaling = 1.f; 
+        float GlobalFontScaling = 1.f;
         
         
+        
+        void DownloadYoloV7();
+        void CreateEnv();
     };
    // TODO: last edit frame and clip?     
     

@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <array>
 #include <string>
+#include <unordered_map>
 
 #include "imgui.h"
 #include "UUID.h"
@@ -103,9 +104,23 @@ namespace IFCS
         TopRight = 3
     };
     
+    struct FAnnotationShiftData
+    {
+        int RotationDegree = 0;
+        bool IsFlipX = false;
+        bool IsFlipY = false;
+
+        FAnnotationShiftData() = default;
+
+        FAnnotationShiftData(const int& InRD, const bool& InFx, const bool& InFy)
+            : RotationDegree(InRD), IsFlipX(InFx), IsFlipY(InFy)
+        {
+        }
+    };
+    
     struct FAnnotation
     {
-        FAnnotation(){}
+        FAnnotation()=default;
         FAnnotation(UUID InCategory, std::array<float, 4> InXYWH); // contruct when new annotation is created
         FAnnotation(YAML::Node InputNode); // construct from yaml
         
@@ -116,5 +131,6 @@ namespace IFCS
         void Deserialize(YAML::Node InputNode);
         void Pan(std::array<float, 2> Changed);
         void Resize(EBoxCorner WhichCorner, std::array<float, 2> Changed);
+        std::string GetExportTxt( std::unordered_map< UUID, int>& CategoryChecker, const FAnnotationShiftData& InShiftData) const;
     };
 }

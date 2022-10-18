@@ -41,6 +41,9 @@ namespace IFCS
         bool RandomBool();
         float Round(const float& InValue, const int& N_Digits);
         bool FloatCompare(float A, float B, float Tolerance = 0.005f);
+
+        // Getter for the old Combo() API: "item1\0item2\0item3\0" // copy form imgui_widgets.cpp 1817 (an internal impl function)
+        bool Items_SingleStringGetter(const char* data, int idx, const char* out_text);
     }
 }
 
@@ -52,7 +55,6 @@ namespace IFCS
         return singleton; \
     }\
     class_name(class_name const&) = delete;\
-    void operator=(class_name const&) = delete;\
-    
+    void operator=(class_name const&) = delete;
 
 #define LOCTEXT(key) Utils::GetLocText(key).c_str()

@@ -186,5 +186,25 @@ namespace IFCS
         {
             return (std::fabs(A - B) < Tolerance);
         }
+
+        bool Items_SingleStringGetter(const char* data, int idx, const char* out_text)
+        {
+            // FIXME-OPT: we could pre-compute the indices to fasten this. But only 1 active combo means the waste is limited.
+            const char* items_separated_by_zeros = data;
+            int items_count = 0;
+            const char* p = items_separated_by_zeros;
+            while (*p)
+            {
+                if (idx == items_count)
+                    break;
+                p += strlen(p) + 1;
+                items_count++;
+            }
+            if (!*p)
+                return false;
+            if (out_text)
+                out_text = p;
+            return true;
+        }
     }
 }

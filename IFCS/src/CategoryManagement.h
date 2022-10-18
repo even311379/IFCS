@@ -15,6 +15,7 @@ namespace IFCS
         std::unordered_map<UUID, FCategory> Data;
         FCategory* GetSelectedCategory();
         UUID SelectedCatID = 0;
+        std::vector<UUID> GetRegisterCIDs() const;
     protected:
         void RenderContent() override;
 

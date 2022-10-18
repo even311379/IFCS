@@ -222,7 +222,7 @@ namespace IFCS
             ImGui::BulletText("Project Location:");
             ImGui::SameLine();
             ImGui::SetNextItemWidth(400);
-            ImGui::InputText("##hidden", TempProjectLocation, IM_ARRAYSIZE(TempProjectLocation));
+            ImGui::InputText("##hidden", TempProjectLocation, IM_ARRAYSIZE(TempProjectLocation), ImGuiInputTextFlags_ReadOnly);
             ImGui::SameLine();
             if (ImGui::Button("Choose Project"))
             {

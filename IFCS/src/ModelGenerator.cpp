@@ -1,50 +1,97 @@
 ﻿#include "ModelGenerator.h"
+
+#include <fstream>
+#include <future>
+#include <thread>
 #include <iostream>
-#include <stdio.h>
 #include <string>
 
-#include "Spectrum/imgui_spectrum.h"
-
+#include "Setting.h"
+#include "ImFileDialog/ImFileDialog.h"
 
 namespace IFCS
 {
+    static std::string RunResult;
+
     void ModelGenerator::RenderContent()
     {
-        ImGui::InputText("##ToConda", CondaPath, IM_ARRAYSIZE(CondaPath), ImGuiInputTextFlags_ReadOnly);
-        ImGui::SameLine();
-        if (ImGui::Button("Choose Conda Path"))
+        // TODO: migrate these env setup to settings?
+
+        if (Setting::Get().IsYoloEnvSet())
         {
-            
+            // model select
+            ImGui::Combo("Choose Model", &SelectedModelIndex, ModelOptions);
+            // if (!CheckWeightHasDownloaded())
+            // {
+            //     // TODO: need to test it! ... test failure
+            //     const char* T;
+            //     Utils::Items_SingleStringGetter(ModelOptions, SelectedModelIndex, T);
+            //     ImGui::Text("%s is missing!", T);
+            //     ImGui::Button("Download Weight");
+            // }
+            // data select
+
+            // TODO: will crash here since avail training set is empty...
+            // if (ImGui::BeginCombo("Choose Training Set", AvailTrainingSets[SelectedSetIdx].c_str()))
+            // {
+            //     for (size_t i = 0; i < AvailTrainingSets.size(); i++)
+            //     {
+            //         if (ImGui::Selectable(AvailTrainingSets[i].c_str(), i == SelectedSetIdx))
+            //         {
+            //             SelectedSetIdx = i;
+            //         }
+            //     }
+            //     ImGui::EndCombo();
+            // }
+
+            // epoch
+            ImGui::DragInt("Num Epoch", &Epoch, 1, 1, 300);
+            // batch size
+            ImGui::DragInt("Num batch size", &BatchSize, 1, 2, 128);
+            // Image size
+            ImGui::DragInt("Image Width", &ImageWidth, 1, 32, MaxImageSize[0]);
+            ImGui::SameLine();
+            ImGui::DragInt("Image Height", &ImageHeight, 1, 32, MaxImageSize[1]);
+            ImGui::Text("About to run: ");
+            // ImGui::InputTextMultiline();
+            if (ImGui::Button("Start Training", ImVec2(-1, 0)))
+            {
+                Training();
+            }
         }
-        
-        
+        else
+        {
+            ImGui::Text("Yolo V7 Environment not setup yet!");
+        }
         ImGui::Separator();
-        // test get console output...
-        ImGuiInputTextFlags Flags = ImGuiInputTextFlags_AllowTabInput;
-        Flags |= ImGuiInputTextFlags_CtrlEnterForNewLine;
-        ImGui::InputTextMultiline("Script", Script, IM_ARRAYSIZE(Script), ImVec2(-FLT_MIN, ImGui::GetTextLineHeight()*8), Flags);
-        if (ImGui::Button("Test Exec"))
+        ImGui::Text("Training Log:");
+        ImGui::BeginChildFrame(ImGui::GetID("TrainingLog"), ImVec2(0, 0));
+        ImGui::TextWrapped("%s", RunResult.c_str());
+        ImGui::EndChildFrame();
+    }
+
+
+    bool ModelGenerator::CheckWeightHasDownloaded()
+    {
+        return false;
+    }
+
+    static void Exec(const char* cmd, bool ShouldClearResult)
+    {
+        std::shared_ptr<FILE> pipe(_popen(cmd, "r"), _pclose);
+        char buffer[1024];
+        if (ShouldClearResult) RunResult = "";
+        while (!feof(pipe.get()))
         {
-            RunResult = Exec(Script);
-            RunSomething = true;
-        }
-        if (RunSomething)
-        {
-            ImGui::TextColored(Spectrum::YELLOW(), RunResult.c_str());
+            if (fgets(buffer, 1024, pipe.get()) != NULL)
+                RunResult.append(buffer);
         }
     }
 
-    std::string ModelGenerator::Exec(const char* cmd)
+
+    void ModelGenerator::Training()
     {
-        std::shared_ptr<FILE> pipe(_popen(cmd, "r"), _pclose);
-        if (!pipe) return "ERROR";
-        char buffer[128];
-        std::string result = "";
-        while (!feof(pipe.get()))
-        {
-            if (fgets(buffer, 128, pipe.get()) != NULL)
-                result += buffer;
-        }
-        return result;
+        std::thread t1(Exec, "SubTest.bat", true);
+        t1.detach();
     }
 }

@@ -130,4 +130,24 @@ namespace IFCS
         XYWH[0] += Changed[0] / 2;
         XYWH[1] += Changed[1] / 2;
     }
+
+
+    std::string FAnnotation::GetExportTxt( std::unordered_map< UUID, int>& CategoryChecker,
+        const FAnnotationShiftData& InShiftData) const
+    {
+        // TODO: ignore shift data for now... MUST add later...
+        std::array<float, 4> ToShift = XYWH;
+        ToShift[0]/=WorkArea.x;
+        ToShift[1]/=WorkArea.y;
+        ToShift[2]/=WorkArea.x;
+        ToShift[3]/=WorkArea.y;
+
+        std::string OutString = std::to_string(CategoryChecker[CategoryID]);
+        for (int i=0;i<4;i++)
+        {
+            OutString += " " + std::to_string(ToShift[i]);
+        }
+        return OutString;
+    }
+
 }

@@ -255,5 +255,23 @@ namespace IFCS
 			ifd::FileDialog::Instance().Close();
 			WelcomeModal::Get().IsChoosingFolder = false;
 		}
+		if (ifd::FileDialog::Instance().IsDone("ChooseCondaFolder")) {
+			if (ifd::FileDialog::Instance().HasResult()) {
+				std::string RawString = ifd::FileDialog::Instance().GetResult().string();
+				std::replace(RawString.begin(), RawString.end(), '\\', '/');
+				strcpy(Setting::Get().TempCondaPath, RawString.c_str());
+				Setting::Get().CondaPath = RawString;
+			}
+			ifd::FileDialog::Instance().Close();
+		}
+		if (ifd::FileDialog::Instance().IsDone("ChooseYoloV7Folder")) {
+			if (ifd::FileDialog::Instance().HasResult()) {
+				std::string RawString = ifd::FileDialog::Instance().GetResult().string();
+				std::replace(RawString.begin(), RawString.end(), '\\', '/');
+				strcpy(Setting::Get().TempYoloV7Path, RawString.c_str());
+				Setting::Get().YoloV7Path = RawString;
+			}
+			ifd::FileDialog::Instance().Close();
+		}
     }
 }

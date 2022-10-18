@@ -1,16 +1,14 @@
 ﻿#pragma once
 #include <set>
+#include <opencv2/videoio.hpp>
 #include <opencv2/core/mat.hpp>
-
 #include "Panel.h"
 
-// namespace cv
-// {
-//     class Mat;    
-// }
 
 namespace IFCS
 {
+
+    
     class TrainingSetGenerator : public Panel
     {
     protected:
@@ -19,8 +17,12 @@ namespace IFCS
         MAKE_SINGLETON(TrainingSetGenerator)
     private:
         void GenerateTrainingSet();
+        // void GenerateImgTxt(const std::string& Path, int FrameNum, const char* GenName, bool IsOriginal = true,
+        //                     const char* SplitName = "Train", bool IsFromClip = true);
+        void GenerateImgTxt(cv::VideoCapture& Cap, int FrameNum, const std::vector<FAnnotation>& InAnnotations, const char* GenName, bool IsOriginal = true,
+                            const char* SplitName = "Train");
         void UpdatePreviewAugmentations();
-        cv::Mat GenerateAugentationImage(cv::Mat InMat);
+        cv::Mat GenerateAugentationImage(cv::Mat InMat, FAnnotationShiftData& OutShift);
         void IncludeGenClip(const std::string& InClip);
         void IncludeGenFolder(const std::string& InFolder);
         std::set<std::string> IncludedGenClips;
@@ -31,14 +33,15 @@ namespace IFCS
         int NumIncludedAnnotation = 0;
         void UpdateExportInfo();
 
+        // TODO: Need to study train / valid / test again. make sure I understand 100% where they are used in deep learning?
         void DrawSplitWidget();
-        float SplitControlPos1 = 0.75f;
+        float SplitControlPos1 = 0.80f;
         float SplitControlPos2 = 0.90f;
-        float SplitPercent[3] = {75.f, 15.f, 10.f};
+        float SplitPercent[3] = {80.f, 10.f, 10.f};
         int SplitImgs[3] = {0, 0, 0};
 
         int SelectedResizeRule = 0;
-        int NewSize[2] = {640, 360};
+        int NewSize[2] = {720, 405};
 
         bool bApplyBlur;
         int MaxBlurAmount = 1;
@@ -78,5 +81,7 @@ namespace IFCS
 
         bool bApplyDefaultCategories = true;
         bool bApplySMOTE = false;
+        std::unordered_map<UUID, int> CategoryExportData;
+        std::vector<std::string> ExportedCategories;
     };
 }

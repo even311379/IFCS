@@ -1,4 +1,9 @@
 ﻿#include "TrainingSetGenerator.h"
+
+#include <fstream>
+#include <numeric>
+#include <random>
+
 #include "DataBrowser.h"
 #include "Setting.h"
 
@@ -6,6 +11,7 @@
 #include <GLFW/glfw3.h>
 #include <yaml-cpp/node/node.h>
 
+#include "CategoryManagement.h"
 #include "imgui_internal.h"
 #include "ImguiNotify/font_awesome_5.h"
 #include "Implot/implot.h"
@@ -24,8 +30,8 @@
         ImGui::SameLine(); \
         ImGui::PopID();
 
-#define MAKE_GUI_IMG(n)\
-    cv::Mat Mat##n = GenerateAugentationImage(Lena);\
+#define MAKE_GUI_IMG(n, f)\
+    cv::Mat Mat##n = GenerateAugentationImage(Lena, ##f);\
     glGenTextures(1, &Var##n);\
     glBindTexture(GL_TEXTURE_2D, Var##n);\
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);\
@@ -55,7 +61,10 @@ namespace IFCS
                     float HalfWidth = ImGui::GetContentRegionAvail().x * 0.5f;
                     ImGui::BeginChildFrame(ImGui::GetID("Included Contents"), FrameSize, ImGuiWindowFlags_NoMove);
                     for (const std::string& Clip : IncludedGenClips)
-                        ImGui::Text(Clip.c_str());
+                    {
+                        std::string s = Clip.substr(Setting::Get().ProjectPath.size() + 1);
+                        ImGui::Text(s.c_str());
+                    }
                     ImGui::EndChildFrame();
                     if (ImGui::BeginDragDropTarget()) // for the previous item? 
                     {
@@ -132,7 +141,7 @@ namespace IFCS
 
                     ImGui::TreePop();
                 }
-                if (ImGui::TreeNode("Train / Test Split"))
+                if (ImGui::TreeNode("Train / Valid / Test Split"))
                 {
                     DrawSplitWidget();
                     ImGui::TreePop();
@@ -169,10 +178,8 @@ namespace IFCS
                         ImGui::Checkbox("Add Noise?", &bApplyNoise);
                         if (bApplyNoise)
                         {
-                            ImGui::SliderInt("Noise Mean Min", &NoiseMeanMin, 0, 50, "%d %");
-                            ImGui::SliderInt("Noise Mean Max", &NoiseMeanMax, 0, 50, "%d %");
-                            ImGui::SliderInt("Noise Std Min", &NoiseStdMin, 0, 50, "%d %");
-                            ImGui::SliderInt("Noise Std Max", &NoiseStdMax, 0, 50, "%d %");
+                            ImGui::DragIntRange2("Noise Mean", &NoiseMeanMin, &NoiseMeanMax, 0, 50);
+                            ImGui::DragIntRange2("Noise Std", &NoiseStdMin, &NoiseStdMax, 0, 50);
                         }
                         ImGui::TreePop();
                     }
@@ -233,15 +240,18 @@ namespace IFCS
                 const ImVec2 FrameSize = ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 9);
                 ImGui::BeginChildFrame(ImGui::GetID("ExportSummary"), FrameSize, ImGuiWindowFlags_NoMove);
                 ImGui::BulletText("Total images to export: %d", TotalExportImages);
-                ImGui::BulletText("Train / Test / Valid split: %.0f : %.0f : %.0f", SplitPercent[0], SplitPercent[1], SplitPercent[2]);
+                ImGui::BulletText("Train / Valid / Test split: %.0f : %.0f : %.0f", SplitPercent[0], SplitPercent[1],
+                                  SplitPercent[2]);
                 ImGui::BulletText("Resize to: %d x %d", NewSize[0], NewSize[1]);
-                ImGui::BulletText("Augmentation: %d", NumIncludedAnnotation);
+                ImGui::BulletText("Augmentation:");
                 ImGui::Indent();
                 if (bApplyBlur) ImGui::Text("Random blur up to %d", MaxBlurAmount);
-                if (bApplyNoise) ImGui::Text("Random noise (mean: %d ~ %d ,std: %d ~ %d.", NoiseMeanMin, NoiseMeanMax, NoiseStdMin, NoiseStdMax);
+                if (bApplyNoise)
+                    ImGui::Text("Random noise (mean: %d ~ %d ,std: %d ~ %d.", NoiseMeanMin, NoiseMeanMax,
+                                NoiseStdMin, NoiseStdMax);
                 if (bApplyHue) ImGui::Text("Random Hue shift for -%d ~ %d", HueAmount, HueAmount);
                 if (bApplyFlipX) ImGui::Text("%d %% images will flip in x axis.", FlipXPercent);
-                if (bApplyFlipY) ImGui::Text("%d %% images will flip in y axis.", FlipYPercent); 
+                if (bApplyFlipY) ImGui::Text("%d %% images will flip in y axis.", FlipYPercent);
                 if (bApplyRotation) ImGui::Text("Random rotation -%d ~ %d", MaxRotationAmount, MaxRotationAmount);
                 ImGui::Unindent();
                 ImGui::BulletText("Category: Undex yet...");
@@ -288,12 +298,14 @@ namespace IFCS
             ImGui::InputText("##Training Set Name", NewTrainingSetName, IM_ARRAYSIZE(NewTrainingSetName));
             ImGui::SameLine();
             ImGui::SetNextItemWidth(60.f);
-            ImGui::SliderInt("Duplicate Times", &DuplicateTimes, 1, 100);
+            ImGui::DragInt("Duplicate Times", &DuplicateTimes, 1, 1,10);
             ImGui::SameLine();
             if (ImGui::Button("Generate"))
             {
                 GenerateTrainingSet();
             }
+            ImGui::Text("Total Generation: %d (Train %d x %d)/%d (Valid)/%d (Test)",
+                SplitImgs[0] * DuplicateTimes + SplitImgs[1] + SplitImgs[2], SplitImgs[0], DuplicateTimes, SplitImgs[1], SplitImgs[2]);
         }
         ImGui::EndGroup();
         ExportWidgetGropWidth = ImGui::GetItemRectSize().x;
@@ -301,16 +313,153 @@ namespace IFCS
 
     void TrainingSetGenerator::GenerateTrainingSet()
     {
+        if (std::strlen(NewTrainingSetName) == 0) return;
         // create folders and description files
+        const std::string ProjectPath = Setting::Get().ProjectPath;
+        std::filesystem::create_directories(ProjectPath + "/Data/" + NewTrainingSetName);
+        std::string SplitName[3] = {"train", "valid", "test"};
+        std::string TypeName[2] = {"images", "labels"};
+        for (const auto& s : SplitName)
+        {
+            std::filesystem::create_directories(ProjectPath + "/Data/" + NewTrainingSetName + "/" + s);
+            for (const auto& t : TypeName)
+            {
+                std::filesystem::create_directories(ProjectPath + "/Data/" + NewTrainingSetName + "/" + s + "/" + t);
+            }
+        }
+          // write readme.txt (export time, where it is from, some export settings?)
+        std::ofstream ofs;
+        ofs.open(ProjectPath + "/Data/" + NewTrainingSetName + "/IFCS.README.txt");
+        if (ofs.is_open())
+        {
+            ofs << "Generated from IFCS" << std::endl;
+            // TODO: add this line will make the whole file become binary format... so strange... c++ rocks~
+            // ofs << std::string(Utils::GetCurrentTimeString()) << std::endl;
+        }
+        ofs.close();
+        //write data file for yolo
+        ofs.open(ProjectPath + "/Data/" + NewTrainingSetName + "/" + NewTrainingSetName + ".yaml");
+        if (ofs.is_open())
+        {
+            ofs << "train: " << ProjectPath + "/Data/" + NewTrainingSetName + "/train/images" << std::endl;
+            ofs << "valid: " << ProjectPath + "/Data/" + NewTrainingSetName + "/valid/images" << std::endl;
+            ofs << "test: " << ProjectPath + "/Data/" + NewTrainingSetName + "/test/images" << std::endl << std::endl;
+            ofs << "nc: " << ExportedCategories.size() << std::endl;
+            ofs << "names: [";
+            for (const std::string& Cat : ExportedCategories)
+            {
+                ofs << "'" << Cat << "'";
+                if (Cat != ExportedCategories[ExportedCategories.size() - 1])
+                    ofs << ", ";
+            }
+            ofs << "]" << std::endl;
+        }
+        ofs.close();
+        // save export setting
 
+        // Category... so far let everyone to be 0  //TODO: need make it proper later
+        CategoryExportData.clear();
+        for (UUID CID : CategoryManagement::Get().GetRegisterCIDs())
+        {
+            CategoryExportData[CID] = 0;
+        }
 
-        // random choose valid, train, test based on options
+        // random choose train, valid, test based on options
+        std::vector<int> RemainIdx(TotalExportImages);
+        std::vector<int> TrainingIdx, ValidIdx;
+        auto rnd = std::mt19937_64{std::random_device{}()};
+        std::iota(std::begin(RemainIdx), std::end(RemainIdx), 0);
+        std::sample(RemainIdx.begin(), RemainIdx.end(), std::back_inserter(TrainingIdx), SplitImgs[0], rnd);
+        std::sort(TrainingIdx.begin(), TrainingIdx.end());
+        auto NewEnd = std::remove_if(RemainIdx.begin(), RemainIdx.end(), [=](const int& i)
+        {
+            return std::find(TrainingIdx.begin(), TrainingIdx.end(), i) != TrainingIdx.end();
+        });
+        RemainIdx.erase(NewEnd, RemainIdx.end());
+        std::sample(RemainIdx.begin(), RemainIdx.end(), std::back_inserter(ValidIdx), SplitImgs[1], rnd);
+        std::sort(ValidIdx.begin(), ValidIdx.end());
+        NewEnd = std::remove_if(RemainIdx.begin(), RemainIdx.end(), [=](const int& i)
+        {
+            return std::find(ValidIdx.begin(), ValidIdx.end(), i) != ValidIdx.end();
+        });
+        RemainIdx.erase(NewEnd, RemainIdx.end());
+        std::vector<int> TestIdx = RemainIdx;
 
-        // implement resize and export them
+        // distribute train / valid / test and generate .jpg .txt to folders
+        // only include frames with at least 1 annotation...
+        int N = 0;
+        YAML::Node Data = YAML::LoadFile(ProjectPath + "/Data/Annotation.yaml");
+        for (const std::string& Clip : IncludedGenClips)
+        {
+            cv::VideoCapture Cap(Clip);
+            for (YAML::const_iterator it = Data[Clip].begin(); it != Data[Clip].end(); ++it)
+            {
+                if (it->second.size() == 0) continue;
+                int FrameNum = it->first.as<int>();
+                std::string GenName = Clip.substr(ProjectPath.size() + 1) + "_" + std::to_string(FrameNum);
+                std::replace(GenName.begin(), GenName.end(), '/', '-');
+                std::vector<FAnnotation> Annotations;
+                YAML::Node Node = it->second.as<YAML::Node>();
+                for (YAML::const_iterator A = Node.begin(); A!=Node.end();++A )
+                    Annotations.push_back(FAnnotation(A->second.as<YAML::Node>()));
 
-        // Should always keep origin version
-        // generate augmentation duplicates
-        // for each image name...
+                if (std::find(TrainingIdx.begin(), TrainingIdx.end(), N) != TrainingIdx.end())
+                {
+                    // gen original version
+                    GenerateImgTxt(Cap, FrameNum, Annotations, GenName.c_str(), true, "Train");
+
+                    // gen augment version
+                    for (int i = 0; i < DuplicateTimes - 1; i++)
+                    {
+                        GenerateImgTxt(Cap, FrameNum, Annotations, (GenName + "_aug_" + std::to_string(i)).c_str(),
+                                       false, "Train");
+                    }
+                }
+                else if (std::find(ValidIdx.begin(), ValidIdx.end(), N) != ValidIdx.end())
+                {
+                    GenerateImgTxt(Cap, FrameNum, Annotations, GenName.c_str(), true, "Valid");
+                }
+                else
+                {
+                    GenerateImgTxt(Cap, FrameNum, Annotations, GenName.c_str(), true, "Test");
+                }
+                N++;
+            }
+            Cap.release();
+        }
+    }
+
+    // TODO: for clip only...
+    void TrainingSetGenerator::GenerateImgTxt(cv::VideoCapture& Cap, int FrameNum,
+                                              const std::vector<FAnnotation>& InAnnotations, const char* GenName,
+                                              bool IsOriginal, const char* SplitName)
+    {
+        const std::string OutImgName = Setting::Get().ProjectPath + "/Data/" + NewTrainingSetName + "/" + SplitName +
+            "/images/" + GenName + ".jpg";
+        const std::string OutTxtName = Setting::Get().ProjectPath + "/Data/" + NewTrainingSetName + "/" + SplitName +
+            "/labels/" + GenName + ".txt";
+        cv::Mat Frame;
+        Cap.set(cv::CAP_PROP_POS_FRAMES, FrameNum);
+        Cap >> Frame;
+        cv::resize(Frame, Frame, cv::Size(NewSize[0], NewSize[1]));
+        cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+        FAnnotationShiftData ShiftData;
+        if (!IsOriginal)
+        {
+            Frame = GenerateAugentationImage(Frame, ShiftData);
+        }
+        cv::imwrite(OutImgName, Frame);
+        // TODO: this writes nothing now... fix it!!!
+        std::ofstream ofs;
+        ofs.open(OutTxtName);
+        if (ofs.is_open())
+        {
+            for (auto& A : InAnnotations)
+            {
+                ofs << A.GetExportTxt(CategoryExportData, ShiftData).c_str() << std::endl;
+            }
+        }
+        ofs.close();
     }
 
     void TrainingSetGenerator::UpdatePreviewAugmentations()
@@ -327,20 +476,20 @@ namespace IFCS
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Lena.cols, Lena.rows, 0, GL_RGBA,
                      GL_UNSIGNED_BYTE, Lena.data);
-
-        MAKE_GUI_IMG(0)
-        MAKE_GUI_IMG(1)
-        MAKE_GUI_IMG(2)
-        MAKE_GUI_IMG(3)
-        MAKE_GUI_IMG(4)
-        MAKE_GUI_IMG(5)
-        MAKE_GUI_IMG(6)
-        MAKE_GUI_IMG(7)
-        MAKE_GUI_IMG(8)
-        MAKE_GUI_IMG(9)
+        FAnnotationShiftData ASD;
+        MAKE_GUI_IMG(0, ASD)
+        MAKE_GUI_IMG(1, ASD)
+        MAKE_GUI_IMG(2, ASD)
+        MAKE_GUI_IMG(3, ASD)
+        MAKE_GUI_IMG(4, ASD)
+        MAKE_GUI_IMG(5, ASD)
+        MAKE_GUI_IMG(6, ASD)
+        MAKE_GUI_IMG(7, ASD)
+        MAKE_GUI_IMG(8, ASD)
+        MAKE_GUI_IMG(9, ASD)
     }
 
-    cv::Mat TrainingSetGenerator::GenerateAugentationImage(cv::Mat InMat)
+    cv::Mat TrainingSetGenerator::GenerateAugentationImage(cv::Mat InMat, FAnnotationShiftData& OutShift)
     {
         cv::Mat Img = InMat;
 
@@ -359,7 +508,6 @@ namespace IFCS
         {
             cv::Mat Noise(Img.size(), Img.type());
             // float m = (10,12,34);
-            // TODO: how to choose mean std?
             int RandMean = Utils::RandomIntInRange(NoiseMeanMin, NoiseMeanMax);
             int RandStd = Utils::RandomIntInRange(NoiseStdMin, NoiseStdMax);
             cv::randn(Noise, RandMean, RandStd);
@@ -420,17 +568,22 @@ namespace IFCS
 
     void TrainingSetGenerator::UpdateExportInfo()
     {
-        YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"));
+        YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotation.yaml");
         NumIncludedFrames = 0;
         NumIncludedAnnotation = 0;
         for (const auto& C : IncludedGenClips)
         {
-            NumIncludedFrames += Data[C].size();
-            for (YAML::const_iterator it=Data[C].begin(); it!=Data[C].end(); ++it)
-                NumIncludedAnnotation += it->second.size();
+            for (YAML::const_iterator Frame = Data[C].begin(); Frame != Data[C].end(); ++Frame)
+            {
+                YAML::Node Annotation = Frame->second.as<YAML::Node>();
+                if (Annotation.size() != 0) NumIncludedFrames ++;
+                NumIncludedAnnotation += (int)Annotation.size();
+            }
         }
-        // TODO: add images code here...
         TotalExportImages = NumIncludedFrames + NumIncludedImages;
+        SplitImgs[0] = int(SplitPercent[0] * 0.01f * TotalExportImages);
+        SplitImgs[1] = int(SplitPercent[1] * 0.01f * TotalExportImages);
+        SplitImgs[2] = TotalExportImages - SplitImgs[0] - SplitImgs[1]; // to prevent lacking due to round off...
     }
 
     void TrainingSetGenerator::DrawSplitWidget()
@@ -464,7 +617,7 @@ namespace IFCS
             SplitPercent[2] = (1 - SplitControlPos2) * 100.f;
             SplitImgs[0] = int(SplitPercent[0] * 0.01f * TotalExportImages);
             SplitImgs[1] = int(SplitPercent[1] * 0.01f * TotalExportImages);
-            SplitImgs[2] = int(SplitPercent[2] * 0.01f * TotalExportImages);
+            SplitImgs[2] = TotalExportImages - SplitImgs[0] - SplitImgs[1];
         }
         const ImVec2 ControlPos2 = CurrentPos + ImVec2(SplitControlPos2 * AvailWidth - 6.f, 5);
         Win->DrawList->AddRectFilled(ControlPos2, ControlPos2 + ImVec2(12.f, 25), Color, 6.f);
@@ -488,26 +641,27 @@ namespace IFCS
             SplitPercent[2] = (1 - SplitControlPos2) * 100.f;
             SplitImgs[0] = int(SplitPercent[0] * 0.01f * TotalExportImages);
             SplitImgs[1] = int(SplitPercent[1] * 0.01f * TotalExportImages);
-            SplitImgs[2] = int(SplitPercent[2] * 0.01f * TotalExportImages);
+            SplitImgs[2] = TotalExportImages - SplitImgs[0] - SplitImgs[1];
         }
         // Add text in middle of the control
         float TxtWidth1 = ImGui::CalcTextSize("Train").x;
-        float TxtWidth2 = ImGui::CalcTextSize("Test").x;
-        float TxtWidth3 = ImGui::CalcTextSize("Valid").x;
+        float TxtWidth2 = ImGui::CalcTextSize("Valid").x;
+        float TxtWidth3 = ImGui::CalcTextSize("Test").x;
         const float TxtPosY = 35.f;
         ImVec2 TxtPos1 = CurrentPos + ImVec2((SplitControlPos1 * AvailWidth - TxtWidth1) * 0.5f, TxtPosY);
         ImVec2 TxtPos2 = CurrentPos + ImVec2(
             (SplitControlPos1 + (SplitControlPos2 - SplitControlPos1) * 0.5f) * AvailWidth - TxtWidth2 * 0.5f, TxtPosY);
-        ImVec2 TxtPos3 = CurrentPos + ImVec2((SplitControlPos2 + (1.f - SplitControlPos2) * 0.5f) * AvailWidth - TxtWidth3 * 0.5f,
-                                             TxtPosY);
+        ImVec2 TxtPos3 = CurrentPos + ImVec2(
+            (SplitControlPos2 + (1.f - SplitControlPos2) * 0.5f) * AvailWidth - TxtWidth3 * 0.5f,
+            TxtPosY);
         Win->DrawList->AddText(TxtPos1, Color, "Train");
-        Win->DrawList->AddText(TxtPos2, Color, "Test");
-        Win->DrawList->AddText(TxtPos3, Color, "Valid");
+        Win->DrawList->AddText(TxtPos2, Color, "Valid");
+        Win->DrawList->AddText(TxtPos3, Color, "Test");
         ImGui::Dummy({0, 50});
 
         // draw the percent
         const float CachedSplitPercent[3] = {SplitPercent[0], SplitPercent[1], SplitPercent[2]};
-        if (ImGui::InputFloat3("Train/Test/Valid (%)", SplitPercent, "%.0f%%"))
+        if (ImGui::InputFloat3("Train/Valid/Test (%)", SplitPercent, "%.0f%%"))
         {
             // check which one changed
             size_t ChangedID = 0;
@@ -572,7 +726,7 @@ namespace IFCS
             SplitControlPos2 = (SplitPercent[0] + SplitPercent[1]) * 0.01f;
         }
         int CachedSplitImgs[3] = {SplitImgs[0], SplitImgs[1], SplitImgs[2]};
-        if (ImGui::InputInt3("Train/Test/Valid (Images)", SplitImgs))
+        if (ImGui::InputInt3("Train/Valid/Test (Images)", SplitImgs))
         {
             // check which one changed
             size_t ChangedID = 0;
@@ -632,7 +786,6 @@ namespace IFCS
             SplitPercent[2] = Utils::Round((float)SplitImgs[2] / (float)TotalExportImages, 2) * 100.f;
             SplitControlPos1 = SplitPercent[0] * 0.01f;
             SplitControlPos2 = (SplitPercent[0] + SplitPercent[1]) * 0.01f;
-            
         }
     }
 }

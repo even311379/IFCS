@@ -15,6 +15,7 @@
 #include "Prediction.h"
 #include "TrainingSetGenerator.h"
 #include "TrainingSetViewer.h"
+#include "ImFileDialog/ImFileDialog.h"
 #include "Spectrum/imgui_spectrum.h"
 #include "yaml-cpp/yaml.h"
 
@@ -23,6 +24,7 @@ namespace IFCS
     Setting::Setting()
     {
     }
+
 
     // TODO: the way modal works is very different from example code, what could it get wrong?
     void Setting::RenderModal()
@@ -80,6 +82,31 @@ namespace IFCS
                 ImGui::Unindent();
             }
             ImGui::Separator();
+            ImGui::Text("Yolo v7 Environment");
+            ImGui::InputText("##ToConda", TempCondaPath, IM_ARRAYSIZE(TempCondaPath), ImGuiInputTextFlags_ReadOnly);
+            ImGui::SameLine();
+            if (ImGui::Button("Choose Conda Folder"))
+            {
+                ifd::FileDialog::Instance().Open("ChooseCondaFolder", "Choose conda folder", "");
+            }
+            if (ImGui::InputText("Env Name", TempPythonEnv, IM_ARRAYSIZE(TempPythonEnv)))
+            {
+                PythonEnv = TempPythonEnv;
+            }
+            if (ImGui::Button("Create Env and Set?"))
+            {
+                CreateEnv();
+            }
+            ImGui::InputText("##ToYolov7", TempYoloV7Path, IM_ARRAYSIZE(TempYoloV7Path), ImGuiInputTextFlags_ReadOnly);
+            if (ImGui::Button("Download and Set?"))
+            {
+                DownloadYoloV7();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Choose Yolo V7 Folder"))
+            {
+                ifd::FileDialog::Instance().Open("ChooseYoloV7Folder", "Choose yoloV7 folder", "");
+            }
             if (ImGui::Button("OK", ImVec2(ImGui::GetWindowWidth() * 0.2f, ImGui::GetFontSize() * 1.5f)))
             {
                 ImGui::CloseCurrentPopup();
@@ -112,6 +139,12 @@ namespace IFCS
         PreferredLanguage = static_cast<ESupportedLanguage>(UserIni["PreferredLanguage"].as<int>());
         ActiveWorkspace = static_cast<EWorkspace>(UserIni["ActiveWorkspace"].as<int>());
         Theme = static_cast<ETheme>(UserIni["Theme"].as<int>());
+        CondaPath = UserIni["CondaPath"].as<std::string>();
+        PythonEnv = UserIni["PythonEnv"].as<std::string>();
+        YoloV7Path = UserIni["YoloV7Path"].as<std::string>();
+        strcpy(TempCondaPath, CondaPath.c_str());
+        strcpy(TempPythonEnv, PythonEnv.c_str());
+        strcpy(TempYoloV7Path, YoloV7Path.c_str());
         ProjectIsLoaded = true;
     }
 
@@ -207,5 +240,19 @@ namespace IFCS
             BGPanel::Get().SetPredictWksNow = true;
             break;
         }
+    }
+
+    bool Setting::IsYoloEnvSet() const
+    {
+        return !CondaPath.empty() && !YoloV7Path.empty() && !PythonEnv.empty();
+    }
+
+    // TODO: you know what to do, right?
+    void Setting::DownloadYoloV7()
+    {
+    }
+
+    void Setting::CreateEnv()
+    {
     }
 }

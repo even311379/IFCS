@@ -39,7 +39,7 @@ project "IFCS"
         "Dependencies/glfw/include",
         "Dependencies/opencv/build/include",
         "Dependencies/yaml-cpp/include",
-        "Dependencies/pybind11/include",
+        "Dependencies/Python/include",
         "%(AdditionalIncludeDirectories)"
     }
 
@@ -48,6 +48,7 @@ project "IFCS"
         "Dependencies/glfw/lib-vc2019",
         "Dependencies/opencv/build/x64/vc15/lib",
         "Dependencies/yaml-cpp/lib",
+        "Dependencies/Python/libs",
         "%(AdditionalLibraryDirectories)"
     }
     
@@ -71,7 +72,8 @@ project "IFCS"
         buildoptions {"/utf-8"}
         links { 
             "opencv_world460d.lib",
-            "yaml-cppd.lib"
+            "yaml-cppd.lib",
+            "python310_d.lib"
         }
 
     filter "configurations:Release"
@@ -80,7 +82,8 @@ project "IFCS"
         buildoptions{"/utf-8"}
         links { 
             "opencv_world460.lib",
-            "yaml-cpp.lib"
+            "yaml-cpp.lib",
+            "python310.lib"
         }
 
 
