@@ -82,6 +82,7 @@ namespace IFCS
                 ImGui::Unindent();
             }
             ImGui::Separator();
+            // TODO: python only!!! no need for conda and env!!...
             ImGui::Text("Yolo v7 Environment");
             ImGui::InputText("##ToConda", TempCondaPath, IM_ARRAYSIZE(TempCondaPath), ImGuiInputTextFlags_ReadOnly);
             ImGui::SameLine();

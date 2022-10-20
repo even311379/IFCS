@@ -1,6 +1,5 @@
 ﻿#include "FrameExtractor.h"
 
-
 #include <fstream>
 #include <numeric>
 #include <random>
@@ -22,9 +21,11 @@
 
 #include <shellapi.h>
 
+#include "Spectrum/imgui_spectrum.h"
+
 namespace IFCS
 {
-    void FrameExtractor::LoadData()
+    void FrameExtractor::OnFrameLoaded()
     {
         YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
         ClipInfo = DataBrowser::Get().SelectedClipInfo;
@@ -32,15 +33,15 @@ namespace IFCS
         Regions.clear();
         if (Data[ClipInfo.ClipPath])
         {
-            Regions = Data[ClipInfo.ClipPath].as<std::vector<int>>();
+            Regions = Data[ClipInfo.ClipPath].as<std::vector<float>>();
         }
+        UpdateCurrentFrameInfo();
     }
 
-    // TODO: about hide rendering when unfocused? to save resource? to prevent click.... wow... clicks define here will get triggered even if its in behind...
+    // TODO: about hide rendering when unfocused? to save resource? to prevent click....
+    // wow... clicks define here will get triggered even if its in behind... Need detaied test... will it triger thing in other docked?
     void FrameExtractor::RenderContent()
     {
-
-        // spdlog::info("should not see me if I am docked behine...");
         if (!ClipInfoIsLoaded) return;
 
         std::string Title = DataBrowser::Get().FrameTitle;
@@ -49,7 +50,6 @@ namespace IFCS
         ImGui::SetCursorPosX((ImGui::GetWindowSize().x - TitleWidth) * 0.5f);
         ImGui::Text(Title.c_str());
         ImGui::PopFont();
-        // TODO: can not fit with (1280, 720) (no enough y space...)
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 1024) * 0.5f);
         ImGui::Image((void*)(intptr_t)DataBrowser::Get().LoadedFramePtr, ImVec2(1024, 576));
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 1024) * 0.5f);
@@ -80,7 +80,7 @@ namespace IFCS
         }
 
         int N_Regions = (int)Regions.size() / 2;
-        if (BeginTimeline( N_Regions))
+        if (BeginTimeline(N_Regions))
         {
             for (int r = 0; r < N_Regions; r++)
             {
@@ -89,6 +89,7 @@ namespace IFCS
         }
         EndTimeline();
         TimelineControlButtons();
+        ProcessingVideoPlay();
     }
 
 
@@ -111,28 +112,26 @@ namespace IFCS
 
     bool FrameExtractor::TimelineEvent(int N)
     {
-        char id[64];
-        snprintf(id, sizeof(id), "region %d", N);
-        float values[2];
-        float pan_amount = (TimelineZoom * TimelinePan * TimelineDisplayEnd);
-        values[0] = float(Regions[N * 2]) / float(ClipInfo.FrameCount) * TimelineZoom * TimelineDisplayEnd - pan_amount;
-        values[1] = float(Regions[N * 2 + 1]) / float(ClipInfo.FrameCount) * TimelineZoom * TimelineDisplayEnd - pan_amount;
-
+        char ID[64];
+        sprintf(ID, "region %d", N);
+        float Values[2];
+        Values[0] = (float)Regions[N * 2];
+        Values[1] = (float)Regions[N * 2 + 1];
         ++temp_TimelineIndex;
         if (TimelineRows > 0 && (temp_TimelineIndex < TimelineDisplayStart || temp_TimelineIndex >= TimelineDisplayEnd))
             return false; // item culling
 
-        ImGuiWindow* win = ImGui::GetCurrentWindow();
+        ImGuiWindow* Win = ImGui::GetCurrentWindow();
         const float TIMELINE_RADIUS = 6;
-        const ImU32 inactive_color = ImGui::ColorConvertFloat4ToU32(GImGui->Style.Colors[ImGuiCol_Button]);
-        const ImU32 active_color = ImGui::ColorConvertFloat4ToU32(GImGui->Style.Colors[ImGuiCol_ButtonHovered]);
-        const ImU32 line_color = ImGui::ColorConvertFloat4ToU32(GImGui->Style.Colors[ImGuiCol_Tab]);
-        bool changed = false;
-        bool hovered = false;
+        const ImU32 InactiveColor = ImGui::ColorConvertFloat4ToU32(GImGui->Style.Colors[ImGuiCol_Button]);
+        const ImU32 ActiveColor = ImGui::ColorConvertFloat4ToU32(GImGui->Style.Colors[ImGuiCol_ButtonHovered]);
+        const ImU32 LineColor = ImGui::ColorConvertFloat4ToU32(GImGui->Style.Colors[ImGuiCol_Tab]);
+        bool Changed = false;
+        bool Hovered = false;
 
-        ImGui::Text("%s", id);
+        ImGui::Text("%s", ID);
         bool JustDeleteRegion = false;
-        if (ImGui::BeginPopupContextItem(id))
+        if (ImGui::BeginPopupContextItem(ID))
         {
             if (ImGui::Button("Delete this region?"))
             {
@@ -145,136 +144,126 @@ namespace IFCS
         }
         ImGui::NextColumn();
 
-        const float columnOffset = ImGui::GetColumnOffset(1);
-        const float columnWidth = ImGui::GetColumnWidth(1) - GImGui->Style.ScrollbarSize;
-        ImVec2 cursor_pos(ImGui::GetWindowContentRegionMin().x + win->Pos.x + columnOffset - TIMELINE_RADIUS,
-                          win->DC.CursorPos.y);
-        bool mustMoveBothEnds = false;
+        const float ColumnOffset = ImGui::GetColumnOffset(1);
+        const float ColumnWidth = ImGui::GetColumnWidth(1) - GImGui->Style.ScrollbarSize;
+        const ImVec2 CursorPos(ImGui::GetWindowContentRegionMin().x + Win->Pos.x + ColumnOffset - TIMELINE_RADIUS,
+                               Win->DC.CursorPos.y);
         const bool isMouseDraggingZero = ImGui::IsMouseDragging(0);
 
         for (int i = 0; i < 2; ++i)
         {
-            ImVec2 pos = cursor_pos;
-            pos.x += columnWidth * values[i] / TimelineDisplayEnd + TIMELINE_RADIUS;
-            pos.y += TIMELINE_RADIUS;
+            if ((int)Values[i] < CurrentFrameStart) continue;
+            if ((int)Values[i] > CurrentFrameStart + CurrentFrameRange) continue;
+            ImVec2 Pos = CursorPos;
+            Pos.x += ColumnWidth * (Values[i] - CurrentFrameStart) / CurrentFrameRange + TIMELINE_RADIUS;
+            Pos.y += TIMELINE_RADIUS;
 
-            ImGui::SetCursorScreenPos(pos - ImVec2(TIMELINE_RADIUS, TIMELINE_RADIUS));
+            ImGui::SetCursorScreenPos(Pos - ImVec2(TIMELINE_RADIUS, TIMELINE_RADIUS));
             ImGui::PushID(i);
-            ImGui::InvisibleButton(id, ImVec2(2 * TIMELINE_RADIUS, 2 * TIMELINE_RADIUS));
+            ImGui::InvisibleButton(ID, ImVec2(2 * TIMELINE_RADIUS, 2 * TIMELINE_RADIUS));
             bool active = ImGui::IsItemActive();
             if (active || ImGui::IsItemHovered())
             {
-                ImGui::SetTooltip("%d", ValueToFrame(values[i]));
+                ImGui::SetTooltip("%.0f", Values[i]);
                 {
-                    ImVec2 a(pos.x, ImGui::GetWindowContentRegionMin().y + win->Pos.y + win->Scroll.y);
-                    ImVec2 b(pos.x, ImGui::GetWindowContentRegionMax().y + win->Pos.y + win->Scroll.y);
-                    win->DrawList->AddLine(a, b, line_color);
+                    ImVec2 a(Pos.x, ImGui::GetWindowContentRegionMin().y + Win->Pos.y + Win->Scroll.y);
+                    ImVec2 b(Pos.x, ImGui::GetWindowContentRegionMax().y + Win->Pos.y + Win->Scroll.y);
+                    Win->DrawList->AddLine(a, b, LineColor);
                 }
-                hovered = true;
+                Hovered = true;
             }
             if (active && isMouseDraggingZero)
             {
-                // TODO: the drag speed is mismatched when zoom
-                values[i] += ImGui::GetIO().MouseDelta.x / columnWidth * static_cast<float>(TimelineDisplayEnd);
-                changed = hovered = true;
+                Values[i] += ImGui::GetIO().MouseDelta.x / ColumnWidth * (float)CurrentFrameRange;
+                Changed = Hovered = true;
             }
 
             ImGui::PopID();
-            win->DrawList->AddCircleFilled(
-                pos, TIMELINE_RADIUS, ImGui::IsItemActive() || ImGui::IsItemHovered() ? active_color : inactive_color);
+            Win->DrawList->AddCircleFilled(
+                Pos, TIMELINE_RADIUS, ImGui::IsItemActive() || ImGui::IsItemHovered() ? ActiveColor : InactiveColor);
         }
 
-        ImVec2 start = cursor_pos;
-        start.x += columnWidth * values[0] / float(TimelineDisplayEnd) + 2 * TIMELINE_RADIUS;
-        start.y += TIMELINE_RADIUS * 0.5f;
-        ImVec2 end = start + ImVec2(columnWidth * (values[1] - values[0]) / TimelineDisplayEnd - 2 * TIMELINE_RADIUS,
-                                    TIMELINE_RADIUS);
+        ImVec2 Start = CursorPos;
+        Start.x += ColumnWidth * (Values[0] - CurrentFrameStart) / float(CurrentFrameRange) + 2 * TIMELINE_RADIUS;
+        Start.y += TIMELINE_RADIUS * 0.5f;
+        ImVec2 End = Start + ImVec2(
+            ColumnWidth * (Values[1] - Values[0]) / (float)CurrentFrameRange - 2 * TIMELINE_RADIUS,
+            TIMELINE_RADIUS);
         ImGui::PushID(-1);
-        ImGui::SetCursorScreenPos(start);
-        ImGui::InvisibleButton(id, end - start);
-        if ((ImGui::IsItemActive() && isMouseDraggingZero) || mustMoveBothEnds)
+        ImGui::SetCursorScreenPos(Start);
+        ImGui::InvisibleButton(ID, End - Start);
+        if ((ImGui::IsItemActive() && isMouseDraggingZero))
         {
-            const float deltaX = ImGui::GetIO().MouseDelta.x / columnWidth * TimelineDisplayEnd;
-            values[0] += deltaX;
-            values[1] += deltaX;
-            changed = hovered = true;
+            const float deltaX = ImGui::GetIO().MouseDelta.x / ColumnWidth * (float)CurrentFrameRange;
+            Values[0] += deltaX;
+            Values[1] += deltaX;
+            Changed = Hovered = true;
         }
-        else if (ImGui::IsItemHovered()) hovered = true;
+        else if (ImGui::IsItemHovered()) Hovered = true;
         ImGui::PopID();
 
-        ImGui::SetCursorScreenPos(cursor_pos + ImVec2(0, ImGui::GetTextLineHeightWithSpacing()));
-        win->DrawList->AddRectFilled(
-            start, end, ImGui::IsItemActive() || ImGui::IsItemHovered() ? active_color : inactive_color);
+        ImGui::SetCursorScreenPos(CursorPos + ImVec2(0, ImGui::GetTextLineHeightWithSpacing()));
+        Win->DrawList->AddRectFilled(
+            Start, End, ImGui::IsItemActive() || ImGui::IsItemHovered() ? ActiveColor : InactiveColor);
 
-        if (values[0] > values[1])
+        if (Values[0] > Values[1])
         {
-            float tmp = values[0];
-            values[0] = values[1];
-            values[1] = tmp;
+            float tmp = Values[0];
+            Values[0] = Values[1];
+            Values[1] = tmp;
         }
         if (!JustDeleteRegion)
         {
-            int MinRegionFrame = ValueToFrame(values[0]);
-            int MaxRegionFrame = ValueToFrame(values[1]);
-            if (MaxRegionFrame > ClipInfo.FrameCount)
-            {
-                MaxRegionFrame = ClipInfo.FrameCount;
-            }
-            if (MinRegionFrame < 0)
-            {
-                MinRegionFrame = 0;
-            }
-            Regions[N * 2] = MinRegionFrame;
-            Regions[N * 2 + 1] = MaxRegionFrame; 
+            Values[0] = std::max(Values[0], 1.f);
+            Values[1] = std::min(Values[1], (float)ClipInfo.FrameCount);
+            Regions[N * 2] = Values[0];
+            Regions[N * 2 + 1] = Values[1];
         }
-
-
-        if (hovered) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-
+        if (Hovered) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
         ImGui::NextColumn();
-        return changed;
+        return Changed;
     }
 
     //num vrt grid lines = 5 
     void FrameExtractor::EndTimeline()
     {
         const int NumVerticalGridLines = 5;
-        ImU32 timeline_running_color = IM_COL32(0, 128, 0, 200);
+        const ImU32 TimelineRunningColor = IM_COL32(0, 128, 0, 200);
         const float row_height = ImGui::GetTextLineHeightWithSpacing();
         if (TimelineRows > 0)
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (TimelineRows - TimelineDisplayEnd) * row_height);
         ImGui::NextColumn();
-        ImGuiWindow* win = ImGui::GetCurrentWindow();
-        const float columnOffset = ImGui::GetColumnOffset(1);
-        const float columnWidth = ImGui::GetColumnWidth(1) - GImGui->Style.ScrollbarSize;
-        const float horizontal_interval = columnWidth / NumVerticalGridLines;
+        const ImGuiWindow* Win = ImGui::GetCurrentWindow();
+        const float ColumnOffset = ImGui::GetColumnOffset(1);
+        const float ColumnWidth = ImGui::GetColumnWidth(1) - GImGui->Style.ScrollbarSize;
+        const float HorizontalInterval = ColumnWidth / NumVerticalGridLines;
 
-        ImU32 color = ImGui::ColorConvertFloat4ToU32(GImGui->Style.Colors[ImGuiCol_Button]);
-        ImU32 line_color = ImGui::ColorConvertFloat4ToU32(GImGui->Style.Colors[ImGuiCol_Border]);
-        ImU32 text_color = ImGui::ColorConvertFloat4ToU32(GImGui->Style.Colors[ImGuiCol_Text]);
-        ImU32 moving_line_color = ImGui::ColorConvertFloat4ToU32(GImGui->Style.Colors[ImGuiCol_ButtonActive]);
-        const float rounding = GImGui->Style.ScrollbarRounding;
-        const float startY = ImGui::GetWindowHeight() + win->Pos.y;
+        const ImU32 Color = ImGui::ColorConvertFloat4ToU32(GImGui->Style.Colors[ImGuiCol_Button]);
+        const ImU32 LineColor = ImGui::ColorConvertFloat4ToU32(GImGui->Style.Colors[ImGuiCol_Border]);
+        const ImU32 TextColor = ImGui::ColorConvertFloat4ToU32(GImGui->Style.Colors[ImGuiCol_Text]);
+        const ImU32 MovingLineColor = ImGui::ColorConvertFloat4ToU32(GImGui->Style.Colors[ImGuiCol_ButtonActive]);
+        const float Rounding = GImGui->Style.ScrollbarRounding;
+        const float StartY = ImGui::GetWindowHeight() + Win->Pos.y;
 
         // Draw black vertical lines (inside scrolling area)
         for (int i = 1; i <= NumVerticalGridLines; ++i)
         {
-            ImVec2 a = ImGui::GetWindowContentRegionMin() + win->Pos;
-            a.x += i * horizontal_interval + columnOffset;
-            win->DrawList->AddLine(a, ImVec2(a.x, startY), line_color);
+            ImVec2 a = ImGui::GetWindowContentRegionMin() + Win->Pos;
+            a.x += i * HorizontalInterval + ColumnOffset;
+            Win->DrawList->AddLine(a, ImVec2(a.x, StartY), LineColor);
         }
 
         // Draw moving vertical line
         if (PlayProgress > 0.f && PlayProgress < TimelineDisplayEnd)
         {
-            ImVec2 a = ImGui::GetWindowContentRegionMin() + win->Pos;
-            a.x += columnWidth * (PlayProgress / TimelineDisplayEnd) + columnOffset;
-            win->DrawList->AddLine(a, ImVec2(a.x, startY), moving_line_color, 2.0f); // change thickness to 2
+            ImVec2 a = ImGui::GetWindowContentRegionMin() + Win->Pos;
+            a.x += ColumnWidth * (PlayProgress / TimelineDisplayEnd) + ColumnOffset;
+            Win->DrawList->AddLine(a, ImVec2(a.x, StartY), MovingLineColor, 2.0f); // change thickness to 2
         }
 
         if (ImGui::IsWindowHovered())
         {
-            if (ImGui::GetMousePos().x > (ImGui::GetWindowPos().x + columnOffset))
+            if (ImGui::GetMousePos().x > (ImGui::GetWindowPos().x + ColumnOffset))
             {
                 CheckZoomInput();
             }
@@ -284,110 +273,102 @@ namespace IFCS
         ImGui::EndChild();
 
         // Draw bottom axis ribbon (outside scrolling region)
-        win = ImGui::GetCurrentWindow();
-        ImVec2 start(ImGui::GetCursorScreenPos().x + columnOffset, ImGui::GetCursorScreenPos().y);
-        ImVec2 end(start.x + columnWidth, start.y + row_height);
-        if (PlayProgress <= 0) win->DrawList->AddRectFilled(start, end, color, rounding);
+        Win = ImGui::GetCurrentWindow();
+        const ImVec2 Start(ImGui::GetCursorScreenPos().x + ColumnOffset, ImGui::GetCursorScreenPos().y);
+        const ImVec2 End(Start.x + ColumnWidth, Start.y + row_height);
+        if (PlayProgress <= 0) Win->DrawList->AddRectFilled(Start, End, Color, Rounding);
         else if (PlayProgress > TimelineDisplayEnd)
-            win->DrawList->AddRectFilled(
-                start, end, timeline_running_color, rounding);
+            Win->DrawList->AddRectFilled(
+                Start, End, TimelineRunningColor, Rounding);
         else
         {
-            ImVec2 median(start.x + columnWidth * (PlayProgress / TimelineDisplayEnd), end.y);
-            win->DrawList->AddRectFilled(start, median, timeline_running_color, rounding, 1 | 8);
-            median.y = start.y;
-            win->DrawList->AddRectFilled(median, end, color, rounding, 2 | 4);
-            win->DrawList->AddLine(median, ImVec2(median.x, end.y), moving_line_color);
+            ImVec2 Median(Start.x + ColumnWidth * (PlayProgress / TimelineDisplayEnd), End.y);
+            Win->DrawList->AddRectFilled(Start, Median, TimelineRunningColor, Rounding, 1 | 8);
+            Median.y = Start.y;
+            Win->DrawList->AddRectFilled(Median, End, Color, Rounding, 2 | 4);
+            Win->DrawList->AddLine(Median, ImVec2(Median.x, End.y), MovingLineColor);
         }
 
         char tmp[256] = "";
         for (int i = 0; i < NumVerticalGridLines; ++i)
         {
-            ImVec2 a = start;
-            a.x += i * horizontal_interval;
-            a.y = start.y;
+            ImVec2 a = Start;
+            a.x += i * HorizontalInterval;
+            a.y = Start.y;
 
             ImFormatString(tmp, sizeof(tmp), "%.0f",
                            (float(i) / (float)NumVerticalGridLines / TimelineZoom + TimelinePan) * ClipInfo.FrameCount);
-            win->DrawList->AddText(a, text_color, tmp);
-        } // use with:
-        ImVec2 mouse_pos_projected_on_segment = ImLineClosestPoint(start, end, ImGui::GetMousePos());
-        ImVec2 mouse_pos_delta_to_segment = mouse_pos_projected_on_segment - ImGui::GetMousePos();
-        bool is_segment_hovered = (ImLengthSqr(mouse_pos_delta_to_segment) <= 10 * 10);
-        if (is_segment_hovered)
+            Win->DrawList->AddText(a, TextColor, tmp);
+        }
+
+        ImGui::SetCursorScreenPos(Start);
+        ImGui::InvisibleButton("##ProgressHover", End - Start);
+        if (ImGui::IsItemHovered())
         {
             ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
             if (ImGui::IsMouseClicked(0) || ImGui::IsMouseDragging(0))
             {
-                IsPlaying = false;
-                PlayIcon = ICON_FA_PLAY;
-                PlayProgress = (ImGui::GetMousePos().x - start.x) / (end.x - start.x) * TimelineDisplayEnd;
+                // TODO: after it, need to click play button twice to start play? why?
+                JustPaused = true;
+                PlayProgress = (ImGui::GetMousePos().x - Start.x) / (End.x - Start.x) * TimelineDisplayEnd;
             }
             if (ImGui::IsMouseReleased(0))
             {
-                // TODO: will crash occasionally... why?
-                spdlog::info("Update frame view");
-                int CurrentFrameStart = int((float)ClipInfo.FrameCount / TimelineZoom * TimelinePan);
-                int CurrentFrameRange = int((float)ClipInfo.FrameCount / TimelineZoom * (1 - TimelinePan));
-                int CurrentFrame = int(CurrentFrameStart + PlayProgress / 100 * CurrentFrameRange - 1);
                 DataBrowser::Get().LoadFrame(CurrentFrame);
             }
         }
+
         // draw pan-zoom control bar
-
-        ImU32 bg_color = ImGui::ColorConvertFloat4ToU32(GImGui->Style.Colors[ImGuiCol_TextDisabled]);
-        ImVec2 pz_start = {start.x, end.y + row_height};
-        ImVec2 pz_end = {pz_start.x + columnWidth, pz_start.y + row_height};
-        win->DrawList->AddRectFilled(pz_start, pz_end, bg_color, rounding); // bg bar
-        ImVec2 pz_control_start = {pz_start.x + TimelinePan * columnWidth, pz_start.y};
-        ImVec2 pz_control_end = {pz_control_start.x + (1.f / float(TimelineZoom)) * columnWidth, pz_end.y};
-        win->DrawList->AddRectFilled(pz_control_start, pz_control_end, color, rounding); // control bar
-
-        // TODO: this hover detection is too complex... there is simpler way..., make zoom able area on gray area too?
-        mouse_pos_projected_on_segment = ImLineClosestPoint(pz_control_start, pz_control_end, ImGui::GetMousePos());
-        mouse_pos_delta_to_segment = mouse_pos_projected_on_segment - ImGui::GetMousePos();
-        is_segment_hovered = (ImLengthSqr(mouse_pos_delta_to_segment) <= 30 * 30);
-        if (is_segment_hovered)
+        const ImU32 BGColor = ImGui::ColorConvertFloat4ToU32(GImGui->Style.Colors[ImGuiCol_TextDisabled]);
+        const ImVec2 PZStart = {Start.x, End.y + row_height};
+        const ImVec2 PZEnd = {PZStart.x + ColumnWidth, PZStart.y + row_height};
+        Win->DrawList->AddRectFilled(PZStart, PZEnd, BGColor, Rounding); // bg bar
+        const ImVec2 PZControlStart = {PZStart.x + TimelinePan * ColumnWidth, PZStart.y};
+        const ImVec2 PZControlEnd = {PZControlStart.x + (1.f / float(TimelineZoom)) * ColumnWidth, PZEnd.y};
+        Win->DrawList->AddRectFilled(PZControlStart, PZControlEnd, Color, Rounding); // control bar
+        ImGui::SetCursorScreenPos(PZControlStart);
+        ImGui::InvisibleButton("##HH", PZControlEnd - PZControlStart);
+        if (ImGui::IsItemHovered())
         {
             ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
             if (ImGui::IsMouseDragging(0))
             {
-                TimelinePan += ImGui::GetIO().MouseDelta.x / columnWidth;
+                TimelinePan += ImGui::GetIO().MouseDelta.x / ColumnWidth;
                 float MaxPan = 1.f - (1.f / float(TimelineZoom));
                 if (TimelinePan >= MaxPan) TimelinePan = MaxPan;
                 if (TimelinePan <= 0) TimelinePan = 0;
+                UpdateCurrentFrameInfo();
             }
             CheckZoomInput();
         }
-        ImGui::SetCursorPos(ImVec2(0, ImGui::GetCursorPosY() + row_height * 4.0f));
+        ImGui::SetCursorPos(ImVec2(0, ImGui::GetCursorPosY() + row_height * 1.5f));
         if (ImGui::Button(ICON_FA_PLUS, ImVec2(96, 24)))
         {
-            int CurrentFrameStart = int((float)ClipInfo.FrameCount / TimelineZoom * TimelinePan);
-            int CurrentFrameRange = int((float)ClipInfo.FrameCount / TimelineZoom * (1 - TimelinePan));
-            spdlog::info("frame start: {0} range: {1}... correct?", CurrentFrameStart, CurrentFrameRange);
-            Regions.push_back(CurrentFrameStart + int(0.3f * (float)CurrentFrameRange));
-            Regions.push_back(CurrentFrameStart + int(0.7f * (float)CurrentFrameRange));
+            Regions.push_back((float)CurrentFrameStart + int(0.3f * (float)CurrentFrameRange));
+            Regions.push_back((float)CurrentFrameStart + int(0.7f * (float)CurrentFrameRange));
         }
         Utils::AddSimpleTooltip("Add new region to perform frame extraction...");
         ImGui::SameLine();
-        ImGui::Dummy({columnOffset - 96, 0});
+        // TODO: add combo button here to choose which region to remove
+        // hide functions in right click is really bad...
+        ImGui::Dummy({ColumnOffset - 96, 0});
         ImGui::SameLine();
-
     }
 
     void FrameExtractor::TimelineControlButtons()
     {
+        static char* PlayIcon;
+        PlayIcon = IsPlaying ? ICON_FA_PAUSE : ICON_FA_PLAY;
         if (ImGui::Button(PlayIcon, {96, 24}))
         {
-            IsPlaying = !IsPlaying;
-            if (IsPlaying)
+            if (!IsPlaying)
             {
-                PlayIcon = ICON_FA_PAUSE;
-                PlayClip(); // runs an opencv subprocess?
+                IsPlaying = true;
+                JustPlayed = true;
             }
             else
             {
-                PlayIcon = ICON_FA_PLAY;
+                JustPaused = true;
             }
         }
         if (ImGui::IsItemHovered())
@@ -400,19 +381,21 @@ namespace IFCS
         {
             TimelinePan = 0.0f;
             TimelineZoom = 1.0f;
+            UpdateCurrentFrameInfo();
         }
         if (ImGui::IsItemHovered())
         {
             ImGui::SetTooltip("Reset zoom and pan for this clip");
         }
         ImGui::SameLine();
+        // TODO: Add zoom control... hide it in ctrl + wheel it too unhuman...
         ImGui::Dummy({200, 0});
         ImGui::SameLine();
         ImGui::SetNextItemWidth(160.f);
         int MaxExtract = 0;
-        for (size_t i = 0; i < Regions.size()/2; i++)
+        for (size_t i = 0; i < Regions.size() / 2; i++)
         {
-            MaxExtract += (Regions[i*2 + 1] - Regions[i*2] + 1);
+            MaxExtract += (int)(Regions[i * 2 + 1] - Regions[i * 2] + 1);
         }
 
         if (NumFramesToExtract > MaxExtract)
@@ -441,28 +424,85 @@ namespace IFCS
         ImGui::Combo("##ExtractionOptionsCombo", &SelectedExtractionOption, Options, IM_ARRAYSIZE(Options));
     }
 
-    int FrameExtractor::ValueToFrame(const float ValueInTimeline) const
+    /*
+     * multi thread way may actually worked...
+     * the mistake could be just due to the error setup in cap property...
+     * however, I've implement it in main thread... so just let it be...
+     */
+    void FrameExtractor::ProcessingVideoPlay()
     {
-        const float pan_amount = (TimelineZoom * TimelinePan * TimelineDisplayEnd);
-        return int((ValueInTimeline + pan_amount) / TimelineDisplayEnd / TimelineZoom * float(ClipInfo.FrameCount));
+        if (!IsPlaying) return;
+        // check if receive stop play
+
+        // open cap
+        static cv::VideoCapture Cap;
+        if (JustPlayed)
+        {
+            Cap.open(ClipInfo.ClipPath);
+
+            Cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
+            JustPlayed = false;
+        }
+        if (JustPaused)
+        {
+            Cap.release();
+            JustPaused = false;
+            IsPlaying = false;
+            return;
+        }
+
+        // check should wait for update frame
+        static float TimePassed = 0.f;
+        TimePassed += (1.0f / ImGui::GetIO().Framerate);
+        if (TimePassed < (1 / ClipInfo.FPS)) return;
+        TimePassed = 0.f;
+        // update frame
+        cv::Mat frame;
+        Cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
+        Cap >> frame;
+        // cv::resize(frame, frame, cv::Size(1280, 720)); // 16 : 9 // no need to resize?
+        cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
+        DataBrowser::Get().LoadedFramePtr = 0;
+        glGenTextures(1, &DataBrowser::Get().LoadedFramePtr);
+        glBindTexture(GL_TEXTURE_2D, DataBrowser::Get().LoadedFramePtr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, frame.cols, frame.rows, 0, GL_RGBA,
+                     GL_UNSIGNED_BYTE, frame.data);
+        CurrentFrame += 1;
+        PlayProgress += (1.0f / (float)CurrentFrameRange) * 100.0f;
+        //check should release cap and stop play
+        if (CurrentFrame == CurrentFrameEnd)
+        {
+            IsPlaying = false;
+            Cap.release();
+        }
     }
 
     void FrameExtractor::CheckZoomInput()
     {
-        float wheel = ImGui::GetIO().MouseWheel;
-        if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && wheel != 0.f)
+        float Wheel = ImGui::GetIO().MouseWheel;
+        if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && Wheel != 0.f)
         {
-            TimelineZoom += wheel;
+            TimelineZoom += Wheel;
             if (TimelineZoom < 1) TimelineZoom = 1.f;
-            if (TimelineZoom > 50) TimelineZoom = 50;
-            TimelineDisplayEnd = 100 * TimelineZoom;
+            if (TimelineZoom > 50) TimelineZoom = 50.f;
+            // zoom may affect pan...
+            float MaxPan = 1.f - (1.f / float(TimelineZoom));
+            if (TimelinePan >= MaxPan) TimelinePan = MaxPan;
+            UpdateCurrentFrameInfo();
         }
     }
 
-
-    // TODO: async...
-    void FrameExtractor::PlayClip()
+    void FrameExtractor::UpdateCurrentFrameInfo()
     {
+        // CurrentFrameStart = int((float)ClipInfo.FrameCount / TimelineZoom * TimelinePan) + 1;
+        CurrentFrameStart = int((float)ClipInfo.FrameCount * TimelinePan) + 1;
+        CurrentFrameRange = int((float)ClipInfo.FrameCount / TimelineZoom);
+        CurrentFrame = int(CurrentFrameStart + PlayProgress / 100.0f * CurrentFrameRange);
+        CurrentFrameEnd = CurrentFrameStart + CurrentFrameRange - 1;
     }
 
     void FrameExtractor::PerformExtraction()
@@ -472,8 +512,8 @@ namespace IFCS
         YAML::Node RegionToExtractData = YAML::LoadFile(
             Setting::Get().ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
         RegionToExtractData[ClipInfo.ClipPath] = YAML::Node(YAML::NodeType::Sequence);
-        for (int r : Regions)
-            RegionToExtractData[ClipInfo.ClipPath].push_back(r);
+        for (float r : Regions)
+            RegionToExtractData[ClipInfo.ClipPath].push_back((int)r); // when save make it to int!!
         YAML::Emitter Out;
         Out << RegionToExtractData;
         std::ofstream fout(Setting::Get().ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
@@ -486,8 +526,8 @@ namespace IFCS
         std::set<int> PossibleFrames;
         for (int R = 0; R < (int)Regions.size() / 2; R++)
         {
-            std::vector<int> v(Regions[R * 2 + 1] - Regions[R * 2] + 1);
-            std::iota(v.begin(), v.end(), Regions[R * 2]);
+            std::vector<int> v((int)Regions[R * 2 + 1] - (int)Regions[R * 2] + 1);
+            std::iota(v.begin(), v.end(), (int)Regions[R * 2]);
             for (int i : v)
                 PossibleFrames.insert(i);
         }
@@ -495,7 +535,7 @@ namespace IFCS
         // sample
         std::vector<int> ExtractedFrames;
         std::sample(PossibleFrames.begin(), PossibleFrames.end(), std::back_inserter(ExtractedFrames),
-            NumFramesToExtract, std::mt19937_64{std::random_device{}()});
+                    NumFramesToExtract, std::mt19937_64{std::random_device{}()});
         std::sort(ExtractedFrames.begin(), ExtractedFrames.end()); // is sort required?
 
         // write to YAML!
@@ -507,7 +547,7 @@ namespace IFCS
         {
             NewFramesNode[std::to_string(j)] = YAML::Node(YAML::NodeType::Map);
         }
-        
+
         AnnotationData[ClipInfo.ClipPath] = NewFramesNode;
 
         YAML::Emitter Out2;

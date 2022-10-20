@@ -48,7 +48,7 @@ namespace IFCS
         constexpr ImGuiWindowFlags Flags = ImGuiWindowFlags_NoScrollbar;
         ImGui::BeginChild("All", ChildWindowSize, false, Flags);
         {
-            const ImVec2 HalfWindowSize = {ImGui::GetContentRegionAvail().x * 0.5f, ImGui::GetContentRegionAvail().y};
+            const ImVec2 HalfWindowSize(ImGui::GetContentRegionAvail().x * 0.5f, ImGui::GetContentRegionAvail().y);
             ImGui::BeginChild("Options", HalfWindowSize);
             {
                 ImGui::PushFont(Setting::Get().TitleFont);
@@ -97,7 +97,8 @@ namespace IFCS
                     }
                     ImGui::SameLine();
                     char AddFolderPreviewTitle[128];
-                    snprintf(AddFolderPreviewTitle, sizeof(AddFolderPreviewTitle), "%s Add Folder", ICON_FA_PLUS);
+                    // snprintf(AddFolderPreviewTitle, sizeof(AddClipPreviewTitle), "%s Add Folder", ICON_FA_PLUS);
+                    sprintf(AddFolderPreviewTitle,  "%s Add Folder", ICON_FA_PLUS);
                     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                     if (ImGui::BeginCombo("##AddFolder", AddFolderPreviewTitle))
                     {
@@ -222,7 +223,27 @@ namespace IFCS
                         ImGui::Text("some category merging tools");
                     }
                     // TODO: add implot to check category imbalance
-                    // ImPlot::
+                    // static std::vector<int> TestCounts = {1654, 5132, 1260, 352};
+                    // if (ImPlot::BeginPlot("Category counts"))
+                    // {
+                    //     static std::vector<ImVec4> Colors = {
+                    //         Utils::RandomPickColor(),
+                    //         Utils::RandomPickColor(),
+                    //         Utils::RandomPickColor(),
+                    //         Utils::RandomPickColor()
+                    //     };
+                    //     ImPlot::AddColormap("RandomBarColor", Colors.data(), Colors.size()); // Use category color!!!!
+                    //     if (ImPlot::BeginPlot("Category Counts"))
+                    //     {
+                    //         // plot indivisual for better viz?
+                    //         ImPlot::PlotBars("Different Categories", TestCounts.data(), TestCounts.size(), 0.5, 1);
+                    //         ImPlot::EndPlot();
+                    //     }
+                    //     ImPlot::PopColormap();
+                    //     ImPlot::EndPlot();
+                    // }
+
+
                     ImGui::Checkbox("Apply SMOTE", &bApplySMOTE);
                     Utils::AddSimpleTooltip("SMOTE: Synthetic Minority Oversampling Technique, if your categories "
                         "are highly imbalanced, you should apply SMOTE to handle it! (Undev yet)");
@@ -298,14 +319,15 @@ namespace IFCS
             ImGui::InputText("##Training Set Name", NewTrainingSetName, IM_ARRAYSIZE(NewTrainingSetName));
             ImGui::SameLine();
             ImGui::SetNextItemWidth(60.f);
-            ImGui::DragInt("Duplicate Times", &DuplicateTimes, 1, 1,10);
+            ImGui::DragInt("Duplicate Times", &DuplicateTimes, 1, 1, 10);
             ImGui::SameLine();
             if (ImGui::Button("Generate"))
             {
                 GenerateTrainingSet();
             }
             ImGui::Text("Total Generation: %d (Train %d x %d)/%d (Valid)/%d (Test)",
-                SplitImgs[0] * DuplicateTimes + SplitImgs[1] + SplitImgs[2], SplitImgs[0], DuplicateTimes, SplitImgs[1], SplitImgs[2]);
+                        SplitImgs[0] * DuplicateTimes + SplitImgs[1] + SplitImgs[2], SplitImgs[0], DuplicateTimes,
+                        SplitImgs[1], SplitImgs[2]);
         }
         ImGui::EndGroup();
         ExportWidgetGropWidth = ImGui::GetItemRectSize().x;
@@ -327,7 +349,7 @@ namespace IFCS
                 std::filesystem::create_directories(ProjectPath + "/Data/" + NewTrainingSetName + "/" + s + "/" + t);
             }
         }
-          // write readme.txt (export time, where it is from, some export settings?)
+        // write readme.txt (export time, where it is from, some export settings?)
         std::ofstream ofs;
         ofs.open(ProjectPath + "/Data/" + NewTrainingSetName + "/IFCS.README.txt");
         if (ofs.is_open())
@@ -400,7 +422,7 @@ namespace IFCS
                 std::replace(GenName.begin(), GenName.end(), '/', '-');
                 std::vector<FAnnotation> Annotations;
                 YAML::Node Node = it->second.as<YAML::Node>();
-                for (YAML::const_iterator A = Node.begin(); A!=Node.end();++A )
+                for (YAML::const_iterator A = Node.begin(); A != Node.end(); ++A)
                     Annotations.push_back(FAnnotation(A->second.as<YAML::Node>()));
 
                 if (std::find(TrainingIdx.begin(), TrainingIdx.end(), N) != TrainingIdx.end())

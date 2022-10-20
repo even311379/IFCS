@@ -23,5 +23,6 @@ namespace IFCS
         char NewCatName[64];
         void Save();
         void LoadCategoriesFromFile();
+        bool ShowBar;
     };
 }

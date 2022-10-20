@@ -8,35 +8,38 @@
 
 namespace IFCS
 {
-
     class DataBrowser : public Panel
     {
     public:
         MAKE_SINGLETON(DataBrowser)
-        // void SynProjectData();
-        FClipInfo SelectedClipInfo;
-        int SelectedFrame = 0;
         void LoadOtherFrame(bool IsNext); // ture for next, false for previous
-
-        std::string FrameTitle;
-        unsigned int LoadedFramePtr;
         void LoadFrame(int FrameNumber);
-        bool AnyFrameLoaded = false;
         // TODO: make access of opencv clip info centric to here...
         std::vector<std::string> GetAllClips() const;
         std::vector<std::string> GetAllFolders() const;
+
+        FClipInfo SelectedClipInfo;
+        int SelectedFrame = 0;
+        std::string FrameTitle;
+        unsigned int LoadedFramePtr;
+        bool AnyFrameLoaded = false;
+
+
     protected:
         void RenderContent() override;
+
     private:
-        bool Test;
-        char FilterText[128];
-        ImVec2 GetBtnSize();
         void RecursiveClipTreeNodeGenerator(const std::filesystem::path& Path, unsigned int Depth);
-        // TODO: remove this var.... 
-        // YAML::Node FramesNode;
-        std::map<int, size_t> FramesData;
-        void UpdateFramesNode();
-        const std::array<std::string, 6> AcceptedClipsFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"};
+        void CreateSeletable_TrainingSets();
+        void CreateSeletable_Models();
+        void CreateSeletable_Predictions();
+        void UpdateData();
         void MakeFrameTitle();
+        ImVec2 GetBtnSize();
+        float TimePassed;
+        bool NeedReviewedOnly;
+        bool IsViewingSomeDetail = false;
+        std::map<int, size_t> FramesData;
+        const std::array<std::string, 6> AcceptedClipsFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"};
     };
 }

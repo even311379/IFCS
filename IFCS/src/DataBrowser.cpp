@@ -17,58 +17,222 @@
 #include "Utils.h"
 #include "Implot/implot.h"
 
+
+
 namespace IFCS
 {
+    
+    // TODO: incorrect edge behavior
+    void DataBrowser::LoadOtherFrame(bool IsNext)
+    {
+        std::queue<int> q;
+        bool PrepareToStop = false;
+        for (const auto& [k, v] : FramesData)
+        {
+            int FrameNum = k;
+            q.push(FrameNum);
+            if (q.size() > 3) q.pop();
+            if (PrepareToStop) break;
+            if (SelectedFrame == FrameNum)
+                PrepareToStop = true;
+        }
+        if (q.size() == 2) // in case that selected frame is the first or last frame;
+            return;
+        Annotation::Get().Save();
+        if (IsNext) SelectedFrame = q.back();
+        else SelectedFrame = q.front();
+        LoadFrame(SelectedFrame);
+        Annotation::Get().Load();
+        ImGui::SetWindowFocus("Annotation");
+    }
+
+    void DataBrowser::LoadFrame(int FrameNumber)
+    {
+        AnyFrameLoaded = true;
+
+        cv::Mat frame;
+        {
+            cv::VideoCapture cap(SelectedClipInfo.ClipPath);
+            if (!cap.isOpened())
+            {
+                LogPanel::Get().AddLog(ELogLevel::Error, "Fail to load video");
+                return;
+            }
+            SelectedClipInfo.Width = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
+            SelectedClipInfo.Height = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+            SelectedClipInfo.FPS = (float)cap.get(cv::CAP_PROP_FPS);
+            SelectedClipInfo.FrameCount = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
+            cap.set(cv::CAP_PROP_POS_FRAMES, FrameNumber);
+            cap >> frame;
+            cv::resize(frame, frame, cv::Size(1280, 720)); // 16 : 9
+            cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
+            cap.release();
+        }
+        glGenTextures(1, &LoadedFramePtr);
+        glBindTexture(GL_TEXTURE_2D, LoadedFramePtr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        // This is required on WebGL for non power-of-two textures
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, frame.cols, frame.rows, 0, GL_RGBA,
+                     GL_UNSIGNED_BYTE, frame.data);
+        MakeFrameTitle();
+        FrameExtractor::Get().OnFrameLoaded();
+    }
+
+    // TODO: remove project path for better looking?
+    std::vector<std::string> DataBrowser::GetAllClips() const
+    {
+        std::vector<std::string> Out;
+        for (const auto& p : std::filesystem::recursive_directory_iterator(
+                 Setting::Get().ProjectPath + std::string("/TrainingClips")))
+        {
+            if (!std::filesystem::is_directory(p))
+            {
+                bool pass = false;
+                for (const std::string& Format : AcceptedClipsFormat)
+                {
+                    if (p.path().string().find(Format) != std::string::npos)
+                    {
+                        pass = true;
+                        break;
+                    }
+                }
+                if (pass)
+                {
+                    std::string full_path = p.path().u8string();
+                    std::replace(full_path.begin(), full_path.end(), '\\', '/');
+                    Out.push_back(full_path);
+                }
+            }
+        }
+        return Out;
+    }
+
+    // TODO: finish this...
+    std::vector<std::string> DataBrowser::GetAllFolders() const
+    {
+        std::vector<std::string> Out;
+        return Out;
+    }
+
     void DataBrowser::RenderContent()
     {
         if (!Setting::Get().ProjectIsLoaded) return;
         // Inside child window to have independent scroll
         ImGui::Text("Data Browser");
-        ImVec2 ChildWindowSize = {ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y * 0.92f};
+        ImVec2 ChildWindowSize = ImGui::GetContentRegionAvail();
+        if (IsViewingSomeDetail)
+            ChildWindowSize.y *= 0.75f;
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_HorizontalScrollbar;
         window_flags |= ImGuiWindowFlags_AlwaysVerticalScrollbar;
         ImGui::BeginChild("DataBrowserWindow", ChildWindowSize, false, window_flags);
         {
-            if (ImGui::TreeNodeEx((std::string(ICON_FA_VIDEO) + "    Video Clips").c_str(),
+            if (ImGui::TreeNodeEx((std::string(ICON_FA_VIDEO) + " Training Clips").c_str(),
                                   ImGuiTreeNodeFlags_DefaultOpen))
             {
-                std::string clips_folder_path = Setting::Get().ProjectPath + std::string("/TrainingClips");
+                std::string ClipFolderPath = Setting::Get().ProjectPath + "/TrainingClips";
                 if (ImGui::BeginPopupContextItem())
                 {
                     if (ImGui::Button(LOCTEXT("Common.OpenFolderHere")))
                     {
-                        ShellExecuteA(NULL, "open", clips_folder_path.c_str(), NULL, NULL, SW_SHOWDEFAULT);
+                        ShellExecuteA(NULL, "open", ClipFolderPath.c_str(), NULL, NULL, SW_SHOWDEFAULT);
                         ImGui::CloseCurrentPopup();
                     }
                     ImGui::EndPopup();
                 }
-                RecursiveClipTreeNodeGenerator(clips_folder_path, 0);
+                RecursiveClipTreeNodeGenerator(ClipFolderPath, 0);
+                // TODO: add some hint to add things in content browser if nothing here...
+                ImGui::Dummy(ImVec2(0, ImGui::GetTextLineHeight()));
+                ImGui::Checkbox("Need review only?", &NeedReviewedOnly);
+                ImGui::Dummy(ImVec2(0, ImGui::GetTextLineHeight()));
                 ImGui::TreePop();
             }
 
-            // TODO: add from raw image as very end...leave it when all major feature is done...
-            // if (ImGui::TreeNodeEx((std::string(ICON_FA_IMAGE) + "    Raw Images").c_str()))
-            // {
-            //     for (int i = 0; i < 100; i++)
-            //     {
-            //         ImGui::Selectable("img");
-            //     }
-            //     ImGui::TreePop();
-            // }
+            if (ImGui::TreeNode((std::string(ICON_FA_IMAGE) + " Training Images").c_str()))
+            {
+                if (ImGui::BeginPopupContextItem())
+                {
+                    if (ImGui::Button(LOCTEXT("Common.OpenFolderHere")))
+                    {
+                        ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/TrainingImages").c_str(), NULL,
+                                      NULL, SW_SHOWDEFAULT);
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::EndPopup();
+                }
+                // TODO: add from raw image as very end...leave it when all major feature is done...
+                for (int i = 0; i < 100; i++)
+                {
+                    ImGui::Selectable("img");
+                }
+                ImGui::TreePop();
+            }
+            if (ImGui::TreeNode((std::string(ICON_FA_TH) + " Training Sets").c_str()))
+            {
+                if (ImGui::BeginPopupContextItem())
+                {
+                    if (ImGui::Button(LOCTEXT("Common.OpenFolderHere")))
+                    {
+                        ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Data").c_str(), NULL, NULL,
+                                      SW_SHOWDEFAULT);
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::EndPopup();
+                }
+                CreateSeletable_TrainingSets();
+                ImGui::TreePop();
+            }
+            if (ImGui::TreeNode((std::string(ICON_FA_MICROCHIP) + " Models").c_str()))
+            {
+                if (ImGui::BeginPopupContextItem())
+                {
+                    if (ImGui::Button(LOCTEXT("Common.OpenFolderHere")))
+                    {
+                        ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Models").c_str(), NULL, NULL,
+                                      SW_SHOWDEFAULT);
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::EndPopup();
+                }
+                CreateSeletable_Models();
+                ImGui::TreePop();
+            }
+            if (ImGui::TreeNode((std::string(ICON_FA_WAVE_SQUARE) + " Predictions").c_str()))
+            {
+                if (ImGui::BeginPopupContextItem())
+                {
+                    if (ImGui::Button(LOCTEXT("Common.OpenFolderHere")))
+                    {
+                        ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Predictions").c_str(), NULL, NULL,
+                                      SW_SHOWDEFAULT);
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::EndPopup();
+                }
+                CreateSeletable_Predictions();
+                ImGui::TreePop();
+            }
         }
 
         ImGui::EndChild();
-        // TODO: filter options... leave it when all major feature is done...
-        ImGui::Checkbox("TT", &Test);
-        ImGui::SameLine();
-        ImGui::Checkbox("TT", &Test);
-        ImGui::InputText("Filter", FilterText, IM_ARRAYSIZE(FilterText));
+        // // TODO: filter options... leave it when all major feature is done...
+        // Should I add filter? to filter where that's not labeled yet? or show need review? 
+        // ImGui::Checkbox("TT", &Test);
+        // ImGui::SameLine();
+        // ImGui::Checkbox("TT", &Test);
+        // ImGui::InputText("Filter", FilterText, IM_ARRAYSIZE(FilterText));
+
+        // every 10 second or the first time update all required data?
+        if (Utils::FloatCompare(0.0f, TimePassed, 0.000001f) || int(TimePassed+1) % 11 == 0)
+        {
+            UpdateData();
+            TimePassed = 0.f;
+        }
+        TimePassed += 1.0f / ImGui::GetIO().Framerate;
     }
 
-    ImVec2 DataBrowser::GetBtnSize()
-    {
-        return {ImGui::GetFont()->FontSize * 3, ImGui::GetFont()->FontSize * 1.5f};
-    }
 
     // TODO: crashed when click around frames? in release mode?
 
@@ -77,12 +241,11 @@ namespace IFCS
     {
         for (const auto& entry : std::filesystem::directory_iterator(Path))
         {
-            ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
             if (std::filesystem::is_directory(entry.path()))
             {
                 using namespace std::string_literals;
                 std::string s = ICON_FA_FOLDER + " "s + entry.path().filename().u8string().c_str();
-                if (ImGui::TreeNodeEx(s.c_str(), node_flags))
+                if (ImGui::TreeNodeEx(s.c_str(), 0))
                 {
                     RecursiveClipTreeNodeGenerator(entry, Depth + 1);
                     ImGui::TreePop();
@@ -111,17 +274,14 @@ namespace IFCS
                                       ImGuiSelectableFlags_AllowDoubleClick))
                 {
                     SelectedClipInfo.ClipPath = FullClipName;
-                    // TODO: first click is out of order?
-                    UpdateFramesNode();
                     // Open and setup frame extraction
                     if (ImGui::IsMouseDoubleClicked(0) && Setting::Get().ActiveWorkspace == EWorkspace::Data)
                     {
-                        char buff[128];
+                        // char buff[128];
                         // snprintf(buff, sizeof(buff), "open %s to start frame extraction?", FullClipName.c_str());
                         // LogPanel::Get().AddLog(ELogLevel::Info, buff);
                         ImGui::SetWindowFocus("Frame Extractor");
                         LoadFrame(0);
-                        FrameExtractor::Get().LoadData();
                     }
                 }
                 // TODO: try different flags?
@@ -172,7 +332,22 @@ namespace IFCS
         }
     }
 
-    void DataBrowser::UpdateFramesNode()
+    void DataBrowser::CreateSeletable_TrainingSets()
+    {
+        // if (Tick % )
+        // YAML::LoadFile(Setting::Get().ProjectPath + );
+        // ImGui::Text("frame rate: %.2f", ImGui::GetIO().Framerate);
+    }
+
+    void DataBrowser::CreateSeletable_Models()
+    {
+    }
+
+    void DataBrowser::CreateSeletable_Predictions()
+    {
+    }
+
+    void DataBrowser::UpdateData()
     {
         FramesData.clear();
         YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"))[
@@ -181,101 +356,7 @@ namespace IFCS
         {
             FramesData.insert({it->first.as<int>(), it->second.size()});
         }
-    }
-
-    // TODO: incorrect edge behavior
-    void DataBrowser::LoadOtherFrame(bool IsNext)
-    {
-        std::queue<int> q;
-        bool PrepareToStop = false;
-        for (const auto& [k, v] : FramesData)
-        {
-            int FrameNum = k;
-            q.push(FrameNum);
-            if (q.size() > 3) q.pop();
-            if (PrepareToStop) break;
-            if (SelectedFrame == FrameNum)
-                PrepareToStop = true;
-        }
-        if (q.size() == 2) // in case that selected frame is the first or last frame;
-            return;
-        Annotation::Get().Save();
-        if (IsNext) SelectedFrame = q.back();
-        else SelectedFrame = q.front();
-        LoadFrame(SelectedFrame);
-        Annotation::Get().Load();
-        ImGui::SetWindowFocus("Annotation");
-    }
-
-    void DataBrowser::LoadFrame(int FrameNumber)
-    {
-        AnyFrameLoaded = true;
-
-        cv::Mat frame;
-        {
-            cv::VideoCapture cap(SelectedClipInfo.ClipPath);
-            if (!cap.isOpened())
-            {
-                LogPanel::Get().AddLog(ELogLevel::Error, "Fail to load video");
-                return;
-            }
-            SelectedClipInfo.Width = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
-            SelectedClipInfo.Height = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
-            SelectedClipInfo.FPS = (float)cap.get(cv::CAP_PROP_FPS);
-            SelectedClipInfo.FrameCount = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
-            cap.set(cv::CAP_PROP_POS_FRAMES, FrameNumber);
-            cap >> frame;
-            cv::resize(frame, frame, cv::Size(1280, 720)); // 16 : 9
-            cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
-            cap.release();
-        }
-        LoadedFramePtr = 0;
-        glGenTextures(1, &LoadedFramePtr);
-        glBindTexture(GL_TEXTURE_2D, LoadedFramePtr);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-        // This is required on WebGL for non power-of-two textures
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, frame.cols, frame.rows, 0, GL_RGBA,
-                     GL_UNSIGNED_BYTE, frame.data);
-        MakeFrameTitle();
-    }
-
-    // TODO: remove project path for better looking?
-    std::vector<std::string> DataBrowser::GetAllClips() const
-    {
-        std::vector<std::string> Out;
-        for (const auto& p : std::filesystem::recursive_directory_iterator(
-                 Setting::Get().ProjectPath + std::string("/TrainingClips")))
-        {
-            if (!std::filesystem::is_directory(p))
-            {
-                bool pass = false;
-                for (const std::string& Format : AcceptedClipsFormat)
-                {
-                    if (p.path().string().find(Format) != std::string::npos)
-                    {
-                        pass = true;
-                        break;
-                    }
-                }
-                if (pass)
-                {
-                    std::string full_path = p.path().u8string();
-                    std::replace(full_path.begin(), full_path.end(), '\\', '/');
-                    Out.push_back(full_path);
-                }
-            }
-        }
-        return Out;
-    }
-
-    // TODO: finish this...
-    std::vector<std::string> DataBrowser::GetAllFolders() const
-    {
-        std::vector<std::string> Out;
-        return Out;
+        spdlog::info("Data is updated...");
     }
 
     void DataBrowser::MakeFrameTitle()
@@ -299,5 +380,10 @@ namespace IFCS
         }
         FrameTitle = SelectedClipInfo.GetClipFileName() + "......(" + temp + "/" + std::to_string(
             SelectedClipInfo.FrameCount) + ")";
+    }
+
+    ImVec2 DataBrowser::GetBtnSize()
+    {
+        return {ImGui::GetFont()->FontSize * 3, ImGui::GetFont()->FontSize * 1.5f};
     }
 }
