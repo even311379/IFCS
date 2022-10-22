@@ -26,7 +26,7 @@ namespace IFCS
         void IncludeGenClip(const std::string& InClip);
         void IncludeGenFolder(const std::string& InFolder);
         std::set<std::string> IncludedGenClips;
-        std::set<std::string> IncludedGenFolders;
+        std::set<std::string> IncludedImageFolders;
         int NumIncludedFrames = 0;
         int NumIncludedImages = 0; // leave for future update...
         int TotalExportImages = 1;
@@ -58,12 +58,11 @@ namespace IFCS
         int FlipXPercent = 10;
         bool bApplyFlipY;
         int FlipYPercent = 10;
+        std::string MakeAugmentationDescription();
 
         char NewTrainingSetName[64];
-        int DuplicateTimes = 1;
+        int AugmentationDuplicates = 1;
 
-        // for visual settup
-        float ExportWidgetGropWidth = 0.f;
 
         // augmentation preview
         unsigned int Origin;

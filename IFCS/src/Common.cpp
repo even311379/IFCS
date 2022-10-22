@@ -132,22 +132,121 @@ namespace IFCS
     }
 
 
-    std::string FAnnotation::GetExportTxt( std::unordered_map< UUID, int>& CategoryChecker,
-        const FAnnotationShiftData& InShiftData) const
+    std::string FAnnotation::GetExportTxt(std::unordered_map<UUID, int>& CategoryChecker,
+                                          const FAnnotationShiftData& InShiftData) const
     {
         // TODO: ignore shift data for now... MUST add later...
         std::array<float, 4> ToShift = XYWH;
-        ToShift[0]/=WorkArea.x;
-        ToShift[1]/=WorkArea.y;
-        ToShift[2]/=WorkArea.x;
-        ToShift[3]/=WorkArea.y;
+        ToShift[0] /= WorkArea.x;
+        ToShift[1] /= WorkArea.y;
+        ToShift[2] /= WorkArea.x;
+        ToShift[3] /= WorkArea.y;
 
         std::string OutString = std::to_string(CategoryChecker[CategoryID]);
-        for (int i=0;i<4;i++)
+        for (int i = 0; i < 4; i++)
         {
             OutString += " " + std::to_string(ToShift[i]);
         }
         return OutString;
     }
 
+
+    FTrainingSetDescription::FTrainingSetDescription(YAML::Node InputNode)
+    {
+        Deserialize(InputNode);
+    }
+
+    YAML::Node FTrainingSetDescription::Serialize()
+    {
+        YAML::Node OutNode;
+        OutNode["Name"] = Name;
+        OutNode["CreationTime"] = CreationTime;
+        OutNode["IncludeClips"] = IncludeClips;
+        OutNode["IncludeImageFolders"] = IncludeImageFolders;
+        OutNode["Size"] = Size;
+        OutNode["Split"] = Split;
+        OutNode["NumDuplicates"] = NumDuplicates;
+        OutNode["TotalImagesExported"] = TotalImagesExported;
+        OutNode["AppliedAugmentationDescription"] = AppliedAugmentationDescription;
+        return OutNode;
+    }
+
+    void FTrainingSetDescription::Deserialize(YAML::Node InputNode)
+    {
+        Name = InputNode["Name"].as<std::string>();
+        CreationTime = InputNode["CreationTime"].as<std::string>();
+        IncludeClips = InputNode["IncludeClips"].as<std::vector<std::string>>();
+        IncludeImageFolders = InputNode["IncludeImageFolders"].as<std::vector<std::string>>();
+        Size = InputNode["Size"].as<std::array<int, 2>>();
+        Split = InputNode["Split"].as<std::array<float, 3>>();
+        NumDuplicates = InputNode["NumDuplicates"].as<int>();
+        TotalImagesExported = InputNode["TotalImagesExported"].as<int>();
+        AppliedAugmentationDescription = InputNode["AppliedAugmentationDescription"].as<std::string>();
+    }
+
+    FModelDescription::FModelDescription(YAML::Node InputNode)
+    {
+        Deserialize(InputNode);
+    }
+
+    YAML::Node FModelDescription::Serialize() const
+    {
+        YAML::Node OutNode;
+        OutNode["Name"] = Name;
+        OutNode["CreationTime"] = CreationTime;
+        OutNode["ModelType"] = ModelType;
+        OutNode["SourceTrainingSet"] = (uint64_t)SourceTrainingSetID;
+        OutNode["TraningTime"] = TrainingTime;
+        OutNode["BatchSize"] = BatchSize;
+        OutNode["NumEpochs"] = NumEpochs;
+        OutNode["Progresses"] = Progresses;
+        OutNode["Recall"] = Recall;
+        OutNode["Precision"] = Precision;
+        OutNode["mAP5"] = mAP5;
+        OutNode["mAP5_95"] = mAP5_95;
+        return OutNode;
+    }
+
+    void FModelDescription::Deserialize(YAML::Node InputNode)
+    {
+        Name = InputNode["Name"].as<std::string>();
+        CreationTime = InputNode["CreationTime"].as<std::string>();
+        ModelType = InputNode["ModelType"].as<std::string>();
+        SourceTrainingSetID = UUID(InputNode["SourceTrainingSet"].as<uint64_t>());
+        TrainingTime = InputNode["TraningTime"].as<int>();
+        BatchSize = InputNode["BatchSize"].as<int>();
+        NumEpochs = InputNode["NumEpochs"].as<int>();
+        Progresses = InputNode["Progresses"].as<std::vector<std::string>>();
+        Recall = InputNode["Recall"].as<float>();
+        Precision = InputNode["Precision"].as<float>();
+        mAP5 = InputNode["mAP5"].as<float>();
+        mAP5_95 = InputNode["mAP5_95"].as<float>();
+    }
+
+    FPredictionDescription::FPredictionDescription(YAML::Node InputNode)
+    {
+        Deserialize(InputNode);
+    }
+
+    YAML::Node FPredictionDescription::Serialize() const
+    {
+        YAML::Node OutNode;
+        OutNode["Name"] = Name;
+        OutNode["CreationTime"] = CreationTime;
+        OutNode["ModelID"] = (uint64_t)ModelID;
+        OutNode["TargetClip"] = TargetClip;
+        OutNode["Confidence"] = Confidence;
+        OutNode["IOU"] = IOU;
+        return OutNode;
+    }
+
+    void FPredictionDescription::Deserialize(YAML::Node InputNode)
+    {
+        Name = InputNode["Name"].as<std::string>();
+        CreationTime = InputNode["CreationTime"].as<std::string>();
+        ModelID = UUID(InputNode["ModelID"].as<uint64_t>());
+        TargetClip = InputNode["TargetClip"].as<std::string>();
+        Confidence = InputNode["Confidence"].as<float>();
+        IOU = InputNode["IOU"].as<float>();
+    }
 }

@@ -15,7 +15,8 @@ namespace IFCS
 {
     namespace Utils
     {
-        char* GetCurrentTimeString();
+        // char* GetCurrentTimeString();
+        std::string GetCurrentTimeString();
 
         typedef std::vector<std::vector<std::string>> CSV;
 

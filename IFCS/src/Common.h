@@ -2,6 +2,7 @@
 #include <array>
 #include <string>
 #include <unordered_map>
+#include <yaml-cpp/binary.h>
 
 #include "imgui.h"
 #include "UUID.h"
@@ -123,14 +124,65 @@ namespace IFCS
         FAnnotation()=default;
         FAnnotation(UUID InCategory, std::array<float, 4> InXYWH); // contruct when new annotation is created
         FAnnotation(YAML::Node InputNode); // construct from yaml
-        
         UUID CategoryID;
         std::array<float, 4> XYWH = {0.f, 0.f, 0.f, 0.f}; // the four floats for center x , center y, width , height
-        
         YAML::Node Serialize() const;
         void Deserialize(YAML::Node InputNode);
         void Pan(std::array<float, 2> Changed);
         void Resize(EBoxCorner WhichCorner, std::array<float, 2> Changed);
         std::string GetExportTxt( std::unordered_map< UUID, int>& CategoryChecker, const FAnnotationShiftData& InShiftData) const;
+    };
+
+    struct FTrainingSetDescription
+    {
+        FTrainingSetDescription()=default;
+        FTrainingSetDescription(YAML::Node InputNode);
+        std::string Name;
+        std::string CreationTime;
+        std::vector<std::string> IncludeClips;
+        std::vector<std::string> IncludeImageFolders;
+        std::array<int, 2> Size = {640, 640};
+        std::array<float, 3> Split = {0.80f, 0.10f, 0.10f};
+        int NumDuplicates=0;
+        int TotalImagesExported = 1000; // Not include duplicated ones...
+        std::string AppliedAugmentationDescription;
+        YAML::Node Serialize();
+        void Deserialize(YAML::Node InputNode);
+    };
+    
+    struct FModelDescription
+    {
+        FModelDescription()=default;
+        FModelDescription(YAML::Node InputNode);
+        std::string Name;
+        std::string CreationTime;
+        std::string ModelType;
+        UUID SourceTrainingSetID;
+        int TrainingTime=0;
+        int BatchSize=0;
+        int NumEpochs=0;
+        std::vector<std::string> Progresses;
+        float Recall=0.f;
+        float Precision=0.f;
+        float mAP5=0.f;
+        float mAP5_95=0.f;
+        YAML::Node Serialize() const;
+        void Deserialize(YAML::Node InputNode);
+    };
+
+    struct FPredictionDescription
+    {
+        FPredictionDescription()=default;
+        FPredictionDescription(YAML::Node InputNode);
+        std::string Name;
+        std::string CreationTime;
+        UUID ModelID;
+        std::string TargetClip;
+        float Confidence=0.001f;
+        float IOU=0.65f;
+        YAML::Node Serialize() const;
+        void Deserialize(YAML::Node InputNode);
+        // TODO: add get data??
+        // std::map<uint32_t, >
     };
 }

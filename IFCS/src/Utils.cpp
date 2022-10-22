@@ -1,11 +1,12 @@
 ﻿#include "Utils.h"
 #include "Setting.h"
 
+#include <ctime>
 #include <fstream>
+#include <chrono>
 #include <iostream>
 #include <istream>
 #include <sstream>
-#include <ctime>
 #include <random>
 
 #include "Spectrum/imgui_spectrum.h"
@@ -15,15 +16,26 @@ namespace IFCS
 {
     namespace Utils
     {
-        char* GetCurrentTimeString()
-        {
-            time_t curr_time;
-            char out_string[200];
+        // char* GetCurrentTimeString()
+        // {
+        //     time_t curr_time;
+        //     char out_string[200];
+        //
+        //     time(&curr_time);
+        //     tm* LocalTime = localtime(&curr_time);
+        //     strftime(out_string, 100, "%T %Y/%m/%d", LocalTime);
+        //     return out_string;
+        // }
 
-            time(&curr_time);
-            tm* LocalTime = localtime(&curr_time);
-            strftime(out_string, 100, "%T %Y/%m/%d", LocalTime);
-            return out_string;
+        std::string GetCurrentTimeString()
+        {
+            time_t rawtime;
+            tm* timeinfo;
+            char buffer[80];
+            time(&rawtime);
+            timeinfo = localtime(&rawtime);
+            strftime(buffer, sizeof(buffer), "%d-%m-%Y %H:%M:%S", timeinfo);
+            return std::string{buffer};
         }
 
         CSV LoadCSV(const char* FilePath, bool bContainsHeader)

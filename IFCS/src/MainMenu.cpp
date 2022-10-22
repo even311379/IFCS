@@ -8,13 +8,12 @@
 #include "imgui.h"
 #include "Log.h"
 #include "ModelGenerator.h"
-#include "ModelViewer.h"
 #include "Prediction.h"
 #include "Setting.h"
 #include "TrainingSetGenerator.h"
-#include "TrainingSetViewer.h"
 #include "Utils.h"
 #include "ImguiNotify/font_awesome_5.h"
+#include "Spectrum/imgui_spectrum.h"
 
 
 IFCS::MainMenu::~MainMenu()
@@ -61,25 +60,17 @@ void IFCS::MainMenu::Render()
                 {
                     CategoryManagement::Get().ToggleVisibility();
                 }
-                ImGui::EndMenu();
-            }
-            if (ImGui::BeginMenu(LOCTEXT("ToolbarMenu.Train")))
-            {
                 if (ImGui::MenuItem("TrainingSetGenerator", "", TrainingSetGenerator::Get().GetVisibility()))
                 {
                     TrainingSetGenerator::Get().ToggleVisibility();
                 }
-                if (ImGui::MenuItem("TrainingSetViewer", "", TrainingSetViewer::Get().GetVisibility()))
-                {
-                    TrainingSetViewer::Get().ToggleVisibility();
-                }
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu(LOCTEXT("ToolbarMenu.Train")))
+            {
                 if (ImGui::MenuItem("ModelGenerator", "", ModelGenerator::Get().GetVisibility()))
                 {
                     ModelGenerator::Get().ToggleVisibility();
-                }
-                if (ImGui::MenuItem("ModelViewer", "", ModelViewer::Get().GetVisibility()))
-                {
-                    ModelViewer::Get().ToggleVisibility();
                 }
                 ImGui::EndMenu();
             }
@@ -112,21 +103,55 @@ void IFCS::MainMenu::Render()
         ImGui::Dummy({200, 1});
         ImGui::Text(LOCTEXT("ToolbarTxt.Wks"));
         Utils::AddSimpleTooltip(LOCTEXT("ToolbarMenu.ChooseWks"));
-        ImGui::Text("|");
-        if (ImGui::MenuItem(LOCTEXT("ToolbarMenu.WksData")))
+        static const ImVec2 WksBtnSize = {240, 0};
+        static EWorkspace CurrentWks;
+        static ETheme CurrentTheme;
+        CurrentWks = Setting::Get().ActiveWorkspace;
+        CurrentTheme = Setting::Get().Theme;
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 12.f);
+        if (CurrentWks == EWorkspace::Data)
         {
-            Setting::Get().SetWorkspace(EWorkspace::Data);
+            ImGui::PushStyleColor(ImGuiCol_Button, Spectrum::RED(400, CurrentTheme == ETheme::Light));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, Spectrum::RED(400, CurrentTheme == ETheme::Light));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Spectrum::RED(400, CurrentTheme == ETheme::Light));
         }
-        ImGui::Text("|");
-        if (ImGui::MenuItem(LOCTEXT("ToolbarMenu.WksTrain")))
+        if (ImGui::Button(LOCTEXT("ToolbarMenu.WksData"), WksBtnSize))
         {
-            Setting::Get().SetWorkspace(EWorkspace::Train);
+            if (CurrentWks != EWorkspace::Data)
+                Setting::Get().SetWorkspace(EWorkspace::Data);
         }
-        ImGui::Text("|");
-        if (ImGui::MenuItem(LOCTEXT("ToolbarMenu.WksPredict")))
+        if (CurrentWks == EWorkspace::Data)
+            ImGui::PopStyleColor(3);
+        ImGui::Text(ICON_FA_ANGLE_RIGHT);
+        if (CurrentWks == EWorkspace::Train)
         {
-            Setting::Get().SetWorkspace(EWorkspace::Predict);
+            ImGui::PushStyleColor(ImGuiCol_Button, Spectrum::RED(400, CurrentTheme == ETheme::Light));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, Spectrum::RED(400, CurrentTheme == ETheme::Light));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Spectrum::RED(400, CurrentTheme == ETheme::Light));
         }
+        if (ImGui::Button(LOCTEXT("ToolbarMenu.WksTrain"), WksBtnSize))
+        {
+            if (CurrentWks != EWorkspace::Train)
+                Setting::Get().SetWorkspace(EWorkspace::Train);
+        }
+        if (CurrentWks == EWorkspace::Train)
+            ImGui::PopStyleColor(3);
+        ImGui::Text(ICON_FA_ANGLE_RIGHT);
+        if (CurrentWks == EWorkspace::Predict)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Button, Spectrum::RED(400, CurrentTheme == ETheme::Light));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, Spectrum::RED(400, CurrentTheme == ETheme::Light));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Spectrum::RED(400, CurrentTheme == ETheme::Light));
+        }
+        if (ImGui::Button(LOCTEXT("ToolbarMenu.WksPredict"), WksBtnSize))
+        {
+            if (CurrentWks != EWorkspace::Predict)
+                Setting::Get().SetWorkspace(EWorkspace::Predict);
+        }
+        if (CurrentWks == EWorkspace::Predict)
+            ImGui::PopStyleColor(3);
+        ImGui::PopStyleVar();
+
         // very unlikely to add custom workspace... like blender...
         // ImGui::Text("|");
         // ImGui::MenuItem(ICON_FA_PLUS);
@@ -140,4 +165,3 @@ void IFCS::MainMenu::SetApp(Application* InApp)
 {
     App = InApp;
 }
-

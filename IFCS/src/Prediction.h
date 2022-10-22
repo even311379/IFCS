@@ -21,10 +21,11 @@ namespace IFCS
     protected:
         void RenderContent() override;
     private:
-        int SelectedModelIdx;
-        int SelectedClipIdx;
+        char SelectedModel[128];
+        char SelectedClip[128];
         float Confidence = 0.25f;
         void MakePrediction();
+        std::string RunResult;
 
         
         int SelectedPrediction;

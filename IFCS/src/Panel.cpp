@@ -104,6 +104,7 @@ namespace IFCS
             ImGui::DockBuilderDockWindow("Data Browser", Left);
             ImGui::DockBuilderDockWindow("Annotation", Center);
             ImGui::DockBuilderDockWindow("Frame Extractor", Center);
+            ImGui::DockBuilderDockWindow("Training Set Generator", Center);
             ImGui::DockBuilderDockWindow("Category Management", Right);
             ImGui::DockBuilderFinish(DockspaceID);
             SetDataWksNow = false;
@@ -115,15 +116,10 @@ namespace IFCS
             ImGui::DockBuilderSetNodeSize(DockspaceID, ImGui::GetMainViewport()->Size);
             
             ImGuiID Left;
-            ImGuiID CenterUp;
-            ImGuiID CenterDown;
-            ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Left, 0.2f, &Left, &CenterUp);
-            ImGui::DockBuilderSplitNode(CenterUp, ImGuiDir_Down, 0.3f, &CenterDown, nullptr);
+            ImGuiID Right;
+            ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Left, 0.2f, &Left, &Right);
             ImGui::DockBuilderDockWindow("Data Browser", Left);
-            ImGui::DockBuilderDockWindow("Training Set Generator", CenterUp);
-            ImGui::DockBuilderDockWindow("Model Generator", CenterUp);
-            ImGui::DockBuilderDockWindow("Training Set Viewer", CenterDown);
-            ImGui::DockBuilderDockWindow("Model Viewer", CenterDown);
+            ImGui::DockBuilderDockWindow("Model Generator", Right);
             ImGui::DockBuilderFinish(DockspaceID);
             SetTrainWksNow = false;
         }

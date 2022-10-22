@@ -1,10 +1,13 @@
 ﻿#include "Prediction.h"
 
+
+#include "DataBrowser.h"
 #include "imgui_internal.h"
 #include "Setting.h"
 #include "ImguiNotify/font_awesome_5.h"
 #include "Spectrum/imgui_spectrum.h"
 #include "Implot/implot.h"
+#include "yaml-cpp/yaml.h"
 
 namespace IFCS
 {
@@ -12,19 +15,51 @@ namespace IFCS
     {
         if (ImGui::TreeNodeEx("Make Prediction", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            const char* FakeModels[] = {
-                "model1", "model2", "model3"
-            };
-            const char* FakeClips[] = {
-                "Clip1", "Clip2", "Clip3"
-            };
-            ImGui::Combo("Choose Model", &SelectedModelIdx, FakeModels, IM_ARRAYSIZE(FakeModels));
-            ImGui::Combo("Choose Clip", &SelectedClipIdx, FakeClips, IM_ARRAYSIZE(FakeClips));
-            ImGui::DragFloat("Confidence", &Confidence, 0.05f, 0.05f, 1.0f, "%.2f");
-            if (ImGui::Button("Predict"))
+            const float AvailWidth = ImGui::GetContentRegionAvail().x;
+            ImGui::SetNextItemWidth(240.f);
+            if (ImGui::BeginCombo("Choose Model", SelectedModel))
+            {
+                YAML::Node ModelData = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Description.yaml");
+                for (size_t i = 0; i < ModelData.size(); i++)
+                {
+                    const char* Name = ModelData[i]["Name"].as<std::string>().c_str();
+                    if (ImGui::Selectable(Name, strcmp( Name, SelectedModel)))
+                    {
+                        strcpy(SelectedModel,Name);
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::SetNextItemWidth(240.f);ImGui::SameLine();
+            if (ImGui::BeginCombo("Choose Clip", SelectedClip))
+            {
+                
+                for (const std::string& Clip : DataBrowser::Get().GetAllClips())
+                {
+                    std::string ClipNoPath = Clip.substr(Setting::Get().ProjectPath.size()+15);
+                    if (ImGui::Selectable(ClipNoPath.c_str(), ClipNoPath == SelectedClip))
+                    {
+                        strcpy(SelectedClip, ClipNoPath.c_str());
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::SetNextItemWidth(240.f);ImGui::SameLine();
+            if (ImGui::InputFloat("Confidence", &Confidence, 0.01f, 0.1f,  "%.2f"))
+            {
+                if (Confidence < 0.01f) Confidence = 0.01f;
+                if (Confidence > 1.0f) Confidence = 1.0f;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Predict", ImVec2(240, 0)))
             {
                 MakePrediction();
             }
+            ImGui::Separator();
+            ImGui::Text("Prediction Log");
+            ImGui::BeginChildFrame(ImGui::GetID("PredictLog"), ImVec2(AvailWidth, ImGui::GetTextLineHeight()*6));
+            ImGui::TextWrapped("%s", RunResult.c_str());
+            ImGui::EndChildFrame();
             ImGui::TreePop();
         }
         // choose model
@@ -138,7 +173,12 @@ namespace IFCS
 
     void Prediction::MakePrediction()
     {
+        
+        
         // trigger python code?
+
+
+        
     }
 
     void Prediction::DrawPlayRange()

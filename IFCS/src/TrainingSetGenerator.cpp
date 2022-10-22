@@ -75,8 +75,9 @@ namespace IFCS
                         }
                     }
                     char AddClipPreviewTitle[128];
-                    snprintf(AddClipPreviewTitle, sizeof(AddClipPreviewTitle), "%s Add Clip", ICON_FA_PLUS);
+                    sprintf(AddClipPreviewTitle, "%s Add Clip", ICON_FA_PLUS);
                     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.5f);
+                    // TODO: remove the project path...
                     if (ImGui::BeginCombo("##AddClip", AddClipPreviewTitle))
                     {
                         std::vector<std::string> AllClips = DataBrowser::Get().GetAllClips();
@@ -98,15 +99,15 @@ namespace IFCS
                     ImGui::SameLine();
                     char AddFolderPreviewTitle[128];
                     // snprintf(AddFolderPreviewTitle, sizeof(AddClipPreviewTitle), "%s Add Folder", ICON_FA_PLUS);
-                    sprintf(AddFolderPreviewTitle,  "%s Add Folder", ICON_FA_PLUS);
+                    sprintf(AddFolderPreviewTitle, "%s Add Folder", ICON_FA_PLUS);
                     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                     if (ImGui::BeginCombo("##AddFolder", AddFolderPreviewTitle))
                     {
                         std::vector<std::string> AllFolders = DataBrowser::Get().GetAllFolders();
                         auto NewEnd = std::remove_if(AllFolders.begin(), AllFolders.end(), [this](const std::string& C)
                         {
-                            return std::find(IncludedGenFolders.begin(), IncludedGenFolders.end(), C) !=
-                                IncludedGenFolders.end();
+                            return std::find(IncludedImageFolders.begin(), IncludedImageFolders.end(), C) !=
+                                IncludedImageFolders.end();
                         });
                         AllFolders.erase(NewEnd, AllFolders.end());
                         // TODO: leave include folder for now...
@@ -266,14 +267,8 @@ namespace IFCS
                 ImGui::BulletText("Resize to: %d x %d", NewSize[0], NewSize[1]);
                 ImGui::BulletText("Augmentation:");
                 ImGui::Indent();
-                if (bApplyBlur) ImGui::Text("Random blur up to %d", MaxBlurAmount);
-                if (bApplyNoise)
-                    ImGui::Text("Random noise (mean: %d ~ %d ,std: %d ~ %d.", NoiseMeanMin, NoiseMeanMax,
-                                NoiseStdMin, NoiseStdMax);
-                if (bApplyHue) ImGui::Text("Random Hue shift for -%d ~ %d", HueAmount, HueAmount);
-                if (bApplyFlipX) ImGui::Text("%d %% images will flip in x axis.", FlipXPercent);
-                if (bApplyFlipY) ImGui::Text("%d %% images will flip in y axis.", FlipYPercent);
-                if (bApplyRotation) ImGui::Text("Random rotation -%d ~ %d", MaxRotationAmount, MaxRotationAmount);
+                ImGui::Text("%s", MakeAugmentationDescription().c_str());
+
                 ImGui::Unindent();
                 ImGui::BulletText("Category: Undex yet...");
                 ImGui::Separator();
@@ -310,27 +305,31 @@ namespace IFCS
             ImGui::EndChild();
         }
         ImGui::EndChild();
-        ImGui::SetCursorPosX((ImGui::GetContentRegionAvail().x - ExportWidgetGropWidth) * 0.5f);
+        static float ExportWidgetGroupWidth;
+        ImGui::SetCursorPosX((ImGui::GetContentRegionAvail().x - ExportWidgetGroupWidth) * 0.5f);
         ImGui::BeginGroup();
         {
-            ImGui::Text("New training set name: ");
+            ImGui::SetNextItemWidth(240.f);
+            ImGui::InputText("Training Set Name", NewTrainingSetName, IM_ARRAYSIZE(NewTrainingSetName));
             ImGui::SameLine();
             ImGui::SetNextItemWidth(120.f);
-            ImGui::InputText("##Training Set Name", NewTrainingSetName, IM_ARRAYSIZE(NewTrainingSetName));
+            if (ImGui::InputInt("Augmentation Duplicates", &AugmentationDuplicates, 1, 5))
+            {
+                if (AugmentationDuplicates < 1) AugmentationDuplicates = 0;
+                if (AugmentationDuplicates > 100) AugmentationDuplicates = 100;
+            }
             ImGui::SameLine();
-            ImGui::SetNextItemWidth(60.f);
-            ImGui::DragInt("Duplicate Times", &DuplicateTimes, 1, 1, 10);
-            ImGui::SameLine();
-            if (ImGui::Button("Generate"))
+            if (ImGui::Button("Generate", ImVec2(240, 0)))
             {
                 GenerateTrainingSet();
             }
-            ImGui::Text("Total Generation: %d (Train %d x %d)/%d (Valid)/%d (Test)",
-                        SplitImgs[0] * DuplicateTimes + SplitImgs[1] + SplitImgs[2], SplitImgs[0], DuplicateTimes,
+            ImGui::Text("Total Generation: %d  =  %d x (1 + %d) + %d + %d",
+                        SplitImgs[0] * (1 + AugmentationDuplicates) + SplitImgs[1] + SplitImgs[2], SplitImgs[0],
+                        AugmentationDuplicates,
                         SplitImgs[1], SplitImgs[2]);
         }
         ImGui::EndGroup();
-        ExportWidgetGropWidth = ImGui::GetItemRectSize().x;
+        ExportWidgetGroupWidth = ImGui::GetItemRectSize().x;
     }
 
     void TrainingSetGenerator::GenerateTrainingSet()
@@ -355,8 +354,35 @@ namespace IFCS
         if (ofs.is_open())
         {
             ofs << "Generated from IFCS" << std::endl;
-            // TODO: add this line will make the whole file become binary format... so strange... c++ rocks~
-            // ofs << std::string(Utils::GetCurrentTimeString()) << std::endl;
+            ofs << Utils::GetCurrentTimeString() << std::endl;
+        }
+        ofs.close();
+        // write file to /Data/TrainingSets.yaml
+        ofs.open(ProjectPath + "/Data/TrainingSets.yaml");
+        if (ofs.is_open())
+        {
+            YAML::Node Data = YAML::LoadFile(ProjectPath + "/Data/TrainingSets.yaml");
+            FTrainingSetDescription Desc;
+            Desc.Name = NewTrainingSetName;
+            Desc.CreationTime = Utils::GetCurrentTimeString();
+            std::vector<std::string> IC;
+            IC.assign(IncludedGenClips.begin(), IncludedGenClips.end());
+            Desc.IncludeClips = IC;
+            std::vector<std::string> II;
+            II.assign(IncludedImageFolders.begin(), IncludedImageFolders.end());
+            Desc.IncludeImageFolders = II;
+            Desc.Size[0] = NewSize[0];
+            Desc.Size[1] = NewSize[1];
+            Desc.Split[0] = SplitPercent[0] / 100;
+            Desc.Split[1] = SplitPercent[1] / 100;
+            Desc.Split[2] = SplitPercent[2] / 100;
+            Desc.NumDuplicates = AugmentationDuplicates;
+            Desc.TotalImagesExported = TotalExportImages;
+            Desc.AppliedAugmentationDescription = MakeAugmentationDescription();
+            Data.push_back(Desc.Serialize());
+            YAML::Emitter Out;
+            Out << Data;
+            ofs << Out.c_str();
         }
         ofs.close();
         //write data file for yolo
@@ -431,7 +457,7 @@ namespace IFCS
                     GenerateImgTxt(Cap, FrameNum, Annotations, GenName.c_str(), true, "Train");
 
                     // gen augment version
-                    for (int i = 0; i < DuplicateTimes - 1; i++)
+                    for (int i = 0; i < AugmentationDuplicates - 1; i++)
                     {
                         GenerateImgTxt(Cap, FrameNum, Annotations, (GenName + "_aug_" + std::to_string(i)).c_str(),
                                        false, "Train");
@@ -809,5 +835,47 @@ namespace IFCS
             SplitControlPos1 = SplitPercent[0] * 0.01f;
             SplitControlPos2 = (SplitPercent[0] + SplitPercent[1]) * 0.01f;
         }
+    }
+
+    std::string TrainingSetGenerator::MakeAugmentationDescription()
+    {
+        std::string Out;
+        if (bApplyBlur)
+        {
+            char buf[64];
+            sprintf(buf, "Random blur up to %d /n", MaxBlurAmount );
+            Out += buf;
+        }
+        if (bApplyNoise)
+        {
+            char buf[64];
+            sprintf(buf, "Random noise (mean: %d ~ %d ,std: %d ~ %d./n", NoiseMeanMin, NoiseMeanMax, NoiseStdMin, NoiseStdMax);
+            Out += buf;
+        }
+        if (bApplyHue)
+        {
+            char buf[64];
+            sprintf(buf, "Random Hue shift for -%d ~ %d", HueAmount, HueAmount);
+            Out += buf;
+        }
+        if (bApplyFlipX)
+        {
+            char buf[64];
+            sprintf(buf, "%d %% images will flip in x axis.", FlipXPercent);
+            Out += buf;
+        }
+        if (bApplyFlipY)
+        {
+            char buf[64];
+            sprintf(buf, "%d %% images will flip in y axis.", FlipYPercent);
+            Out += buf;
+        }
+        if (bApplyRotation)
+        {
+            char buf[64];
+            sprintf(buf, "Random rotation -%d ~ %d", MaxRotationAmount, MaxRotationAmount);
+            Out += buf;
+        }
+        return Out;
     }
 }

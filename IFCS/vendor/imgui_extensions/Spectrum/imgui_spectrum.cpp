@@ -408,10 +408,10 @@ namespace Spectrum
         colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.20f, 0.20f, 0.20f, 0.35f);
 
         // more missing colors...
-        colors[ImGuiCol_Tab] = BLUE(700, is_light);
-        colors[ImGuiCol_TabHovered] = BLUE(600, is_light);
+        colors[ImGuiCol_Tab] = BLUE(600, is_light);
+        colors[ImGuiCol_TabHovered] = BLUE(700, is_light);
         colors[ImGuiCol_TabActive] = BLUE(400, is_light);
-        colors[ImGuiCol_TabUnfocused] = BLUE(700, is_light);
+        colors[ImGuiCol_TabUnfocused] = BLUE(500, is_light);
         colors[ImGuiCol_TabUnfocusedActive] = BLUE(400, is_light);
     }
 }

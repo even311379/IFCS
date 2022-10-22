@@ -9,6 +9,8 @@
 #include "Setting.h"
 #include "ImFileDialog/ImFileDialog.h"
 
+// TODO: model comparison!!!
+
 namespace IFCS
 {
     static std::string RunResult;
@@ -66,6 +68,8 @@ namespace IFCS
         ImGui::Separator();
         ImGui::Text("Training Log:");
         ImGui::BeginChildFrame(ImGui::GetID("TrainingLog"), ImVec2(0, 0));
+        // TODO: I can grab results.txt during traning... as long as one batch is done... that file get updated...
+        // TODO: use that info to draw table + learning curve
         ImGui::TextWrapped("%s", RunResult.c_str());
         ImGui::EndChildFrame();
     }

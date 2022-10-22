@@ -18,10 +18,8 @@
 #include "Log.h"
 #include "MainMenu.h"
 #include "ModelGenerator.h"
-#include "ModelViewer.h"
 #include "Prediction.h"
 #include "TrainingSetGenerator.h"
-#include "TrainingSetViewer.h"
 #include "Utils.h"
 
 
@@ -131,8 +129,6 @@ namespace IFCS
     	Annotation::Get().Setup("Annotation", true, 0);
     	TrainingSetGenerator::Get().Setup("Training Set Generator", true, 0);
     	ModelGenerator::Get().Setup("Model Generator", true, 0);
-    	TrainingSetViewer::Get().Setup("Training Set Viewer", true, 0);
-    	ModelViewer::Get().Setup("Model Viewer", true, 0);
     	Prediction::Get().Setup("Prediction", true, 0);
         Setting::Get().LoadEditorIni();
     	CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
@@ -165,9 +161,7 @@ namespace IFCS
         	CategoryManagement::Get().Render();
 
         	TrainingSetGenerator::Get().Render();
-        	TrainingSetViewer::Get().Render();
         	ModelGenerator::Get().Render();
-        	ModelViewer::Get().Render();
 
         	Prediction::Get().Render();
 

@@ -10,11 +10,9 @@
 #include "DataBrowser.h"
 #include "FrameExtractor.h"
 #include "ModelGenerator.h"
-#include "ModelViewer.h"
 #include "Panel.h"
 #include "Prediction.h"
 #include "TrainingSetGenerator.h"
-#include "TrainingSetViewer.h"
 #include "ImFileDialog/ImFileDialog.h"
 #include "Spectrum/imgui_spectrum.h"
 #include "yaml-cpp/yaml.h"
@@ -200,12 +198,15 @@ namespace IFCS
         std::filesystem::create_directories(ProjectPath + std::string("/TrainingImages"));
         std::filesystem::create_directories(ProjectPath + std::string("/Models"));
         // TODO: check what to create in later dev cycle
-        std::filesystem::create_directories(ProjectPath + std::string("/Prediction"));
+        std::filesystem::create_directories(ProjectPath + std::string("/Predictions"));
         std::filesystem::create_directories(ProjectPath + std::string("/Data"));
         // should create empty files for future use...
         std::ofstream output1(ProjectPath + std::string("/Data/Annotation.yaml"));
         std::ofstream output2(ProjectPath + std::string("/Data/Categories.yaml"));
         std::ofstream output3(ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
+        std::ofstream output4(ProjectPath + std::string("/Data/TrainingSets.yaml"));
+        std::ofstream output5(ProjectPath + std::string("/Models/Models.yaml"));
+        std::ofstream output6(ProjectPath + std::string("/Predictions/Predictions.yaml"));
         Save();
     }
 
@@ -215,9 +216,7 @@ namespace IFCS
         FrameExtractor::Get().SetVisibility(false);
         CategoryManagement::Get().SetVisibility(false);
         TrainingSetGenerator::Get().SetVisibility(false);
-        TrainingSetViewer::Get().SetVisibility(false);
         ModelGenerator::Get().SetVisibility(false);
-        ModelViewer::Get().SetVisibility(false);
         Prediction::Get().SetVisibility(false);
         DataBrowser::Get().SetVisibility(true);
         ActiveWorkspace = NewWorkspace;
@@ -226,14 +225,12 @@ namespace IFCS
         case EWorkspace::Data:
             Annotation::Get().SetVisibility(true);
             FrameExtractor::Get().SetVisibility(true);
+            TrainingSetGenerator::Get().SetVisibility(true);
             CategoryManagement::Get().SetVisibility(true);
             BGPanel::Get().SetDataWksNow = true;
             break;
         case EWorkspace::Train:
-            TrainingSetGenerator::Get().SetVisibility(true);
-            TrainingSetViewer::Get().SetVisibility(true);
             ModelGenerator::Get().SetVisibility(true);
-            ModelViewer::Get().SetVisibility(true);
             BGPanel::Get().SetTrainWksNow = true;
             break;
         case EWorkspace::Predict:
