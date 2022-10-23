@@ -5,7 +5,7 @@
 #include "imgui_internal.h"
 #include "Setting.h"
 #include "ImguiNotify/font_awesome_5.h"
-#include "Spectrum/imgui_spectrum.h"
+#include "Style.h"
 #include "Implot/implot.h"
 #include "yaml-cpp/yaml.h"
 
@@ -167,6 +167,7 @@ namespace IFCS
                 }
                 ImGui::TreePop();
             }
+            ImGui::TreePop();
         }
         // TODO: add save as png? or other format?
     }
@@ -185,7 +186,7 @@ namespace IFCS
     {
         ImGuiWindow* Win = ImGui::GetCurrentWindow();
         ImVec2 CurrentPos = ImGui::GetCursorScreenPos();
-        ImU32 Color = ImGui::ColorConvertFloat4ToU32(Spectrum::BLUE(600, Setting::Get().Theme == ETheme::Light));
+        ImU32 Color = ImGui::ColorConvertFloat4ToU32(Style::BLUE(600, Setting::Get().Theme));
         const float AvailWidth = ImGui::GetContentRegionAvail().x * 0.95f;
         ImVec2 RectStart = CurrentPos + ImVec2(0, 17);
         ImVec2 RectEnd = CurrentPos + ImVec2(AvailWidth, 22);

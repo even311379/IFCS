@@ -1,20 +1,19 @@
 ﻿#include "Setting.h"
+#include "Style.h"
 
 #include <filesystem>
 #include <fstream>
-#include <stdbool.h>
 #include <spdlog/spdlog.h>
 
 #include "Annotation.h"
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
 #include "FrameExtractor.h"
-#include "ModelGenerator.h"
+#include "Train.h"
 #include "Panel.h"
 #include "Prediction.h"
 #include "TrainingSetGenerator.h"
 #include "ImFileDialog/ImFileDialog.h"
-#include "Spectrum/imgui_spectrum.h"
 #include "yaml-cpp/yaml.h"
 
 namespace IFCS
@@ -36,13 +35,13 @@ namespace IFCS
             if (ImGui::RadioButton("Light", &ThemeToUse, 0))
             {
                 Theme = ETheme::Light;
-                Spectrum::StyleColorsSpectrum();
+                Style::ApplyTheme(Theme);
             }
             ImGui::SameLine();
             if (ImGui::RadioButton("Dark", &ThemeToUse, 1))
             {
                 Theme = ETheme::Dark;
-                Spectrum::StyleColorsSpectrum(false);
+                Style::ApplyTheme(Theme);
             }
             ImGui::BulletText("Prefered Language:");
             ImGui::SameLine();
@@ -80,31 +79,20 @@ namespace IFCS
                 ImGui::Unindent();
             }
             ImGui::Separator();
-            // TODO: python only!!! no need for conda and env!!...
             ImGui::Text("Yolo v7 Environment");
-            ImGui::InputText("##ToConda", TempCondaPath, IM_ARRAYSIZE(TempCondaPath), ImGuiInputTextFlags_ReadOnly);
+            ImGui::InputText("Python path", TempPythonPath, IM_ARRAYSIZE(TempPythonPath), ImGuiInputTextFlags_ReadOnly);
             ImGui::SameLine();
-            if (ImGui::Button("Choose Conda Folder"))
+            if (ImGui::Button("Choose"))
             {
-                ifd::FileDialog::Instance().Open("ChooseCondaFolder", "Choose conda folder", "");
+                IsChoosingFolder = true;
+                ifd::FileDialog::Instance().Open("ChoosePathPath", "Choose python path", "");
             }
-            if (ImGui::InputText("Env Name", TempPythonEnv, IM_ARRAYSIZE(TempPythonEnv)))
-            {
-                PythonEnv = TempPythonEnv;
-            }
-            if (ImGui::Button("Create Env and Set?"))
-            {
-                CreateEnv();
-            }
-            ImGui::InputText("##ToYolov7", TempYoloV7Path, IM_ARRAYSIZE(TempYoloV7Path), ImGuiInputTextFlags_ReadOnly);
-            if (ImGui::Button("Download and Set?"))
-            {
-                DownloadYoloV7();
-            }
+            ImGui::InputText("Yolo v7 path", TempYoloV7Path, IM_ARRAYSIZE(TempYoloV7Path), ImGuiInputTextFlags_ReadOnly);
             ImGui::SameLine();
             if (ImGui::Button("Choose Yolo V7 Folder"))
             {
-                ifd::FileDialog::Instance().Open("ChooseYoloV7Folder", "Choose yoloV7 folder", "");
+                IsChoosingFolder = true;
+                ifd::FileDialog::Instance().Open("ChooseYoloV7Path", "Choose yolo V7 path", "");
             }
             if (ImGui::Button("OK", ImVec2(ImGui::GetWindowWidth() * 0.2f, ImGui::GetFontSize() * 1.5f)))
             {
@@ -118,8 +106,16 @@ namespace IFCS
     void Setting::LoadEditorIni()
     {
         YAML::Node EditorIni = YAML::LoadFile("Config/Editor.ini");
-        if (!EditorIni["LastOpenProject"]) return;
-        if (!EditorIni["RecentProjects"]) return;
+        if (!EditorIni["LastOpenProject"])
+        {
+            Style::ApplyTheme();
+            return;
+        }
+        if (!EditorIni["RecentProjects"])
+        {
+            Style::ApplyTheme();
+            return;
+        }
         ProjectPath = EditorIni["LastOpenProject"].as<std::string>();
         if (EditorIni["RecentProjects"].IsSequence())
         {
@@ -138,12 +134,11 @@ namespace IFCS
         PreferredLanguage = static_cast<ESupportedLanguage>(UserIni["PreferredLanguage"].as<int>());
         ActiveWorkspace = static_cast<EWorkspace>(UserIni["ActiveWorkspace"].as<int>());
         Theme = static_cast<ETheme>(UserIni["Theme"].as<int>());
-        CondaPath = UserIni["CondaPath"].as<std::string>();
-        PythonEnv = UserIni["PythonEnv"].as<std::string>();
+        PythonPath = UserIni["PythonPath"].as<std::string>();
         YoloV7Path = UserIni["YoloV7Path"].as<std::string>();
-        strcpy(TempCondaPath, CondaPath.c_str());
-        strcpy(TempPythonEnv, PythonEnv.c_str());
+        strcpy(TempPythonPath, PythonPath.c_str());
         strcpy(TempYoloV7Path, YoloV7Path.c_str());
+        Style::ApplyTheme(Theme);
         ProjectIsLoaded = true;
     }
 
@@ -168,16 +163,15 @@ namespace IFCS
         // TODO: maybe use enum string?   or not?
         // save user.init
         YAML::Emitter user_out;
-        user_out << YAML::BeginMap;
-        user_out << YAML::Key << "Project";
-        user_out << YAML::Value << Project;
-        user_out << YAML::Key << "ActiveWorkspace";
-        user_out << YAML::Value << static_cast<int>(ActiveWorkspace);
-        user_out << YAML::Key << "PreferredLanguage";
-        user_out << YAML::Value << static_cast<int>(PreferredLanguage);
-        user_out << YAML::Key << "Theme";
-        user_out << YAML::Value << static_cast<int>(Theme);
-
+        YAML::Node OutNode;
+        OutNode["Project"] = Project;
+        OutNode["ActiveWorkspace"] = static_cast<int>(ActiveWorkspace);
+        OutNode["PreferredLanguage"] = static_cast<int>(PreferredLanguage);
+        OutNode["Theme"] = static_cast<int>(Theme);
+        OutNode["PythonPath"] = PythonPath;
+        OutNode["YoloV7Path"] = YoloV7Path;
+        user_out << OutNode;
+        
         // save as local file
         std::ofstream fout_2(ProjectPath + std::string("/IFCSUser.ini"));
         fout_2 << user_out.c_str();
@@ -216,7 +210,7 @@ namespace IFCS
         FrameExtractor::Get().SetVisibility(false);
         CategoryManagement::Get().SetVisibility(false);
         TrainingSetGenerator::Get().SetVisibility(false);
-        ModelGenerator::Get().SetVisibility(false);
+        Train::Get().SetVisibility(false);
         Prediction::Get().SetVisibility(false);
         DataBrowser::Get().SetVisibility(true);
         ActiveWorkspace = NewWorkspace;
@@ -230,7 +224,7 @@ namespace IFCS
             BGPanel::Get().SetDataWksNow = true;
             break;
         case EWorkspace::Train:
-            ModelGenerator::Get().SetVisibility(true);
+            Train::Get().SetVisibility(true);
             BGPanel::Get().SetTrainWksNow = true;
             break;
         case EWorkspace::Predict:
@@ -240,17 +234,17 @@ namespace IFCS
         }
     }
 
-    bool Setting::IsYoloEnvSet() const
+    bool Setting::IsEnvSet() const
     {
-        return !CondaPath.empty() && !YoloV7Path.empty() && !PythonEnv.empty();
+        return !PythonPath.empty() && !YoloV7Path.empty();
     }
 
-    // TODO: you know what to do, right?
-    void Setting::DownloadYoloV7()
+    // TODO: leave for extension if I really need it...
+    /*void Setting::DownloadYoloV7()
     {
     }
 
     void Setting::CreateEnv()
     {
-    }
+    }*/
 }

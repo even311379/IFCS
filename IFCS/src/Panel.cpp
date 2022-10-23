@@ -3,10 +3,10 @@
 #include "imgui_internal.h"
 #include "Log.h"
 #include "Setting.h"
+#include "Style.h"
 #include "Utils.h"
 #include "ImFileDialog/ImFileDialog.h"
 #include "ImguiNotify/font_awesome_5.h"
-#include "Spectrum/imgui_spectrum.h"
 
 #define LOCTEXT(key) Utils::GetLocText(key).c_str()
 
@@ -211,48 +211,79 @@ namespace IFCS
         {
             ImGui::Text("Welcome to IFCS!");
             ImGui::Text("The first step is to setup PROJECT!");
-            ImGui::Text("All your hardwork will be stored at there");
-            ImGui::Dummy(ImVec2(10, 30));
+            ImGui::Text("All your hardwork will be stored there");
+            ImGui::Dummy(ImVec2(0, 30));
             ImGui::Separator();
-            ImGui::Dummy(ImVec2(10, 30));
-            ImGui::BulletText("Project Location:");
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(400);
-            ImGui::InputText("##hidden", TempProjectLocation, IM_ARRAYSIZE(TempProjectLocation), ImGuiInputTextFlags_ReadOnly);
-            ImGui::SameLine();
-            if (ImGui::Button("Choose Project"))
+            ImGui::Dummy(ImVec2(0, 30));
+            static bool bFromExistingProject = false;
+            ImGui::Checkbox("From existing project?", &bFromExistingProject);
+            if (bFromExistingProject)
             {
-                IsChoosingFolder = true;
-                ifd::FileDialog::Instance().Open("ChooseProjectLocationDialog", "Choose project location", "");
-            }
-            ImGui::BulletText("Project Name:   ");
-            // directly insert blank lines are the best approach to make them align~
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(400);
-            if (ImGui::InputText("##Project Name", TempProjectName, IM_ARRAYSIZE(TempProjectName)))
-            {
-                Setting::Get().Project = TempProjectName;
-            }
-            ImGui::SetCursorPosX(ImGui::GetWindowWidth()* 0.4f);
-            ImGui::BeginDisabled(!CheckValidInputs());
-            if (ImGui::Button("OK", ImVec2(ImGui::GetWindowWidth() * 0.2f, ImGui::GetFontSize() * 1.5f)))
-            {
-                Setting::Get().ProjectPath = std::string(TempProjectLocation) + Setting::Get().Project;
-                Setting::Get().CreateStartup();
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndDisabled();
-            if (!CheckValidInputs())
-            {
+                ImGui::BulletText("Project Location:");
                 ImGui::SameLine();
-                ImGui::TextColored(Spectrum::RED(400, Setting::Get().Theme == ETheme::Light), "Fill in valid content");
+                ImGui::SetNextItemWidth(400);
+                ImGui::InputText("##hidden123", TempProjectLocation, IM_ARRAYSIZE(TempProjectLocation),
+                                 ImGuiInputTextFlags_ReadOnly);
+                ImGui::SameLine();
+                if (ImGui::Button("Choose Existing Project"))
+                {
+                    IsChoosingFolder = true;
+                    ifd::FileDialog::Instance().Open("ChooseExistingProjectLocationDialog", "Choose existing project location", "");
+                }
             }
+            else
+            {
+                ImGui::BulletText("New Project Name:   ");
+                // directly insert blank lines are the best approach to make them align~
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(400);
+                if (ImGui::InputText("##Project Name", TempProjectName, IM_ARRAYSIZE(TempProjectName)))
+                {
+                    Setting::Get().Project = TempProjectName;
+                }
+                if (CheckValidProjectName())
+                    ImGui::TextColored(Style::RED(400, ETheme::Light), "project name contains invalid character...");
+                ImGui::BulletText("New Project Location:");
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(400);
+                ImGui::InputText("##hidden", TempProjectLocation, IM_ARRAYSIZE(TempProjectLocation),
+                                 ImGuiInputTextFlags_ReadOnly);
+                ImGui::SameLine();
+                if (ImGui::Button("Choose"))
+                {
+                    IsChoosingFolder = true;
+                    ifd::FileDialog::Instance().Open("ChooseNewProjectLocationDialog", "Choose new project location", "");
+                }
+                ImGui::SetCursorPosX(ImGui::GetWindowWidth() * 0.4f);
+                ImGui::BeginDisabled(!CheckValidProjectName());
+                if (ImGui::Button("OK", ImVec2(ImGui::GetWindowWidth() * 0.2f, ImGui::GetFontSize() * 1.5f)))
+                {
+                    Setting::Get().ProjectPath = std::string(TempProjectLocation) + Setting::Get().Project;
+                    Setting::Get().CreateStartup();
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndDisabled();
+                if (!CheckValidProjectName())
+                {
+                    ImGui::SameLine();
+                    ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "Fill in valid content");
+                }
+                
+            }
+            // TODO: after close this popup open setting popup!
             ImGui::EndPopup();
         }
     }
 
-    bool WelcomeModal::CheckValidInputs()
+    // TODO: need test...
+    bool WelcomeModal::CheckValidProjectName()
     {
-        return std::filesystem::exists(TempProjectLocation) && !Setting::Get().Project.empty();
+        const char InvalidChars[] = "\\/:*?\"<>|";
+        for (char C : InvalidChars)
+        {
+            if (std::string(TempProjectLocation).find(C) == std::string::npos)
+                return false;
+        }
+        return true;
     }
 }

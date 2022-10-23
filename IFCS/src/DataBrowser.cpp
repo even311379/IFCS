@@ -18,10 +18,8 @@
 #include "Implot/implot.h"
 
 
-
 namespace IFCS
 {
-    
     // TODO: incorrect edge behavior
     void DataBrowser::LoadOtherFrame(bool IsNext)
     {
@@ -225,7 +223,7 @@ namespace IFCS
         // ImGui::InputText("Filter", FilterText, IM_ARRAYSIZE(FilterText));
 
         // every 10 second or the first time update all required data?
-        if (Utils::FloatCompare(0.0f, TimePassed, 0.000001f) || int(TimePassed+1) % 11 == 0)
+        if (Utils::FloatCompare(0.0f, TimePassed, 0.000001f) || int(TimePassed + 1) % 11 == 0)
         {
             UpdateData();
             TimePassed = 0.f;
@@ -284,18 +282,14 @@ namespace IFCS
                         LoadFrame(0);
                     }
                 }
-                // TODO: try different flags?
-                if (Setting::Get().ActiveWorkspace == EWorkspace::Train)
+                if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
                 {
-                    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
-                    {
-                        char Send[128];
-                        strcpy(Send, FullClipName.c_str());
-                        ImGui::SetDragDropPayload("FolderOrClip", &Send, sizeof(Send));
-                        // for test now
-                        ImGui::Text(Send);
-                        ImGui::EndDragDropSource();
-                    }
+                    char Send[128];
+                    strcpy(Send, FullClipName.c_str());
+                    ImGui::SetDragDropPayload("FolderOrClip", &Send, sizeof(Send));
+                    // for test now
+                    ImGui::Text(Send);
+                    ImGui::EndDragDropSource();
                 }
                 if (SelectedClipInfo.ClipPath == FullClipName && Setting::Get().ActiveWorkspace == EWorkspace::Data)
                 // only show frames in data workspace

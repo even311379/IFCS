@@ -1,12 +1,13 @@
 ﻿#include "CategoryManagement.h"
+#include "Setting.h"
+#include "Style.h"
+
 #include <fstream>
-#include <yaml-cpp/yaml.h>
 
 #include "imgui_internal.h"
-#include "Setting.h"
 #include "ImguiNotify/font_awesome_5.h"
-#include "Spectrum/imgui_spectrum.h"
 #include "Implot/implot.h"
+#include <yaml-cpp/yaml.h>
 
 
 namespace IFCS
@@ -84,7 +85,7 @@ namespace IFCS
         static const char* glabels[] = {"G1", "G2", "G3", "G4"};
         static const double positions[] = {1,2,3,4};
         static ImVec4 Colors[] = {
-            Spectrum::RED(400), Spectrum::RED(700), Spectrum::CELERY(400), Spectrum::CELERY(700)
+            Style::RED(400), Style::RED(700), Style::CELERY(400), Style::CELERY(700)
         };
         static ImPlotColormap RC = ImPlot::AddColormap("RandomBarColor", Colors, 4); // Use category color!!!!
         ImGui::Checkbox("Show Bar?", &ShowBar);

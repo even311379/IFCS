@@ -7,8 +7,8 @@
 #include "imgui_internal.h"
 #include "Log.h"
 #include "Setting.h"
+#include "Style.h"
 #include "ImguiNotify/font_awesome_5.h"
-#include "Spectrum/imgui_spectrum.h"
 
 #include "yaml-cpp/yaml.h"
 
@@ -25,7 +25,7 @@ namespace IFCS
         ImGui::Text(Title.c_str());
         ImGui::PopFont();
 
-        ImU32 BgColor = ImGui::ColorConvertFloat4ToU32(Spectrum::GRAY(600, Setting::Get().Theme == ETheme::Light));
+        ImU32 BgColor = ImGui::ColorConvertFloat4ToU32(Style::GRAY(600, Setting::Get().Theme));
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - WorkArea.x) * 0.5f);
         ImGui::BeginChild("AnnotaitonWork", WorkArea, true); // show border for debug...
         ImGuiWindow* Win = ImGui::GetCurrentWindow();

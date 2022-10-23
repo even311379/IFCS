@@ -15,7 +15,7 @@ namespace IFCS
     FCategory::FCategory(std::string NewDisplayName)
     {
         DisplayName = NewDisplayName;
-        Color = Utils::RandomPickColor(Setting::Get().Theme == ETheme::Light);
+        Color = Utils::RandomPickColor(Setting::Get().Theme);
     }
 
     FCategory::FCategory(YAML::Node InputNode)

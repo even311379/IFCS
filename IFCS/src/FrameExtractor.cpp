@@ -19,9 +19,8 @@
 #include "opencv2/opencv.hpp"
 #include <spdlog/spdlog.h>
 
-#include <shellapi.h>
+// #include <shellapi.h>
 
-#include "Spectrum/imgui_spectrum.h"
 
 namespace IFCS
 {

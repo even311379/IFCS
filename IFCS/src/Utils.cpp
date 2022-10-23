@@ -9,7 +9,7 @@
 #include <sstream>
 #include <random>
 
-#include "Spectrum/imgui_spectrum.h"
+#include "Style.h"
 
 
 namespace IFCS
@@ -116,58 +116,58 @@ namespace IFCS
             return result;
         }
 
-        ImVec4 RandomPickColor(bool IsLight)
+        ImVec4 RandomPickColor(ETheme ActiveTheme)
         {
             std::array<ImVec4, 48> ColorOptions =
             {
-                Spectrum::BLUE(400, IsLight),
-                Spectrum::BLUE(500, IsLight),
-                Spectrum::BLUE(600, IsLight),
-                Spectrum::BLUE(700, IsLight),
-                Spectrum::RED(400, IsLight),
-                Spectrum::RED(500, IsLight),
-                Spectrum::RED(600, IsLight),
-                Spectrum::RED(700, IsLight),
-                Spectrum::ORANGE(400, IsLight),
-                Spectrum::ORANGE(500, IsLight),
-                Spectrum::ORANGE(600, IsLight),
-                Spectrum::ORANGE(700, IsLight),
-                Spectrum::GREEN(400, IsLight),
-                Spectrum::GREEN(500, IsLight),
-                Spectrum::GREEN(600, IsLight),
-                Spectrum::GREEN(700, IsLight),
-                Spectrum::INDIGO(400, IsLight),
-                Spectrum::INDIGO(500, IsLight),
-                Spectrum::INDIGO(600, IsLight),
-                Spectrum::INDIGO(700, IsLight),
-                Spectrum::CELERY(400, IsLight),
-                Spectrum::CELERY(500, IsLight),
-                Spectrum::CELERY(600, IsLight),
-                Spectrum::CELERY(700, IsLight),
-                Spectrum::MAGENTA(400, IsLight),
-                Spectrum::MAGENTA(500, IsLight),
-                Spectrum::MAGENTA(600, IsLight),
-                Spectrum::MAGENTA(700, IsLight),
-                Spectrum::YELLOW(400, IsLight),
-                Spectrum::YELLOW(500, IsLight),
-                Spectrum::YELLOW(600, IsLight),
-                Spectrum::YELLOW(700, IsLight),
-                Spectrum::FUCHSIA(400, IsLight),
-                Spectrum::FUCHSIA(500, IsLight),
-                Spectrum::FUCHSIA(600, IsLight),
-                Spectrum::FUCHSIA(700, IsLight),
-                Spectrum::SEAFOAM(400, IsLight),
-                Spectrum::SEAFOAM(500, IsLight),
-                Spectrum::SEAFOAM(600, IsLight),
-                Spectrum::SEAFOAM(700, IsLight),
-                Spectrum::CHARTREUSE(400, IsLight),
-                Spectrum::CHARTREUSE(500, IsLight),
-                Spectrum::CHARTREUSE(600, IsLight),
-                Spectrum::CHARTREUSE(700, IsLight),
-                Spectrum::PURPLE(400, IsLight),
-                Spectrum::PURPLE(500, IsLight),
-                Spectrum::PURPLE(600, IsLight),
-                Spectrum::PURPLE(700, IsLight)
+                Style::BLUE(400, ActiveTheme),
+                Style::BLUE(500, ActiveTheme),
+                Style::BLUE(600, ActiveTheme),
+                Style::BLUE(700, ActiveTheme),
+                Style::RED(400, ActiveTheme),
+                Style::RED(500, ActiveTheme),
+                Style::RED(600, ActiveTheme),
+                Style::RED(700, ActiveTheme),
+                Style::ORANGE(400, ActiveTheme),
+                Style::ORANGE(500, ActiveTheme),
+                Style::ORANGE(600, ActiveTheme),
+                Style::ORANGE(700, ActiveTheme),
+                Style::GREEN(400, ActiveTheme),
+                Style::GREEN(500, ActiveTheme),
+                Style::GREEN(600, ActiveTheme),
+                Style::GREEN(700, ActiveTheme),
+                Style::INDIGO(400, ActiveTheme),
+                Style::INDIGO(500, ActiveTheme),
+                Style::INDIGO(600, ActiveTheme),
+                Style::INDIGO(700, ActiveTheme),
+                Style::CELERY(400, ActiveTheme),
+                Style::CELERY(500, ActiveTheme),
+                Style::CELERY(600, ActiveTheme),
+                Style::CELERY(700, ActiveTheme),
+                Style::MAGENTA(400, ActiveTheme),
+                Style::MAGENTA(500, ActiveTheme),
+                Style::MAGENTA(600, ActiveTheme),
+                Style::MAGENTA(700, ActiveTheme),
+                Style::YELLOW(400, ActiveTheme),
+                Style::YELLOW(500, ActiveTheme),
+                Style::YELLOW(600, ActiveTheme),
+                Style::YELLOW(700, ActiveTheme),
+                Style::FUCHSIA(400, ActiveTheme),
+                Style::FUCHSIA(500, ActiveTheme),
+                Style::FUCHSIA(600, ActiveTheme),
+                Style::FUCHSIA(700, ActiveTheme),
+                Style::SEAFOAM(400, ActiveTheme),
+                Style::SEAFOAM(500, ActiveTheme),
+                Style::SEAFOAM(600, ActiveTheme),
+                Style::SEAFOAM(700, ActiveTheme),
+                Style::CHARTREUSE(400, ActiveTheme),
+                Style::CHARTREUSE(500, ActiveTheme),
+                Style::CHARTREUSE(600, ActiveTheme),
+                Style::CHARTREUSE(700, ActiveTheme),
+                Style::PURPLE(400, ActiveTheme),
+                Style::PURPLE(500, ActiveTheme),
+                Style::PURPLE(600, ActiveTheme),
+                Style::PURPLE(700, ActiveTheme)
             };
             std::mt19937_64 gen{std::random_device{}()}; // generates random numbers
             std::uniform_int_distribution<std::size_t> dist(0, ColorOptions.size() - 1);

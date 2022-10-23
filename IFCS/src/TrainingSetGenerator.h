@@ -33,8 +33,15 @@ namespace IFCS
         int NumIncludedAnnotation = 0;
         void UpdateExportInfo();
 
+        void RenderDataSelectWidget();
         // TODO: Need to study train / valid / test again. make sure I understand 100% where they are used in deep learning?
-        void DrawSplitWidget();
+        void RenderSplitWidget();
+        void RenderResizeWidget();
+        void RenderCategoryWidget();
+        void RenderAugmentationWidget();
+        void RenderSummary();
+        void RenderExportWidget();
+        
         float SplitControlPos1 = 0.80f;
         float SplitControlPos2 = 0.90f;
         float SplitPercent[3] = {80.f, 10.f, 10.f};
@@ -43,6 +50,7 @@ namespace IFCS
         int SelectedResizeRule = 0;
         int NewSize[2] = {720, 405};
 
+        bool bApplyImageAugmentation;
         bool bApplyBlur;
         int MaxBlurAmount = 1;
         bool bApplyNoise;
@@ -75,7 +83,6 @@ namespace IFCS
         unsigned int Var6;
         unsigned int Var7;
         unsigned int Var8;
-        unsigned int Var9;
 
 
         bool bApplyDefaultCategories = true;

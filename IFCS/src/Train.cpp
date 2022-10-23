@@ -1,4 +1,4 @@
-﻿#include "ModelGenerator.h"
+﻿#include "Train.h"
 
 #include <fstream>
 #include <future>
@@ -15,14 +15,15 @@ namespace IFCS
 {
     static std::string RunResult;
 
-    void ModelGenerator::RenderContent()
+    void Train::RenderContent()
     {
         // TODO: migrate these env setup to settings?
 
-        if (Setting::Get().IsYoloEnvSet())
+        if (Setting::Get().IsEnvSet())
         {
+            static const char* ModelOptions[] = {"yolov7", "yolov7-d6", "yolov7-e6", "yolov7-e6e", "yolov7-tiny", "yolov7-w6", "yolov7x"};
             // model select
-            ImGui::Combo("Choose Model", &SelectedModelIndex, ModelOptions);
+            ImGui::Combo("Choose Model", &SelectedModelIndex, ModelOptions, IM_ARRAYSIZE(ModelOptions));
             // if (!CheckWeightHasDownloaded())
             // {
             //     // TODO: need to test it! ... test failure
@@ -51,9 +52,7 @@ namespace IFCS
             // batch size
             ImGui::DragInt("Num batch size", &BatchSize, 1, 2, 128);
             // Image size
-            ImGui::DragInt("Image Width", &ImageWidth, 1, 32, MaxImageSize[0]);
-            ImGui::SameLine();
-            ImGui::DragInt("Image Height", &ImageHeight, 1, 32, MaxImageSize[1]);
+            ImGui::DragInt2("Image Width", ImageSize, 16, 64, 1280);
             ImGui::Text("About to run: ");
             // ImGui::InputTextMultiline();
             if (ImGui::Button("Start Training", ImVec2(-1, 0)))
@@ -75,7 +74,7 @@ namespace IFCS
     }
 
 
-    bool ModelGenerator::CheckWeightHasDownloaded()
+    bool Train::CheckWeightHasDownloaded()
     {
         return false;
     }
@@ -93,7 +92,7 @@ namespace IFCS
     }
 
 
-    void ModelGenerator::Training()
+    void Train::Training()
     {
         std::thread t1(Exec, "SubTest.bat", true);
         t1.detach();

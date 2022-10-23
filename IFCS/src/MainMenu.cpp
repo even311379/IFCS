@@ -7,13 +7,13 @@
 #include "FrameExtractor.h"
 #include "imgui.h"
 #include "Log.h"
-#include "ModelGenerator.h"
+#include "Train.h"
 #include "Prediction.h"
 #include "Setting.h"
 #include "TrainingSetGenerator.h"
 #include "Utils.h"
+#include "Style.h"
 #include "ImguiNotify/font_awesome_5.h"
-#include "Spectrum/imgui_spectrum.h"
 
 
 IFCS::MainMenu::~MainMenu()
@@ -68,9 +68,9 @@ void IFCS::MainMenu::Render()
             }
             if (ImGui::BeginMenu(LOCTEXT("ToolbarMenu.Train")))
             {
-                if (ImGui::MenuItem("ModelGenerator", "", ModelGenerator::Get().GetVisibility()))
+                if (ImGui::MenuItem("ModelGenerator", "", Train::Get().GetVisibility()))
                 {
-                    ModelGenerator::Get().ToggleVisibility();
+                    Train::Get().ToggleVisibility();
                 }
                 ImGui::EndMenu();
             }
@@ -111,9 +111,9 @@ void IFCS::MainMenu::Render()
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 12.f);
         if (CurrentWks == EWorkspace::Data)
         {
-            ImGui::PushStyleColor(ImGuiCol_Button, Spectrum::RED(400, CurrentTheme == ETheme::Light));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, Spectrum::RED(400, CurrentTheme == ETheme::Light));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Spectrum::RED(400, CurrentTheme == ETheme::Light));
+            ImGui::PushStyleColor(ImGuiCol_Button, Style::RED(400, CurrentTheme));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, Style::RED(400, CurrentTheme));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Style::RED(400, CurrentTheme));
         }
         if (ImGui::Button(LOCTEXT("ToolbarMenu.WksData"), WksBtnSize))
         {
@@ -125,9 +125,9 @@ void IFCS::MainMenu::Render()
         ImGui::Text(ICON_FA_ANGLE_RIGHT);
         if (CurrentWks == EWorkspace::Train)
         {
-            ImGui::PushStyleColor(ImGuiCol_Button, Spectrum::RED(400, CurrentTheme == ETheme::Light));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, Spectrum::RED(400, CurrentTheme == ETheme::Light));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Spectrum::RED(400, CurrentTheme == ETheme::Light));
+            ImGui::PushStyleColor(ImGuiCol_Button, Style::RED(400, CurrentTheme));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, Style::RED(400, CurrentTheme));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Style::RED(400, CurrentTheme));
         }
         if (ImGui::Button(LOCTEXT("ToolbarMenu.WksTrain"), WksBtnSize))
         {
@@ -139,9 +139,9 @@ void IFCS::MainMenu::Render()
         ImGui::Text(ICON_FA_ANGLE_RIGHT);
         if (CurrentWks == EWorkspace::Predict)
         {
-            ImGui::PushStyleColor(ImGuiCol_Button, Spectrum::RED(400, CurrentTheme == ETheme::Light));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, Spectrum::RED(400, CurrentTheme == ETheme::Light));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Spectrum::RED(400, CurrentTheme == ETheme::Light));
+            ImGui::PushStyleColor(ImGuiCol_Button, Style::RED(400, CurrentTheme));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, Style::RED(400, CurrentTheme));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Style::RED(400, CurrentTheme));
         }
         if (ImGui::Button(LOCTEXT("ToolbarMenu.WksPredict"), WksBtnSize))
         {

@@ -2,7 +2,7 @@
 #include "imgui.h"
 #include <set>
 #include "Utils.h"
-#include "Spectrum/imgui_spectrum.h"
+#include "Style.h"
 #include "spdlog/spdlog.h"
 
 namespace IFCS
@@ -59,19 +59,19 @@ namespace IFCS
 
     void LogPanel::RenderContent()
     {
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, Spectrum::CHECKBOX_BORDER_SIZE);
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, Spectrum::CHECKBOX_ROUNDING);
-        ImGui::PushStyleColor(ImGuiCol_Text, Spectrum::BLUE(500));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, Style::CHECKBOX_BORDER_SIZE);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, Style::CHECKBOX_ROUNDING);
+        ImGui::PushStyleColor(ImGuiCol_Text, Style::BLUE(500));
         if (ImGui::Checkbox("INFO", &bShowInfo))
             FilterData();
         ImGui::PopStyleColor();
         ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Text, Spectrum::YELLOW(500));
+        ImGui::PushStyleColor(ImGuiCol_Text, Style::YELLOW(500));
         if (ImGui::Checkbox("WARNING", &bShowWarning))
             FilterData();
         ImGui::PopStyleColor();
         ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Text, Spectrum::RED(500));
+        ImGui::PushStyleColor(ImGuiCol_Text, Style::RED(500));
         if (ImGui::Checkbox("ERROR", &bShowError))
             FilterData();
         ImGui::PopStyleColor();
@@ -97,11 +97,11 @@ namespace IFCS
                 break;
             case ELogLevel::Warning:
                 snprintf(buff, sizeof(buff), "[WARNING %s] %s", D.TimeString.c_str(), D.Message.c_str());
-                ImGui::TextColored(Spectrum::YELLOW(500), buff);
+                ImGui::TextColored(Style::YELLOW(500), buff);
                 break;
             case ELogLevel::Error:
                 snprintf(buff, sizeof(buff), "[ERROR   %s] %s", D.TimeString.c_str(), D.Message.c_str());
-                ImGui::TextColored(Spectrum::RED(500), buff);
+                ImGui::TextColored(Style::RED(500), buff);
                 break;
             }
         }

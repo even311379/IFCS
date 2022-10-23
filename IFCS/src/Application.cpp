@@ -17,7 +17,7 @@
 #include "Panel.h"
 #include "Log.h"
 #include "MainMenu.h"
-#include "ModelGenerator.h"
+#include "Train.h"
 #include "Prediction.h"
 #include "TrainingSetGenerator.h"
 #include "Utils.h"
@@ -26,7 +26,6 @@
 #include "ImFileDialog/ImFileDialog.h"
 #include "ImguiNotify/imgui_notify.h"
 #include "ImguiNotify/fa_solid_900.h"
-#include "Spectrum/imgui_spectrum.h"
 
 
 namespace IFCS
@@ -92,9 +91,6 @@ namespace IFCS
         ImGui_ImplGlfw_InitForOpenGL(Window, true);
         ImGui_ImplOpenGL3_Init(glsl_version);
 
-        // setup theme
-        Spectrum::StyleColorsSpectrum();
-
         // load font
         // first loaded will become default font!
         Setting::Get().DefaultFont = io.Fonts->AddFontFromFileTTF("Resources/Font/cjkFonts_allseto_v1.11.ttf", 18.0f, NULL,
@@ -128,7 +124,7 @@ namespace IFCS
     	FrameExtractor::Get().Setup("Frame Extractor", true, 0);
     	Annotation::Get().Setup("Annotation", true, 0);
     	TrainingSetGenerator::Get().Setup("Training Set Generator", true, 0);
-    	ModelGenerator::Get().Setup("Model Generator", true, 0);
+    	Train::Get().Setup("Model Generator", true, 0);
     	Prediction::Get().Setup("Prediction", true, 0);
         Setting::Get().LoadEditorIni();
     	CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
@@ -158,11 +154,9 @@ namespace IFCS
             DataBrowser::Get().Render();
         	FrameExtractor::Get().Render();
         	Annotation::Get().Render();
-        	CategoryManagement::Get().Render();
-
         	TrainingSetGenerator::Get().Render();
-        	ModelGenerator::Get().Render();
-
+        	CategoryManagement::Get().Render();
+        	Train::Get().Render();
         	Prediction::Get().Render();
 
             // task modals
@@ -170,7 +164,7 @@ namespace IFCS
         	{
         		ImGui::OpenPopup("Welcome");
         	}
-        	if (Setting::Get().IsModalOpen)
+        	if (Setting::Get().IsModalOpen && !Setting::Get().IsChoosingFolder)
         	{
         		ImGui::OpenPopup("Setting");
         	}
@@ -210,6 +204,8 @@ namespace IFCS
         	
         	tick ++;
         }
+    	Setting::Get().Save();
+		spdlog::warn("end run loop is called...");
     }
 
     void Application::CreateFileDialog()
@@ -237,28 +233,41 @@ namespace IFCS
 
     void Application::HandleDialogClose()
     {
-		if (ifd::FileDialog::Instance().IsDone("ChooseProjectLocationDialog")) {
+		if (ifd::FileDialog::Instance().IsDone("ChooseExistingProjectLocationDialog")) {
 			if (ifd::FileDialog::Instance().HasResult()) {
 				std::string RawString = ifd::FileDialog::Instance().GetResult().string();
 				std::replace(RawString.begin(), RawString.end(), '\\', '/');
 				strcpy(WelcomeModal::Get().TempProjectLocation, RawString.c_str());
-				char buff[128];
-				snprintf(buff, sizeof(buff), "Choose project location: %s.", RawString.c_str());
-				LogPanel::Get().AddLog(ELogLevel::Info, buff);
+				// char buff[128];
+				// sprintf(buff,  "Choose project location: %s.", RawString.c_str());
+				// LogPanel::Get().AddLog(ELogLevel::Info, buff);
 			}
 			ifd::FileDialog::Instance().Close();
 			WelcomeModal::Get().IsChoosingFolder = false;
 		}
-		if (ifd::FileDialog::Instance().IsDone("ChooseCondaFolder")) {
+		if (ifd::FileDialog::Instance().IsDone("ChooseNewProjectLocationDialog")) {
 			if (ifd::FileDialog::Instance().HasResult()) {
 				std::string RawString = ifd::FileDialog::Instance().GetResult().string();
 				std::replace(RawString.begin(), RawString.end(), '\\', '/');
-				strcpy(Setting::Get().TempCondaPath, RawString.c_str());
-				Setting::Get().CondaPath = RawString;
+				strcpy(WelcomeModal::Get().TempProjectLocation, RawString.c_str());
+				// char buff[128];
+				// sprintf(buff,  "Choose project location: %s.", RawString.c_str());
+				// LogPanel::Get().AddLog(ELogLevel::Info, buff);
 			}
 			ifd::FileDialog::Instance().Close();
+			WelcomeModal::Get().IsChoosingFolder = false;
 		}
-		if (ifd::FileDialog::Instance().IsDone("ChooseYoloV7Folder")) {
+		if (ifd::FileDialog::Instance().IsDone("ChoosePythonPath")) {
+			if (ifd::FileDialog::Instance().HasResult()) {
+				std::string RawString = ifd::FileDialog::Instance().GetResult().string();
+				std::replace(RawString.begin(), RawString.end(), '\\', '/');
+				strcpy(Setting::Get().TempPythonPath, RawString.c_str());
+				Setting::Get().PythonPath = RawString;
+			}
+			ifd::FileDialog::Instance().Close();
+			Setting::Get().IsChoosingFolder = false;
+		}
+		if (ifd::FileDialog::Instance().IsDone("ChooseYoloV7Path")) {
 			if (ifd::FileDialog::Instance().HasResult()) {
 				std::string RawString = ifd::FileDialog::Instance().GetResult().string();
 				std::replace(RawString.begin(), RawString.end(), '\\', '/');
@@ -266,6 +275,7 @@ namespace IFCS
 				Setting::Get().YoloV7Path = RawString;
 			}
 			ifd::FileDialog::Instance().Close();
+			Setting::Get().IsChoosingFolder = false;
 		}
     }
 }

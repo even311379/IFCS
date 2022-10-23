@@ -6,6 +6,7 @@
 
 #include "DataBrowser.h"
 #include "Setting.h"
+#include "Style.h"
 
 #include "imgui_impl_glfw.h"
 #include <GLFW/glfw3.h>
@@ -17,7 +18,6 @@
 #include "Implot/implot.h"
 
 #include "opencv2/opencv.hpp"
-#include "Spectrum/imgui_spectrum.h"
 #include "yaml-cpp/yaml.h"
 
 
@@ -44,292 +44,49 @@ namespace IFCS
 {
     void TrainingSetGenerator::RenderContent()
     {
-        const ImVec2 ChildWindowSize = {ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y * 0.92f};
-        constexpr ImGuiWindowFlags Flags = ImGuiWindowFlags_NoScrollbar;
-        ImGui::BeginChild("All", ChildWindowSize, false, Flags);
+        ImGui::PushFont(Setting::Get().TitleFont);
+        ImGui::Text("Options");
+        ImGui::PopFont();
+        ImGui::Indent();
+        if (ImGui::TreeNode("Data Select"))
         {
-            const ImVec2 HalfWindowSize(ImGui::GetContentRegionAvail().x * 0.5f, ImGui::GetContentRegionAvail().y);
-            ImGui::BeginChild("Options", HalfWindowSize);
-            {
-                ImGui::PushFont(Setting::Get().TitleFont);
-                ImGui::Text("Options");
-                ImGui::PopFont();
-                if (ImGui::TreeNode("Data Select"))
-                {
-                    ImGui::Text("Select which folders / clips to include in this training set:");
-                    const ImVec2 FrameSize = ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 9);
-                    float HalfWidth = ImGui::GetContentRegionAvail().x * 0.5f;
-                    ImGui::BeginChildFrame(ImGui::GetID("Included Contents"), FrameSize, ImGuiWindowFlags_NoMove);
-                    for (const std::string& Clip : IncludedGenClips)
-                    {
-                        std::string s = Clip.substr(Setting::Get().ProjectPath.size() + 1);
-                        ImGui::Text(s.c_str());
-                    }
-                    ImGui::EndChildFrame();
-                    if (ImGui::BeginDragDropTarget()) // for the previous item? 
-                    {
-                        if (const ImGuiPayload* Payload = ImGui::AcceptDragDropPayload("FolderOrClip"))
-                        {
-                            std::string ClipToInclude = std::string((const char*)Payload->Data);
-                            IncludeGenClip(ClipToInclude);
-                        }
-                    }
-                    char AddClipPreviewTitle[128];
-                    sprintf(AddClipPreviewTitle, "%s Add Clip", ICON_FA_PLUS);
-                    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.5f);
-                    // TODO: remove the project path...
-                    if (ImGui::BeginCombo("##AddClip", AddClipPreviewTitle))
-                    {
-                        std::vector<std::string> AllClips = DataBrowser::Get().GetAllClips();
-                        auto NewEnd = std::remove_if(AllClips.begin(), AllClips.end(), [this](const std::string& C)
-                        {
-                            return std::find(IncludedGenClips.begin(), IncludedGenClips.end(), C) != IncludedGenClips.
-                                end();
-                        });
-                        AllClips.erase(NewEnd, AllClips.end());
-                        for (size_t i = 0; i < AllClips.size(); i++)
-                        {
-                            if (ImGui::Selectable(AllClips[i].c_str(), false)) // no need to show selected
-                            {
-                                IncludeGenClip(AllClips[i]);
-                            }
-                        }
-                        ImGui::EndCombo();
-                    }
-                    ImGui::SameLine();
-                    char AddFolderPreviewTitle[128];
-                    // snprintf(AddFolderPreviewTitle, sizeof(AddClipPreviewTitle), "%s Add Folder", ICON_FA_PLUS);
-                    sprintf(AddFolderPreviewTitle, "%s Add Folder", ICON_FA_PLUS);
-                    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-                    if (ImGui::BeginCombo("##AddFolder", AddFolderPreviewTitle))
-                    {
-                        std::vector<std::string> AllFolders = DataBrowser::Get().GetAllFolders();
-                        auto NewEnd = std::remove_if(AllFolders.begin(), AllFolders.end(), [this](const std::string& C)
-                        {
-                            return std::find(IncludedImageFolders.begin(), IncludedImageFolders.end(), C) !=
-                                IncludedImageFolders.end();
-                        });
-                        AllFolders.erase(NewEnd, AllFolders.end());
-                        // TODO: leave include folder for now...
-                        for (size_t i = 0; i < AllFolders.size(); i++)
-                        {
-                            if (ImGui::Selectable(AllFolders[i].c_str(), false)) // no need to show selected
-                            {
-                                IncludeGenFolder(AllFolders[i]);
-                            }
-                        }
-                        ImGui::EndCombo();
-                    }
-                    if (ImGui::Button("Add All", ImVec2(HalfWidth, ImGui::GetFontSize() * 1.5f)))
-                    {
-                        for (const auto& c : DataBrowser::Get().GetAllClips())
-                            IncludedGenClips.insert(c);
-                        UpdateExportInfo();
-                    }
-                    ImGui::SameLine();
-                    if (ImGui::Button("Clear All", ImVec2(HalfWidth, ImGui::GetFontSize() * 1.5f)))
-                    {
-                        IncludedGenClips.clear();
-                        UpdateExportInfo();
-                    }
-                    ImGui::BulletText("Included Clips: %d", (int)IncludedGenClips.size());
-                    ImGui::SameLine();
-                    ImGui::SetCursorPosX(HalfWidth);
-                    ImGui::BulletText("Included frames: %d", NumIncludedFrames);
-                    ImGui::BulletText("Included Images: %d", NumIncludedImages);
-                    ImGui::SameLine();
-                    ImGui::SetCursorPosX(HalfWidth);
-                    ImGui::BulletText("Included Annotations: %d", NumIncludedAnnotation);
-
-                    ImGui::TreePop();
-                }
-                if (ImGui::TreeNode("Train / Valid / Test Split"))
-                {
-                    DrawSplitWidget();
-                    ImGui::TreePop();
-                }
-                if (ImGui::TreeNode("Resize"))
-                {
-                    // ImGui::Text("Add crop and pan???");
-                    const char* ResizeRules[] = {"Stretch", "Fit"};
-                    ImGui::Combo("Resize Rule", &SelectedResizeRule, ResizeRules, IM_ARRAYSIZE(ResizeRules));
-                    ImGui::SetNextItemWidth(130.f);
-                    ImGui::InputInt2("New Size", NewSize);
-                    ImGui::Button("Preview");
-                    ImGui::Text("Add preview directly here??");
-                    ImGui::TreePop();
-                }
-                if (ImGui::TreeNode("Augmentation"))
-                {
-                    if (ImGui::TreeNode("Blur"))
-                    {
-                        ImGui::Checkbox("Add Blur?", &bApplyBlur);
-                        if (bApplyBlur)
-                        {
-                            if (ImGui::SliderInt("Max Blur Amount", &MaxBlurAmount, 1, 25))
-                            {
-                                // force odd
-                                if (MaxBlurAmount % 2 == 0)
-                                    MaxBlurAmount -= 1;
-                            }
-                        }
-                        ImGui::TreePop();
-                    }
-                    if (ImGui::TreeNode("Noise"))
-                    {
-                        ImGui::Checkbox("Add Noise?", &bApplyNoise);
-                        if (bApplyNoise)
-                        {
-                            ImGui::DragIntRange2("Noise Mean", &NoiseMeanMin, &NoiseMeanMax, 0, 50);
-                            ImGui::DragIntRange2("Noise Std", &NoiseStdMin, &NoiseStdMax, 0, 50);
-                        }
-                        ImGui::TreePop();
-                    }
-                    if (ImGui::TreeNode("Hue"))
-                    {
-                        ImGui::Checkbox("Apply Hue Shift", &bApplyHue);
-                        if (bApplyHue)
-                        {
-                            ImGui::SliderInt("Max Random Hue (+ -)", &HueAmount, 1, 60, "%d %");
-                        }
-                        ImGui::TreePop();
-                    }
-                    if (ImGui::TreeNode("Rotation"))
-                    {
-                        ImGui::Checkbox("Add random rotation?", &bApplyRotation);
-                        if (bApplyRotation)
-                        {
-                            ImGui::SliderInt("Max Random Rotation degree Amount", &MaxRotationAmount, 1, 15, "%d deg");
-                        }
-                        ImGui::TreePop();
-                    }
-                    if (ImGui::TreeNode("Flip"))
-                    {
-                        ImGui::Checkbox("Add Random flip X", &bApplyFlipX);
-                        if (bApplyFlipX)
-                            ImGui::DragInt("FlipX_Percent", &FlipXPercent, 1, 5, 50);
-                        ImGui::Checkbox("Add random flip y?", &bApplyFlipY);
-                        if (bApplyFlipY)
-                            ImGui::DragInt("FlipY_Percent", &FlipYPercent, 1, 5, 50);
-                        ImGui::TreePop();
-                    }
-                    ImGui::TreePop();
-                }
-                if (ImGui::TreeNode("Category To Export"))
-                {
-                    ImGui::Checkbox("Apply default categories", &bApplyDefaultCategories);
-                    // TODO: skip the impl for now...
-                    if (!bApplyDefaultCategories)
-                    {
-                        ImGui::Text("some category merging tools");
-                    }
-                    // TODO: add implot to check category imbalance
-                    // static std::vector<int> TestCounts = {1654, 5132, 1260, 352};
-                    // if (ImPlot::BeginPlot("Category counts"))
-                    // {
-                    //     static std::vector<ImVec4> Colors = {
-                    //         Utils::RandomPickColor(),
-                    //         Utils::RandomPickColor(),
-                    //         Utils::RandomPickColor(),
-                    //         Utils::RandomPickColor()
-                    //     };
-                    //     ImPlot::AddColormap("RandomBarColor", Colors.data(), Colors.size()); // Use category color!!!!
-                    //     if (ImPlot::BeginPlot("Category Counts"))
-                    //     {
-                    //         // plot indivisual for better viz?
-                    //         ImPlot::PlotBars("Different Categories", TestCounts.data(), TestCounts.size(), 0.5, 1);
-                    //         ImPlot::EndPlot();
-                    //     }
-                    //     ImPlot::PopColormap();
-                    //     ImPlot::EndPlot();
-                    // }
-
-
-                    ImGui::Checkbox("Apply SMOTE", &bApplySMOTE);
-                    Utils::AddSimpleTooltip("SMOTE: Synthetic Minority Oversampling Technique, if your categories "
-                        "are highly imbalanced, you should apply SMOTE to handle it! (Undev yet)");
-
-                    ImGui::TreePop();
-                }
-            }
-            ImGui::EndChild();
-            ImGui::SameLine();
-            ImGui::BeginChild("Summary&Preview", HalfWindowSize);
-            {
-                ImGui::PushFont(Setting::Get().TitleFont);
-                ImGui::Text("Summary & Preview");
-                ImGui::PopFont();
-                const ImVec2 FrameSize = ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 9);
-                ImGui::BeginChildFrame(ImGui::GetID("ExportSummary"), FrameSize, ImGuiWindowFlags_NoMove);
-                ImGui::BulletText("Total images to export: %d", TotalExportImages);
-                ImGui::BulletText("Train / Valid / Test split: %.0f : %.0f : %.0f", SplitPercent[0], SplitPercent[1],
-                                  SplitPercent[2]);
-                ImGui::BulletText("Resize to: %d x %d", NewSize[0], NewSize[1]);
-                ImGui::BulletText("Augmentation:");
-                ImGui::Indent();
-                ImGui::Text("%s", MakeAugmentationDescription().c_str());
-
-                ImGui::Unindent();
-                ImGui::BulletText("Category: Undex yet...");
-                ImGui::Separator();
-                ImGui::Text("About to generate... the final export info");
-                ImGui::EndChildFrame();
-                if (ImGui::TreeNode("Augmentation Preview"))
-                {
-                    if (ImGui::Button((std::string(ICON_FA_SYNC) + " Update augementation preview").c_str()))
-                    {
-                        UpdatePreviewAugmentations();
-                    }
-                    ImGui::Separator();
-                    ImGui::Text("Original");
-                    ImVec2 PreviewImgSize(128, 128);
-                    ImGui::Image((void*)(intptr_t)Origin, PreviewImgSize);
-                    ImGui::Text("Variants");
-                    ImGuiStyle& style = ImGui::GetStyle();
-                    int PreviewCount = 10;
-                    float window_visible_x2 = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
-                    float LastImage_x2, NextImage_x2;
-                    MAKE_PREVIEW_IMAGE_VAR(0)
-                    MAKE_PREVIEW_IMAGE_VAR(1)
-                    MAKE_PREVIEW_IMAGE_VAR(2)
-                    MAKE_PREVIEW_IMAGE_VAR(3)
-                    MAKE_PREVIEW_IMAGE_VAR(4)
-                    MAKE_PREVIEW_IMAGE_VAR(5)
-                    MAKE_PREVIEW_IMAGE_VAR(6)
-                    MAKE_PREVIEW_IMAGE_VAR(7)
-                    MAKE_PREVIEW_IMAGE_VAR(8)
-                    MAKE_PREVIEW_IMAGE_VAR(9)
-                    ImGui::TreePop();
-                }
-            }
-            ImGui::EndChild();
+            RenderDataSelectWidget();
+            ImGui::TreePop();
         }
-        ImGui::EndChild();
-        static float ExportWidgetGroupWidth;
-        ImGui::SetCursorPosX((ImGui::GetContentRegionAvail().x - ExportWidgetGroupWidth) * 0.5f);
-        ImGui::BeginGroup();
+        if (ImGui::TreeNode("Train / Valid / Test Split"))
         {
-            ImGui::SetNextItemWidth(240.f);
-            ImGui::InputText("Training Set Name", NewTrainingSetName, IM_ARRAYSIZE(NewTrainingSetName));
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(120.f);
-            if (ImGui::InputInt("Augmentation Duplicates", &AugmentationDuplicates, 1, 5))
-            {
-                if (AugmentationDuplicates < 1) AugmentationDuplicates = 0;
-                if (AugmentationDuplicates > 100) AugmentationDuplicates = 100;
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Generate", ImVec2(240, 0)))
-            {
-                GenerateTrainingSet();
-            }
-            ImGui::Text("Total Generation: %d  =  %d x (1 + %d) + %d + %d",
-                        SplitImgs[0] * (1 + AugmentationDuplicates) + SplitImgs[1] + SplitImgs[2], SplitImgs[0],
-                        AugmentationDuplicates,
-                        SplitImgs[1], SplitImgs[2]);
+            RenderSplitWidget();
+            ImGui::TreePop();
         }
-        ImGui::EndGroup();
-        ExportWidgetGroupWidth = ImGui::GetItemRectSize().x;
+        if (ImGui::TreeNode("Resize"))
+        {
+            RenderResizeWidget();
+            ImGui::TreePop();
+        }
+        if (ImGui::TreeNode("Augmentation"))
+        {
+            RenderAugmentationWidget();
+            ImGui::TreePop();
+        }
+        if (ImGui::TreeNode("Category To Export"))
+        {
+            RenderCategoryWidget();
+            ImGui::TreePop();
+        }
+        ImGui::Unindent();
+        ImGui::PushFont(Setting::Get().TitleFont);
+        ImGui::Text("Summary");
+        ImGui::PopFont();
+        ImGui::Indent();
+        RenderSummary();
+        ImGui::Unindent();
+        ImGui::PushFont(Setting::Get().TitleFont);
+        ImGui::Text("Export");
+        ImGui::PopFont();
+        ImGui::Indent();
+        RenderExportWidget();
+
+        ImGui::Unindent();
     }
 
     void TrainingSetGenerator::GenerateTrainingSet()
@@ -534,7 +291,6 @@ namespace IFCS
         MAKE_GUI_IMG(6, ASD)
         MAKE_GUI_IMG(7, ASD)
         MAKE_GUI_IMG(8, ASD)
-        MAKE_GUI_IMG(9, ASD)
     }
 
     cv::Mat TrainingSetGenerator::GenerateAugentationImage(cv::Mat InMat, FAnnotationShiftData& OutShift)
@@ -634,11 +390,274 @@ namespace IFCS
         SplitImgs[2] = TotalExportImages - SplitImgs[0] - SplitImgs[1]; // to prevent lacking due to round off...
     }
 
-    void TrainingSetGenerator::DrawSplitWidget()
+    void TrainingSetGenerator::RenderDataSelectWidget()
+    {
+        ImGui::Text("Select which folders / clips to include in this training set:");
+        const ImVec2 FrameSize = ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 9);
+        float HalfWidth = ImGui::GetContentRegionAvail().x * 0.5f;
+        ImGui::BeginChildFrame(ImGui::GetID("Included Contents"), FrameSize, ImGuiWindowFlags_NoMove);
+        for (const std::string& Clip : IncludedGenClips)
+        {
+            std::string s = Clip.substr(Setting::Get().ProjectPath.size() + 1);
+            ImGui::Text(s.c_str());
+        }
+        ImGui::EndChildFrame();
+        if (ImGui::BeginDragDropTarget()) // for the previous item? 
+        {
+            if (const ImGuiPayload* Payload = ImGui::AcceptDragDropPayload("FolderOrClip"))
+            {
+                std::string ClipToInclude = std::string((const char*)Payload->Data);
+                IncludeGenClip(ClipToInclude);
+            }
+        }
+        char AddClipPreviewTitle[128];
+        sprintf(AddClipPreviewTitle, "%s Add Clip", ICON_FA_PLUS);
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.5f);
+        // TODO: remove the project path...
+        if (ImGui::BeginCombo("##AddClip", AddClipPreviewTitle))
+        {
+            std::vector<std::string> AllClips = DataBrowser::Get().GetAllClips();
+            auto NewEnd = std::remove_if(AllClips.begin(), AllClips.end(), [this](const std::string& C)
+            {
+                return std::find(IncludedGenClips.begin(), IncludedGenClips.end(), C) != IncludedGenClips.
+                    end();
+            });
+            AllClips.erase(NewEnd, AllClips.end());
+            for (size_t i = 0; i < AllClips.size(); i++)
+            {
+                if (ImGui::Selectable(AllClips[i].c_str(), false)) // no need to show selected
+                {
+                    IncludeGenClip(AllClips[i]);
+                }
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::SameLine();
+        char AddFolderPreviewTitle[128];
+        sprintf(AddFolderPreviewTitle, "%s Add Folder", ICON_FA_PLUS);
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        if (ImGui::BeginCombo("##AddFolder", AddFolderPreviewTitle))
+        {
+            std::vector<std::string> AllFolders = DataBrowser::Get().GetAllFolders();
+            auto NewEnd = std::remove_if(AllFolders.begin(), AllFolders.end(), [this](const std::string& C)
+            {
+                return std::find(IncludedImageFolders.begin(), IncludedImageFolders.end(), C) !=
+                    IncludedImageFolders.end();
+            });
+            AllFolders.erase(NewEnd, AllFolders.end());
+            // TODO: leave include folder for now...
+            for (size_t i = 0; i < AllFolders.size(); i++)
+            {
+                if (ImGui::Selectable(AllFolders[i].c_str(), false)) // no need to show selected
+                {
+                    IncludeGenFolder(AllFolders[i]);
+                }
+            }
+            ImGui::EndCombo();
+        }
+        if (ImGui::Button("Add All", ImVec2(HalfWidth, ImGui::GetFontSize() * 1.5f)))
+        {
+            for (const auto& c : DataBrowser::Get().GetAllClips())
+                IncludedGenClips.insert(c);
+            UpdateExportInfo();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Clear All", ImVec2(HalfWidth, ImGui::GetFontSize() * 1.5f)))
+        {
+            IncludedGenClips.clear();
+            UpdateExportInfo();
+        }
+        ImGui::BulletText("Included Clips: %d", (int)IncludedGenClips.size());
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(HalfWidth);
+        ImGui::BulletText("Included frames: %d", NumIncludedFrames);
+        ImGui::BulletText("Included Images: %d", NumIncludedImages);
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(HalfWidth);
+        ImGui::BulletText("Included Annotations: %d", NumIncludedAnnotation);
+    }
+
+    void TrainingSetGenerator::RenderResizeWidget()
+    {
+        // ImGui::Text("Add crop and pan???");
+        const char* ResizeRules[] = {"Stretch", "Fit"};
+        ImGui::Combo("Resize Rule", &SelectedResizeRule, ResizeRules, IM_ARRAYSIZE(ResizeRules));
+        ImGui::SetNextItemWidth(130.f);
+        ImGui::InputInt2("New Size", NewSize);
+        ImGui::Button("Preview");
+        ImGui::Text("Add preview directly here??");
+    }
+
+    void TrainingSetGenerator::RenderCategoryWidget()
+    {
+            ImGui::Checkbox("Apply default categories", &bApplyDefaultCategories);
+            // TODO: skip the impl for now...
+            if (!bApplyDefaultCategories)
+            {
+                ImGui::Text("some category merging tools");
+            }
+            // TODO: add implot to check category imbalance
+            // static std::vector<int> TestCounts = {1654, 5132, 1260, 352};
+            // if (ImPlot::BeginPlot("Category counts"))
+            // {
+            //     static std::vector<ImVec4> Colors = {
+            //         Utils::RandomPickColor(),
+            //         Utils::RandomPickColor(),
+            //         Utils::RandomPickColor(),
+            //         Utils::RandomPickColor()
+            //     };
+            //     ImPlot::AddColormap("RandomBarColor", Colors.data(), Colors.size()); // Use category color!!!!
+            //     if (ImPlot::BeginPlot("Category Counts"))
+            //     {
+            //         // plot indivisual for better viz?
+            //         ImPlot::PlotBars("Different Categories", TestCounts.data(), TestCounts.size(), 0.5, 1);
+            //         ImPlot::EndPlot();
+            //     }
+            //     ImPlot::PopColormap();
+            //     ImPlot::EndPlot();
+            // }
+
+
+            ImGui::Checkbox("Apply SMOTE", &bApplySMOTE);
+            Utils::AddSimpleTooltip("SMOTE: Synthetic Minority Oversampling Technique, if your categories "
+                "are highly imbalanced, you should apply SMOTE to handle it! (Undev yet)");
+    }
+
+    void TrainingSetGenerator::RenderAugmentationWidget()
+    {
+        ImGui::Checkbox("Should apply image augmentation?", &bApplyImageAugmentation);
+        if (!bApplyImageAugmentation)
+            return;
+        
+        if (ImGui::InputInt("Augmentation Duplicates", &AugmentationDuplicates, 1, 5))
+        {
+            if (AugmentationDuplicates < 1) AugmentationDuplicates = 1;
+            if (AugmentationDuplicates > 100) AugmentationDuplicates = 100;
+        }
+        if (ImGui::TreeNode("Blur"))
+        {
+            ImGui::Checkbox("Add Blur?", &bApplyBlur);
+            if (bApplyBlur)
+            {
+                if (ImGui::SliderInt("Max Blur Amount", &MaxBlurAmount, 1, 25))
+                {
+                    // force odd
+                    if (MaxBlurAmount % 2 == 0)
+                        MaxBlurAmount -= 1;
+                }
+            }
+            ImGui::TreePop();
+        }
+        if (ImGui::TreeNode("Noise"))
+        {
+            ImGui::Checkbox("Add Noise?", &bApplyNoise);
+            if (bApplyNoise)
+            {
+                ImGui::DragIntRange2("Noise Mean", &NoiseMeanMin, &NoiseMeanMax, 1,  0, 50);
+                ImGui::DragIntRange2("Noise Std", &NoiseStdMin, &NoiseStdMax, 1, 0, 50);
+            }
+            ImGui::TreePop();
+        }
+        if (ImGui::TreeNode("Hue"))
+        {
+            ImGui::Checkbox("Apply Hue Shift", &bApplyHue);
+            if (bApplyHue)
+            {
+                ImGui::DragInt("Max Random Hue (+ -)", &HueAmount, 1,1, 60, "%d %");
+            }
+            ImGui::TreePop();
+        }
+        if (ImGui::TreeNode("Rotation"))
+        {
+            ImGui::Checkbox("Add random rotation?", &bApplyRotation);
+            if (bApplyRotation)
+            {
+                ImGui::DragInt("Max Random Rotation degree Amount", &MaxRotationAmount, 1, 1, 15, "%d deg");
+            }
+            ImGui::TreePop();
+        }
+        if (ImGui::TreeNode("Flip"))
+        {
+            ImGui::Checkbox("Add Random flip X", &bApplyFlipX);
+            if (bApplyFlipX)
+                ImGui::DragInt("FlipX_Percent", &FlipXPercent, 1, 5, 50);
+            ImGui::Checkbox("Add random flip y?", &bApplyFlipY);
+            if (bApplyFlipY)
+                ImGui::DragInt("FlipY_Percent", &FlipYPercent, 1, 5, 50);
+            ImGui::TreePop();
+        }
+        if (ImGui::TreeNode("Preview"))
+        {
+            if (ImGui::Button((std::string(ICON_FA_SYNC) + " Update augementation preview").c_str()))
+            {
+                UpdatePreviewAugmentations();
+            }
+            ImGui::SameLine();
+            // TODO: allow to change aug preview image...
+            static const char* PreviewImageFile = "Lena.png";
+            ImGui::Button("Change Preview Image?");
+            ImGui::SameLine(0, 20);
+            ImGui::Text("(Current: %s)", PreviewImageFile);
+            ImGui::Separator();
+            ImGui::Text("Original");
+            ImVec2 PreviewImgSize(128, 128);
+            ImGui::Image((void*)(intptr_t)Origin, PreviewImgSize);
+            ImGui::Text("Variants");
+            ImGuiStyle& style = ImGui::GetStyle();
+            int PreviewCount = 10;
+            float window_visible_x2 = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
+            float LastImage_x2, NextImage_x2;
+            MAKE_PREVIEW_IMAGE_VAR(0)
+            MAKE_PREVIEW_IMAGE_VAR(1)
+            MAKE_PREVIEW_IMAGE_VAR(2)
+            MAKE_PREVIEW_IMAGE_VAR(3)
+            MAKE_PREVIEW_IMAGE_VAR(4)
+            MAKE_PREVIEW_IMAGE_VAR(5)
+            MAKE_PREVIEW_IMAGE_VAR(6)
+            MAKE_PREVIEW_IMAGE_VAR(7)
+            MAKE_PREVIEW_IMAGE_VAR(8)
+            ImGui::TreePop();
+        }
+    }
+
+    void TrainingSetGenerator::RenderSummary()
+    {
+        const ImVec2 FrameSize = ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 9);
+        ImGui::BeginChildFrame(ImGui::GetID("ExportSummary"), FrameSize, ImGuiWindowFlags_NoMove);
+        ImGui::BulletText("Total images to export: %d", TotalExportImages);
+        ImGui::BulletText("Train / Valid / Test split: %.0f : %.0f : %.0f", SplitPercent[0], SplitPercent[1],
+                          SplitPercent[2]);
+        ImGui::BulletText("Resize to: %d x %d", NewSize[0], NewSize[1]);
+        ImGui::BulletText("Augmentation:");
+        ImGui::Indent();
+        ImGui::Text("%s", MakeAugmentationDescription().c_str());
+
+        ImGui::Unindent();
+        ImGui::BulletText("Category: Undex yet...");
+        ImGui::Separator();
+        ImGui::Text("Total Generation: %d  =  %d x (1 + %d) + %d + %d",
+                    SplitImgs[0] * (1 + AugmentationDuplicates) + SplitImgs[1] + SplitImgs[2], SplitImgs[0],
+                    AugmentationDuplicates,
+                    SplitImgs[1], SplitImgs[2]);
+        ImGui::EndChildFrame();
+    }
+
+    void TrainingSetGenerator::RenderExportWidget()
+    {
+        ImGui::SetNextItemWidth(240.f);
+        ImGui::InputText("Training Set Name", NewTrainingSetName, IM_ARRAYSIZE(NewTrainingSetName));
+        ImGui::SameLine();
+        if (ImGui::Button("Generate", ImVec2(-1, 0)))
+        {
+            GenerateTrainingSet();
+        }
+    }
+
+    void TrainingSetGenerator::RenderSplitWidget()
     {
         ImGuiWindow* Win = ImGui::GetCurrentWindow();
         ImVec2 CurrentPos = ImGui::GetCursorScreenPos();
-        ImU32 Color = ImGui::ColorConvertFloat4ToU32(Spectrum::BLUE(600, Setting::Get().Theme == ETheme::Light));
+        ImU32 Color = ImGui::ColorConvertFloat4ToU32(Style::BLUE(600, Setting::Get().Theme));
         const float AvailWidth = ImGui::GetContentRegionAvail().x * 0.95f;
         ImVec2 RectStart = CurrentPos + ImVec2(0, 17);
         ImVec2 RectEnd = CurrentPos + ImVec2(AvailWidth, 22);
@@ -843,13 +862,14 @@ namespace IFCS
         if (bApplyBlur)
         {
             char buf[64];
-            sprintf(buf, "Random blur up to %d /n", MaxBlurAmount );
+            sprintf(buf, "Random blur up to %d /n", MaxBlurAmount);
             Out += buf;
         }
         if (bApplyNoise)
         {
             char buf[64];
-            sprintf(buf, "Random noise (mean: %d ~ %d ,std: %d ~ %d./n", NoiseMeanMin, NoiseMeanMax, NoiseStdMin, NoiseStdMax);
+            sprintf(buf, "Random noise (mean: %d ~ %d ,std: %d ~ %d./n", NoiseMeanMin, NoiseMeanMax, NoiseStdMin,
+                    NoiseStdMax);
             Out += buf;
         }
         if (bApplyHue)

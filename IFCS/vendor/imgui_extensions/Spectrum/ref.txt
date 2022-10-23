@@ -1,2 +1,0 @@
-styles copy and modified from:
-https://github.com/adobe/imgui

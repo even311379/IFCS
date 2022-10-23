@@ -137,7 +137,7 @@ namespace IFCS
         // ImVec2 pos;
         // ImVec2 size;
         char TempProjectName[128];
-        bool CheckValidInputs();
+        bool CheckValidProjectName();
     };
 
     
