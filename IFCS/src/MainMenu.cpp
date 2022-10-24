@@ -35,7 +35,6 @@ void IFCS::MainMenu::Render()
             {
                 // ImGui::OpenPopup("Setting");
                 Setting::Get().IsModalOpen = true;
-                spdlog::info("Setting popup is clicked...");
             }
             ImGui::Separator();
             if (ImGui::MenuItem(LOCTEXT("ToolbarItem.Quit")))

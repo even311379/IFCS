@@ -12,6 +12,7 @@ namespace IFCS
     {
     public:
         MAKE_SINGLETON(DataBrowser)
+        void Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose = true) override;
         void LoadOtherFrame(bool IsNext); // ture for next, false for previous
         void LoadFrame(int FrameNumber);
         // TODO: make access of opencv clip info centric to here...
@@ -19,11 +20,11 @@ namespace IFCS
         std::vector<std::string> GetAllFolders() const;
 
         FClipInfo SelectedClipInfo;
-        int SelectedFrame = 0;
+        int SelectedFrame = -1;
         std::string FrameTitle;
         unsigned int LoadedFramePtr;
         bool AnyFrameLoaded = false;
-
+        bool ShouldUpdateData = false;
 
     protected:
         void RenderContent() override;
@@ -33,13 +34,21 @@ namespace IFCS
         void CreateSeletable_TrainingSets();
         void CreateSeletable_Models();
         void CreateSeletable_Predictions();
+        void RenderDetailWidget();
         void UpdateData();
         void MakeFrameTitle();
         ImVec2 GetBtnSize();
         float TimePassed;
         bool NeedReviewedOnly;
-        bool IsViewingSomeDetail = false;
+        bool IsViewingSomeDetail() const;
+        void DeselectAll(); // Make sure only one asset is selected...
         std::map<int, size_t> FramesData;
         const std::array<std::string, 6> AcceptedClipsFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"};
+        std::string SelectedTrainingSet;
+        FTrainingSetDescription TrainingSetDescription;
+        std::string SelectedModel;
+        FModelDescription ModelDescription;
+        std::string SelectedPrediction;
+        FPredictionDescription PredictionDescription;
     };
 }

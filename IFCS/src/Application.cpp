@@ -100,7 +100,7 @@ namespace IFCS
         font_cfg.MergeMode = true;
         font_cfg.GlyphMaxAdvanceX = 16.0f;
         static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
-        io.Fonts->AddFontFromMemoryTTF((void*)fa_solid_900, sizeof(fa_solid_900), 20.f, &font_cfg, icon_ranges);
+        io.Fonts->AddFontFromMemoryTTF((void*)fa_solid_900, sizeof(fa_solid_900), 18.f, &font_cfg, icon_ranges);
     	io.Fonts->Build();
 		// instead of dummy way to load same file twice... use deep copy and set scale 1.5?
     	Setting::Get().TitleFont = new ImFont;
@@ -119,6 +119,7 @@ namespace IFCS
     	// setup this app
     	MainMenu::Get().SetApp(this);
         BGPanel::Get().Setup();
+        Setting::Get().LoadEditorIni();
         LogPanel::Get().Setup("Log", false, 0);
     	DataBrowser::Get().Setup("Data Browser", true, 0);
     	FrameExtractor::Get().Setup("Frame Extractor", true, 0);
@@ -126,7 +127,6 @@ namespace IFCS
     	TrainingSetGenerator::Get().Setup("Training Set Generator", true, 0);
     	Train::Get().Setup("Model Generator", true, 0);
     	Prediction::Get().Setup("Prediction", true, 0);
-        Setting::Get().LoadEditorIni();
     	CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
     	if (Setting::Get().ProjectIsLoaded)
 			glfwSetWindowTitle(Window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());

@@ -184,6 +184,38 @@ namespace IFCS
         AppliedAugmentationDescription = InputNode["AppliedAugmentationDescription"].as<std::string>();
     }
 
+    void FTrainingSetDescription::MakeDetailWidget()
+    {
+        float Width = ImGui::GetContentRegionAvail().x;
+        ImGui::TextWrapped(CreationTime.c_str());
+        if (!IncludeClips.empty())
+        {
+            ImGui::Text("Included Clips:");
+            ImGui::BeginChildFrame(ImGui::GetID("DCs"), ImVec2(Width, ImGui::GetTextLineHeight() * 3));
+            for (const std::string& C : IncludeClips)
+            {
+                std::string NoPath = C.substr(Setting::Get().ProjectPath.size() + 15);
+                ImGui::Text(NoPath.c_str());
+            }
+            ImGui::EndChildFrame();
+        }
+        if (!IncludeImageFolders.empty())
+        {
+            ImGui::Text("Included Image folders:");
+            ImGui::BeginChildFrame(ImGui::GetID("DIFs"), ImVec2(Width, ImGui::GetTextLineHeight() * 3));
+            ImGui::Text("PASS");
+            ImGui::EndChildFrame();
+        }
+        // Utils::AddTitle("%s", SelectedTrainingSet.c_str());
+        // ImGui::BulletText("Creation time:");
+        // ImGui::Indent();
+        // ImGui::TextWrapped(TrainingSetDescription.CreationTime.c_str());
+        // ImGui::Unindent();
+        //
+        //
+        // TrainingSetDescription.CreationTime.c_str());
+    }
+
     FModelDescription::FModelDescription(YAML::Node InputNode)
     {
         Deserialize(InputNode);
@@ -223,6 +255,10 @@ namespace IFCS
         mAP5_95 = InputNode["mAP5_95"].as<float>();
     }
 
+    void FModelDescription::MakeDetailWidget()
+    {
+    }
+
     FPredictionDescription::FPredictionDescription(YAML::Node InputNode)
     {
         Deserialize(InputNode);
@@ -248,5 +284,9 @@ namespace IFCS
         TargetClip = InputNode["TargetClip"].as<std::string>();
         Confidence = InputNode["Confidence"].as<float>();
         IOU = InputNode["IOU"].as<float>();
+    }
+
+    void FPredictionDescription::MakeDetailWidget()
+    {
     }
 }

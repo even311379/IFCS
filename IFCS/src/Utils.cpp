@@ -34,7 +34,7 @@ namespace IFCS
             char buffer[80];
             time(&rawtime);
             timeinfo = localtime(&rawtime);
-            strftime(buffer, sizeof(buffer), "%d-%m-%Y %H:%M:%S", timeinfo);
+            strftime(buffer, sizeof(buffer), "%Y/%m/%d %H:%M:%S", timeinfo);
             return std::string{buffer};
         }
 

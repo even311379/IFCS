@@ -22,7 +22,7 @@ namespace IFCS
     // declare some global var here? or???
     static const ImVec2 WorkArea = {1280, 720};
 
-    
+
     enum class EWorkspace : uint8_t
     {
         Data = 0,
@@ -70,13 +70,16 @@ namespace IFCS
     };
 
     //TODO: when to serialize them to the yaml file?
-    
+
     struct FCategory
     {
-        FCategory(){}
+        FCategory()
+        {
+        }
+
         FCategory(std::string NewDisplayName); // construct when user click add new
         FCategory(YAML::Node InputNode); // construct when load from yaml
-        
+
         std::string DisplayName;
         ImVec4 Color;
         UUID ParentID = 0;
@@ -96,7 +99,7 @@ namespace IFCS
         Add = 0,
         Edit = 1
     };
-    
+
     enum class EBoxCorner : uint8_t
     {
         TopLeft = 0,
@@ -104,7 +107,7 @@ namespace IFCS
         BottomRight = 2,
         TopRight = 3
     };
-    
+
     struct FAnnotationShiftData
     {
         int RotationDegree = 0;
@@ -118,10 +121,10 @@ namespace IFCS
         {
         }
     };
-    
+
     struct FAnnotation
     {
-        FAnnotation()=default;
+        FAnnotation() = default;
         FAnnotation(UUID InCategory, std::array<float, 4> InXYWH); // contruct when new annotation is created
         FAnnotation(YAML::Node InputNode); // construct from yaml
         UUID CategoryID;
@@ -130,12 +133,13 @@ namespace IFCS
         void Deserialize(YAML::Node InputNode);
         void Pan(std::array<float, 2> Changed);
         void Resize(EBoxCorner WhichCorner, std::array<float, 2> Changed);
-        std::string GetExportTxt( std::unordered_map< UUID, int>& CategoryChecker, const FAnnotationShiftData& InShiftData) const;
+        std::string GetExportTxt(std::unordered_map<UUID, int>& CategoryChecker,
+                                 const FAnnotationShiftData& InShiftData) const;
     };
 
     struct FTrainingSetDescription
     {
-        FTrainingSetDescription()=default;
+        FTrainingSetDescription() = default;
         FTrainingSetDescription(YAML::Node InputNode);
         std::string Name;
         std::string CreationTime;
@@ -143,46 +147,47 @@ namespace IFCS
         std::vector<std::string> IncludeImageFolders;
         std::array<int, 2> Size = {640, 640};
         std::array<float, 3> Split = {0.80f, 0.10f, 0.10f};
-        int NumDuplicates=0;
+        int NumDuplicates = 0;
         int TotalImagesExported = 1000; // Not include duplicated ones...
         std::string AppliedAugmentationDescription;
         YAML::Node Serialize();
         void Deserialize(YAML::Node InputNode);
+        void MakeDetailWidget();
     };
-    
+
     struct FModelDescription
     {
-        FModelDescription()=default;
+        FModelDescription() = default;
         FModelDescription(YAML::Node InputNode);
         std::string Name;
         std::string CreationTime;
         std::string ModelType;
         UUID SourceTrainingSetID;
-        int TrainingTime=0;
-        int BatchSize=0;
-        int NumEpochs=0;
+        int TrainingTime = 0;
+        int BatchSize = 0;
+        int NumEpochs = 0;
         std::vector<std::string> Progresses;
-        float Recall=0.f;
-        float Precision=0.f;
-        float mAP5=0.f;
-        float mAP5_95=0.f;
+        float Recall = 0.f;
+        float Precision = 0.f;
+        float mAP5 = 0.f;
+        float mAP5_95 = 0.f;
         YAML::Node Serialize() const;
         void Deserialize(YAML::Node InputNode);
+        void MakeDetailWidget();
     };
 
     struct FPredictionDescription
     {
-        FPredictionDescription()=default;
+        FPredictionDescription() = default;
         FPredictionDescription(YAML::Node InputNode);
         std::string Name;
         std::string CreationTime;
         UUID ModelID;
         std::string TargetClip;
-        float Confidence=0.001f;
-        float IOU=0.65f;
+        float Confidence = 0.001f;
+        float IOU = 0.65f;
         YAML::Node Serialize() const;
         void Deserialize(YAML::Node InputNode);
-        // TODO: add get data??
-        // std::map<uint32_t, >
+        void MakeDetailWidget();
     };
 }

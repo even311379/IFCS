@@ -85,7 +85,7 @@ namespace IFCS
             if (ImGui::Button("Choose"))
             {
                 IsChoosingFolder = true;
-                ifd::FileDialog::Instance().Open("ChoosePathPath", "Choose python path", "");
+                ifd::FileDialog::Instance().Open("ChoosePythonPath", "Choose python path", "");
             }
             ImGui::InputText("Yolo v7 path", TempYoloV7Path, IM_ARRAYSIZE(TempYoloV7Path), ImGuiInputTextFlags_ReadOnly);
             ImGui::SameLine();
@@ -134,6 +134,7 @@ namespace IFCS
         PreferredLanguage = static_cast<ESupportedLanguage>(UserIni["PreferredLanguage"].as<int>());
         ActiveWorkspace = static_cast<EWorkspace>(UserIni["ActiveWorkspace"].as<int>());
         Theme = static_cast<ETheme>(UserIni["Theme"].as<int>());
+        ThemeToUse = static_cast<int>(Theme);
         PythonPath = UserIni["PythonPath"].as<std::string>();
         YoloV7Path = UserIni["YoloV7Path"].as<std::string>();
         strcpy(TempPythonPath, PythonPath.c_str());

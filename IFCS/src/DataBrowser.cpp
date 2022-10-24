@@ -14,12 +14,22 @@
 #include "Annotation.h"
 #include "FrameExtractor.h"
 #include "Log.h"
+#include "Style.h"
 #include "Utils.h"
 #include "Implot/implot.h"
 
 
 namespace IFCS
 {
+    void DataBrowser::Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose)
+    {
+        Panel::Setup(InName, InShouldOpen, InFlags, InCanClose);
+        SelectedTrainingSet = "";
+        SelectedModel = "";
+        SelectedPrediction = "";
+        ShouldUpdateData = true;
+    }
+
     // TODO: incorrect edge behavior
     void DataBrowser::LoadOtherFrame(bool IsNext)
     {
@@ -42,6 +52,7 @@ namespace IFCS
         LoadFrame(SelectedFrame);
         Annotation::Get().Load();
         ImGui::SetWindowFocus("Annotation");
+        ShouldUpdateData = true;
     }
 
     void DataBrowser::LoadFrame(int FrameNumber)
@@ -119,116 +130,94 @@ namespace IFCS
     {
         if (!Setting::Get().ProjectIsLoaded) return;
         // Inside child window to have independent scroll
+        static std::string ClipFolderPath = Setting::Get().ProjectPath + "/TrainingClips";
+        ImGui::PushFont(Setting::Get().TitleFont);
         ImGui::Text("Data Browser");
+        ImGui::PopFont();
         ImVec2 ChildWindowSize = ImGui::GetContentRegionAvail();
-        if (IsViewingSomeDetail)
-            ChildWindowSize.y *= 0.75f;
+        if (IsViewingSomeDetail())
+            ChildWindowSize.y *= 0.60f;
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_HorizontalScrollbar;
-        window_flags |= ImGuiWindowFlags_AlwaysVerticalScrollbar;
         ImGui::BeginChild("DataBrowserWindow", ChildWindowSize, false, window_flags);
         {
             if (ImGui::TreeNodeEx((std::string(ICON_FA_VIDEO) + " Training Clips").c_str(),
                                   ImGuiTreeNodeFlags_DefaultOpen))
             {
-                std::string ClipFolderPath = Setting::Get().ProjectPath + "/TrainingClips";
-                if (ImGui::BeginPopupContextItem())
-                {
-                    if (ImGui::Button(LOCTEXT("Common.OpenFolderHere")))
-                    {
-                        ShellExecuteA(NULL, "open", ClipFolderPath.c_str(), NULL, NULL, SW_SHOWDEFAULT);
-                        ImGui::CloseCurrentPopup();
-                    }
-                    ImGui::EndPopup();
-                }
                 RecursiveClipTreeNodeGenerator(ClipFolderPath, 0);
                 // TODO: add some hint to add things in content browser if nothing here...
-                ImGui::Dummy(ImVec2(0, ImGui::GetTextLineHeight()));
                 ImGui::Checkbox("Need review only?", &NeedReviewedOnly);
-                ImGui::Dummy(ImVec2(0, ImGui::GetTextLineHeight()));
+                if (ImGui::Button(LOCTEXT("Common.OpenFolderHere"), ImVec2(-1, 0)))
+                {
+                    ShellExecuteA(NULL, "open", ClipFolderPath.c_str(), NULL, NULL, SW_SHOWDEFAULT);
+                }
                 ImGui::TreePop();
             }
 
             if (ImGui::TreeNode((std::string(ICON_FA_IMAGE) + " Training Images").c_str()))
             {
-                if (ImGui::BeginPopupContextItem())
-                {
-                    if (ImGui::Button(LOCTEXT("Common.OpenFolderHere")))
-                    {
-                        ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/TrainingImages").c_str(), NULL,
-                                      NULL, SW_SHOWDEFAULT);
-                        ImGui::CloseCurrentPopup();
-                    }
-                    ImGui::EndPopup();
-                }
                 // TODO: add from raw image as very end...leave it when all major feature is done...
                 for (int i = 0; i < 100; i++)
                 {
                     ImGui::Selectable("img");
                 }
+                if (ImGui::Button(LOCTEXT("Common.OpenFolderHere"), ImVec2(-1, 0)))
+                {
+                    ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/TrainingImages").c_str(), NULL,
+                                  NULL, SW_SHOWDEFAULT);
+                }
                 ImGui::TreePop();
             }
             if (ImGui::TreeNode((std::string(ICON_FA_TH) + " Training Sets").c_str()))
             {
-                if (ImGui::BeginPopupContextItem())
-                {
-                    if (ImGui::Button(LOCTEXT("Common.OpenFolderHere")))
-                    {
-                        ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Data").c_str(), NULL, NULL,
-                                      SW_SHOWDEFAULT);
-                        ImGui::CloseCurrentPopup();
-                    }
-                    ImGui::EndPopup();
-                }
                 CreateSeletable_TrainingSets();
+                if (ImGui::Button(LOCTEXT("Common.OpenFolderHere"), ImVec2(-1, 0)))
+                {
+                    ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Data").c_str(), NULL, NULL,
+                                  SW_SHOWDEFAULT);
+                }
                 ImGui::TreePop();
             }
             if (ImGui::TreeNode((std::string(ICON_FA_MICROCHIP) + " Models").c_str()))
             {
-                if (ImGui::BeginPopupContextItem())
-                {
-                    if (ImGui::Button(LOCTEXT("Common.OpenFolderHere")))
-                    {
-                        ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Models").c_str(), NULL, NULL,
-                                      SW_SHOWDEFAULT);
-                        ImGui::CloseCurrentPopup();
-                    }
-                    ImGui::EndPopup();
-                }
                 CreateSeletable_Models();
+                if (ImGui::Button(LOCTEXT("Common.OpenFolderHere"), ImVec2(-1, 0)))
+                {
+                    ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Models").c_str(), NULL, NULL,
+                                  SW_SHOWDEFAULT);
+                }
                 ImGui::TreePop();
             }
             if (ImGui::TreeNode((std::string(ICON_FA_WAVE_SQUARE) + " Predictions").c_str()))
             {
-                if (ImGui::BeginPopupContextItem())
-                {
-                    if (ImGui::Button(LOCTEXT("Common.OpenFolderHere")))
-                    {
-                        ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Predictions").c_str(), NULL, NULL,
-                                      SW_SHOWDEFAULT);
-                        ImGui::CloseCurrentPopup();
-                    }
-                    ImGui::EndPopup();
-                }
                 CreateSeletable_Predictions();
+                if (ImGui::Button(LOCTEXT("Common.OpenFolderHere"), ImVec2(-1, 0)))
+                {
+                    ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Predictions").c_str(), NULL, NULL,
+                                  SW_SHOWDEFAULT);
+                }
                 ImGui::TreePop();
             }
         }
-
         ImGui::EndChild();
-        // // TODO: filter options... leave it when all major feature is done...
-        // Should I add filter? to filter where that's not labeled yet? or show need review? 
-        // ImGui::Checkbox("TT", &Test);
-        // ImGui::SameLine();
-        // ImGui::Checkbox("TT", &Test);
-        // ImGui::InputText("Filter", FilterText, IM_ARRAYSIZE(FilterText));
+        if (IsViewingSomeDetail())
+        {
+            RenderDetailWidget();
+        }
+        if (ShouldUpdateData)
+        {
+            UpdateData();
+            ShouldUpdateData = false;
+        }
 
-        // every 10 second or the first time update all required data?
+
+        // TODO: this is pretty bad... still event triggered reset data is much better! (next frameupdate?)
+        /*// every 10 second or the first time update all required data?
         if (Utils::FloatCompare(0.0f, TimePassed, 0.000001f) || int(TimePassed + 1) % 11 == 0)
         {
             UpdateData();
             TimePassed = 0.f;
         }
-        TimePassed += 1.0f / ImGui::GetIO().Framerate;
+        TimePassed += 1.0f / ImGui::GetIO().Framerate;*/
     }
 
 
@@ -272,6 +261,7 @@ namespace IFCS
                                       ImGuiSelectableFlags_AllowDoubleClick))
                 {
                     SelectedClipInfo.ClipPath = FullClipName;
+                    // TODO: very unintuitive to understand how to start?
                     // Open and setup frame extraction
                     if (ImGui::IsMouseDoubleClicked(0) && Setting::Get().ActiveWorkspace == EWorkspace::Data)
                     {
@@ -280,6 +270,7 @@ namespace IFCS
                         // LogPanel::Get().AddLog(ELogLevel::Info, buff);
                         ImGui::SetWindowFocus("Frame Extractor");
                         LoadFrame(0);
+                        ShouldUpdateData = true;
                     }
                 }
                 if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
@@ -313,6 +304,7 @@ namespace IFCS
                             LoadFrame(SelectedFrame);
                             Annotation::Get().Load();
                             ImGui::SetWindowFocus("Annotation");
+                            ShouldUpdateData = true;
                         }
                     }
                     ImGui::Unindent();
@@ -328,9 +320,25 @@ namespace IFCS
 
     void DataBrowser::CreateSeletable_TrainingSets()
     {
-        // if (Tick % )
-        // YAML::LoadFile(Setting::Get().ProjectPath + );
-        // ImGui::Text("frame rate: %.2f", ImGui::GetIO().Framerate);
+        YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/TrainingSets.yaml");
+        for (size_t i = 0; i < Data.size(); i++)
+        {
+            std::string Name = Data[i]["Name"].as<std::string>();
+            if (ImGui::Selectable(Name.c_str(), Name == SelectedTrainingSet))
+            {
+                SelectedTrainingSet = Name;
+                TrainingSetDescription = FTrainingSetDescription(Data[i]);
+            }
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+            {
+                char Send[128];
+                strcpy(Send, Name.c_str());
+                ImGui::SetDragDropPayload("TrainingSet", &Send, sizeof(Send));
+                // for test now
+                ImGui::Text(Send);
+                ImGui::EndDragDropSource();
+            }
+        }
     }
 
     void DataBrowser::CreateSeletable_Models()
@@ -339,6 +347,51 @@ namespace IFCS
 
     void DataBrowser::CreateSeletable_Predictions()
     {
+    }
+
+    void DataBrowser::RenderDetailWidget()
+    {
+        ImGui::BeginChild("AssetDetail");
+        {
+            float ContentWidth = ImGui::GetContentRegionAvail().x;
+            ImVec2 Pos = ImGui::GetCursorScreenPos();
+            ImGui::GetWindowDrawList()->AddRectFilled(Pos, Pos + ImVec2(ContentWidth, 5.f),
+                                   ImGui::ColorConvertFloat4ToU32(Style::BLUE(400, Setting::Get().Theme)), 12.f);
+            ImGui::Dummy(ImVec2(0, 2.f));
+            // name
+            if (!SelectedTrainingSet.empty())
+            {
+                ImGui::Text("%s", TrainingSetDescription.Name.c_str());
+            }
+            else if (!SelectedModel.empty())
+            {
+                ImGui::Text("%s", ModelDescription.Name.c_str());
+            }
+            else if (!SelectedPrediction.empty())
+            {
+                ImGui::Text("%s", PredictionDescription.Name.c_str());
+            }
+            ImGui::SameLine(ContentWidth -32);
+            // ImGui::SetCursorPosX(ContentWidth - 32);
+            if (ImGui::Button(ICON_FA_TIMES, ImVec2(32, 0)))
+            {
+                DeselectAll();
+            }
+            // content
+            if (!SelectedTrainingSet.empty())
+            {
+                TrainingSetDescription.MakeDetailWidget();
+            }
+            if (!SelectedModel.empty())
+            {
+                ModelDescription.MakeDetailWidget();
+            }
+            if (!SelectedPrediction.empty())
+            {
+                PredictionDescription.MakeDetailWidget();
+            }
+        }
+        ImGui::EndChild();
     }
 
     void DataBrowser::UpdateData()
@@ -351,6 +404,8 @@ namespace IFCS
             FramesData.insert({it->first.as<int>(), it->second.size()});
         }
         spdlog::info("Data is updated...");
+
+        
     }
 
     void DataBrowser::MakeFrameTitle()
@@ -379,5 +434,21 @@ namespace IFCS
     ImVec2 DataBrowser::GetBtnSize()
     {
         return {ImGui::GetFont()->FontSize * 3, ImGui::GetFont()->FontSize * 1.5f};
+    }
+
+    bool DataBrowser::IsViewingSomeDetail() const
+    {
+        if (!SelectedTrainingSet.empty()) return true;
+        if (!SelectedModel.empty()) return true;
+        if (!SelectedPrediction.empty()) return true;
+        return false;
+    }
+
+    void DataBrowser::DeselectAll()
+    {
+        // SelectedFrame = -1;
+        SelectedTrainingSet = "";
+        SelectedModel = "";
+        SelectedPrediction = "";
     }
 }

@@ -100,7 +100,7 @@ namespace IFCS
             ImGuiID Center;
             ImGuiID Right;
             ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Left, 0.15f, &Left, &Center);
-            ImGui::DockBuilderSplitNode(Center, ImGuiDir_Right, 0.2f, &Right, nullptr);
+            ImGui::DockBuilderSplitNode(Center, ImGuiDir_Right, 0.175f, &Right, nullptr);
             ImGui::DockBuilderDockWindow("Data Browser", Left);
             ImGui::DockBuilderDockWindow("Annotation", Center);
             ImGui::DockBuilderDockWindow("Frame Extractor", Center);
@@ -117,7 +117,7 @@ namespace IFCS
             
             ImGuiID Left;
             ImGuiID Right;
-            ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Left, 0.2f, &Left, &Right);
+            ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Left, 0.15f, &Left, &Right);
             ImGui::DockBuilderDockWindow("Data Browser", Left);
             ImGui::DockBuilderDockWindow("Model Generator", Right);
             ImGui::DockBuilderFinish(DockspaceID);
@@ -131,7 +131,7 @@ namespace IFCS
             
             ImGuiID Left;
             ImGuiID Right;
-            ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Left, 0.2f, &Left, &Right);
+            ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Left, 0.15f, &Left, &Right);
             ImGui::DockBuilderDockWindow("Data Browser", Left);
             ImGui::DockBuilderDockWindow("Prediction", Right);
             ImGui::DockBuilderFinish(DockspaceID);
