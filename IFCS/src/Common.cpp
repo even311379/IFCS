@@ -194,7 +194,7 @@ namespace IFCS
             ImGui::BeginChildFrame(ImGui::GetID("DCs"), ImVec2(Width, ImGui::GetTextLineHeight() * 3));
             for (const std::string& C : IncludeClips)
             {
-                std::string NoPath = C.substr(Setting::Get().ProjectPath.size() + 15);
+                std::string NoPath = C.substr(Setting::Get().ProjectPath.size() + 7);
                 ImGui::Text(NoPath.c_str());
             }
             ImGui::EndChildFrame();
@@ -227,13 +227,14 @@ namespace IFCS
         OutNode["Name"] = Name;
         OutNode["CreationTime"] = CreationTime;
         OutNode["ModelType"] = ModelType;
-        OutNode["SourceTrainingSet"] = (uint64_t)SourceTrainingSetID;
+        OutNode["HyperParameter"] = HyperParameter;
+        OutNode["SourceTrainingSet"] = SourceTrainingSet;
         OutNode["TraningTime"] = TrainingTime;
+        OutNode["ImageSize"] = ImageSize;
         OutNode["BatchSize"] = BatchSize;
         OutNode["NumEpochs"] = NumEpochs;
-        OutNode["Progresses"] = Progresses;
-        OutNode["Recall"] = Recall;
         OutNode["Precision"] = Precision;
+        OutNode["Recall"] = Recall;
         OutNode["mAP5"] = mAP5;
         OutNode["mAP5_95"] = mAP5_95;
         return OutNode;
@@ -244,13 +245,14 @@ namespace IFCS
         Name = InputNode["Name"].as<std::string>();
         CreationTime = InputNode["CreationTime"].as<std::string>();
         ModelType = InputNode["ModelType"].as<std::string>();
-        SourceTrainingSetID = UUID(InputNode["SourceTrainingSet"].as<uint64_t>());
-        TrainingTime = InputNode["TraningTime"].as<int>();
+        HyperParameter = InputNode["HyperParameter"].as<std::string>();
+        SourceTrainingSet = InputNode["SourceTrainingSet"].as<std::string>();
+        TrainingTime = InputNode["TraningTime"].as<float>();
+        ImageSize = InputNode["ImageSize"].as<std::array<int, 2>>();
         BatchSize = InputNode["BatchSize"].as<int>();
         NumEpochs = InputNode["NumEpochs"].as<int>();
-        Progresses = InputNode["Progresses"].as<std::vector<std::string>>();
-        Recall = InputNode["Recall"].as<float>();
         Precision = InputNode["Precision"].as<float>();
+        Recall = InputNode["Recall"].as<float>();
         mAP5 = InputNode["mAP5"].as<float>();
         mAP5_95 = InputNode["mAP5_95"].as<float>();
     }
@@ -259,34 +261,34 @@ namespace IFCS
     {
     }
 
-    FPredictionDescription::FPredictionDescription(YAML::Node InputNode)
+    FDetectionDescription::FDetectionDescription(YAML::Node InputNode)
     {
         Deserialize(InputNode);
     }
 
-    YAML::Node FPredictionDescription::Serialize() const
+    YAML::Node FDetectionDescription::Serialize() const
     {
         YAML::Node OutNode;
         OutNode["Name"] = Name;
         OutNode["CreationTime"] = CreationTime;
-        OutNode["ModelID"] = (uint64_t)ModelID;
+        OutNode["SourceModel"] = SourceModel;
         OutNode["TargetClip"] = TargetClip;
         OutNode["Confidence"] = Confidence;
         OutNode["IOU"] = IOU;
         return OutNode;
     }
 
-    void FPredictionDescription::Deserialize(YAML::Node InputNode)
+    void FDetectionDescription::Deserialize(YAML::Node InputNode)
     {
         Name = InputNode["Name"].as<std::string>();
         CreationTime = InputNode["CreationTime"].as<std::string>();
-        ModelID = UUID(InputNode["ModelID"].as<uint64_t>());
+        SourceModel = InputNode["ModelID"].as<std::string>();
         TargetClip = InputNode["TargetClip"].as<std::string>();
         Confidence = InputNode["Confidence"].as<float>();
         IOU = InputNode["IOU"].as<float>();
     }
 
-    void FPredictionDescription::MakeDetailWidget()
+    void FDetectionDescription::MakeDetailWidget()
     {
     }
 }

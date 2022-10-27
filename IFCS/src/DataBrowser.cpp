@@ -16,8 +16,8 @@
 #include "Log.h"
 #include "Style.h"
 #include "Utils.h"
-#include "Implot/implot.h"
 
+// TODO: opencv may crash sometimes when double click frame number? resize issue?
 
 namespace IFCS
 {
@@ -74,7 +74,7 @@ namespace IFCS
             cap.set(cv::CAP_PROP_POS_FRAMES, FrameNumber);
             cap >> frame;
             cv::resize(frame, frame, cv::Size(1280, 720)); // 16 : 9
-            cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
+            cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
             cap.release();
         }
         glGenTextures(1, &LoadedFramePtr);
@@ -84,7 +84,7 @@ namespace IFCS
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
         // This is required on WebGL for non power-of-two textures
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, frame.cols, frame.rows, 0, GL_RGBA,
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, frame.cols, frame.rows, 0, GL_RGB,
                      GL_UNSIGNED_BYTE, frame.data);
         MakeFrameTitle();
         FrameExtractor::Get().OnFrameLoaded();
@@ -95,7 +95,7 @@ namespace IFCS
     {
         std::vector<std::string> Out;
         for (const auto& p : std::filesystem::recursive_directory_iterator(
-                 Setting::Get().ProjectPath + std::string("/TrainingClips")))
+                 Setting::Get().ProjectPath + std::string("/Clips")))
         {
             if (!std::filesystem::is_directory(p))
             {
@@ -130,13 +130,15 @@ namespace IFCS
     {
         if (!Setting::Get().ProjectIsLoaded) return;
         // Inside child window to have independent scroll
-        static std::string ClipFolderPath = Setting::Get().ProjectPath + "/TrainingClips";
+        static std::string ClipFolderPath = Setting::Get().ProjectPath + "/Clips";
         ImGui::PushFont(Setting::Get().TitleFont);
         ImGui::Text("Data Browser");
         ImGui::PopFont();
         ImVec2 ChildWindowSize = ImGui::GetContentRegionAvail();
         if (IsViewingSomeDetail())
             ChildWindowSize.y *= 0.60f;
+        else
+            ChildWindowSize.y *= 0.97f;
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_HorizontalScrollbar;
         ImGui::BeginChild("DataBrowserWindow", ChildWindowSize, false, window_flags);
         {
@@ -146,10 +148,7 @@ namespace IFCS
                 RecursiveClipTreeNodeGenerator(ClipFolderPath, 0);
                 // TODO: add some hint to add things in content browser if nothing here...
                 ImGui::Checkbox("Need review only?", &NeedReviewedOnly);
-                if (ImGui::Button(LOCTEXT("Common.OpenFolderHere"), ImVec2(-1, 0)))
-                {
-                    ShellExecuteA(NULL, "open", ClipFolderPath.c_str(), NULL, NULL, SW_SHOWDEFAULT);
-                }
+
                 ImGui::TreePop();
             }
 
@@ -160,41 +159,21 @@ namespace IFCS
                 {
                     ImGui::Selectable("img");
                 }
-                if (ImGui::Button(LOCTEXT("Common.OpenFolderHere"), ImVec2(-1, 0)))
-                {
-                    ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/TrainingImages").c_str(), NULL,
-                                  NULL, SW_SHOWDEFAULT);
-                }
                 ImGui::TreePop();
             }
             if (ImGui::TreeNode((std::string(ICON_FA_TH) + " Training Sets").c_str()))
             {
                 CreateSeletable_TrainingSets();
-                if (ImGui::Button(LOCTEXT("Common.OpenFolderHere"), ImVec2(-1, 0)))
-                {
-                    ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Data").c_str(), NULL, NULL,
-                                  SW_SHOWDEFAULT);
-                }
                 ImGui::TreePop();
             }
             if (ImGui::TreeNode((std::string(ICON_FA_MICROCHIP) + " Models").c_str()))
             {
                 CreateSeletable_Models();
-                if (ImGui::Button(LOCTEXT("Common.OpenFolderHere"), ImVec2(-1, 0)))
-                {
-                    ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Models").c_str(), NULL, NULL,
-                                  SW_SHOWDEFAULT);
-                }
                 ImGui::TreePop();
             }
             if (ImGui::TreeNode((std::string(ICON_FA_WAVE_SQUARE) + " Predictions").c_str()))
             {
                 CreateSeletable_Predictions();
-                if (ImGui::Button(LOCTEXT("Common.OpenFolderHere"), ImVec2(-1, 0)))
-                {
-                    ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Predictions").c_str(), NULL, NULL,
-                                  SW_SHOWDEFAULT);
-                }
                 ImGui::TreePop();
             }
         }
@@ -202,6 +181,14 @@ namespace IFCS
         if (IsViewingSomeDetail())
         {
             RenderDetailWidget();
+        }
+        else
+        {
+            if (ImGui::Button(LOCTEXT("Common.OpenProjectFolder"), ImVec2(-1, 0)))
+            {
+                ShellExecuteA(NULL, "open", Setting::Get().ProjectPath.c_str(), NULL, NULL,
+                              SW_SHOWDEFAULT);
+            }
         }
         if (ShouldUpdateData)
         {
@@ -356,7 +343,8 @@ namespace IFCS
             float ContentWidth = ImGui::GetContentRegionAvail().x;
             ImVec2 Pos = ImGui::GetCursorScreenPos();
             ImGui::GetWindowDrawList()->AddRectFilled(Pos, Pos + ImVec2(ContentWidth, 5.f),
-                                   ImGui::ColorConvertFloat4ToU32(Style::BLUE(400, Setting::Get().Theme)), 12.f);
+                                                      ImGui::ColorConvertFloat4ToU32(
+                                                          Style::BLUE(400, Setting::Get().Theme)), 12.f);
             ImGui::Dummy(ImVec2(0, 2.f));
             // name
             if (!SelectedTrainingSet.empty())
@@ -371,7 +359,7 @@ namespace IFCS
             {
                 ImGui::Text("%s", PredictionDescription.Name.c_str());
             }
-            ImGui::SameLine(ContentWidth -32);
+            ImGui::SameLine(ContentWidth - 32);
             // ImGui::SetCursorPosX(ContentWidth - 32);
             if (ImGui::Button(ICON_FA_TIMES, ImVec2(32, 0)))
             {
@@ -404,8 +392,6 @@ namespace IFCS
             FramesData.insert({it->first.as<int>(), it->second.size()});
         }
         spdlog::info("Data is updated...");
-
-        
     }
 
     void DataBrowser::MakeFrameTitle()

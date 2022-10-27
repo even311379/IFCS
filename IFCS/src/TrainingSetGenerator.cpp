@@ -147,9 +147,10 @@ namespace IFCS
         if (ofs.is_open())
         {
             ofs << "train: " << ProjectPath + "/Data/" + NewTrainingSetName + "/train/images" << std::endl;
-            ofs << "valid: " << ProjectPath + "/Data/" + NewTrainingSetName + "/valid/images" << std::endl;
+            ofs << "val: " << ProjectPath + "/Data/" + NewTrainingSetName + "/valid/images" << std::endl;
             ofs << "test: " << ProjectPath + "/Data/" + NewTrainingSetName + "/test/images" << std::endl << std::endl;
-            ofs << "nc: " << ExportedCategories.size() << std::endl;
+            // ofs << "nc: " << ExportedCategories.size() << std::endl;
+            ofs << "nc: " << 1 << std::endl;
             ofs << "names: [";
             for (const std::string& Cat : ExportedCategories)
             {

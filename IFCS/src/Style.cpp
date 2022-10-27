@@ -335,12 +335,11 @@ namespace IFCS
             }
         }
 
-        // TODO: change tab color (active /unfocused)
-
         void ApplyTheme(ETheme ActiveTheme)
         {
             ImGuiStyle* style = &ImGui::GetStyle();
             style->GrabRounding = 4.0f;
+            style->DisplaySafeAreaPadding = ImVec2(3, 6);
 
             ImVec4* colors = style->Colors;
             colors[ImGuiCol_Text] = GRAY(800, ActiveTheme); // text on hovered controls is gray900
@@ -413,6 +412,8 @@ namespace IFCS
             colors[ImGuiCol_TabActive] = BLUE(400, ActiveTheme);
             colors[ImGuiCol_TabUnfocused] = BLUE(500, ActiveTheme);
             colors[ImGuiCol_TabUnfocusedActive] = BLUE(400, ActiveTheme);
+            
+            colors[ImGuiCol_TableHeaderBg] = GRAY(400, ActiveTheme);
         }
     }
 }

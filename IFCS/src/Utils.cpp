@@ -27,7 +27,7 @@ namespace IFCS
         //     return out_string;
         // }
 
-        std::string GetCurrentTimeString()
+        std::string GetCurrentTimeString(bool IsStyled)
         {
             time_t rawtime;
             tm* timeinfo;
@@ -35,6 +35,8 @@ namespace IFCS
             time(&rawtime);
             timeinfo = localtime(&rawtime);
             strftime(buffer, sizeof(buffer), "%Y/%m/%d %H:%M:%S", timeinfo);
+            if (IsStyled)
+                return "[" + std::string{buffer} + "]";
             return std::string{buffer};
         }
 

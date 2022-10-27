@@ -11,7 +11,7 @@
 #include "FrameExtractor.h"
 #include "Train.h"
 #include "Panel.h"
-#include "Prediction.h"
+#include "Detection.h"
 #include "TrainingSetGenerator.h"
 #include "ImFileDialog/ImFileDialog.h"
 #include "yaml-cpp/yaml.h"
@@ -188,12 +188,12 @@ namespace IFCS
     {
         RecentProjects.insert(ProjectPath);
         std::filesystem::create_directories(ProjectPath); // TODO: can not use chinese folder name
-        std::filesystem::create_directories(ProjectPath + std::string("/TrainingClips"));
+        std::filesystem::create_directories(ProjectPath + std::string("/Clips"));
         // lack of ..."i"...tra_ning ... waste me 2 hours...
-        std::filesystem::create_directories(ProjectPath + std::string("/TrainingImages"));
+        std::filesystem::create_directories(ProjectPath + std::string("/Images"));
         std::filesystem::create_directories(ProjectPath + std::string("/Models"));
         // TODO: check what to create in later dev cycle
-        std::filesystem::create_directories(ProjectPath + std::string("/Predictions"));
+        std::filesystem::create_directories(ProjectPath + std::string("/Detections"));
         std::filesystem::create_directories(ProjectPath + std::string("/Data"));
         // should create empty files for future use...
         std::ofstream output1(ProjectPath + std::string("/Data/Annotation.yaml"));
@@ -201,7 +201,7 @@ namespace IFCS
         std::ofstream output3(ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
         std::ofstream output4(ProjectPath + std::string("/Data/TrainingSets.yaml"));
         std::ofstream output5(ProjectPath + std::string("/Models/Models.yaml"));
-        std::ofstream output6(ProjectPath + std::string("/Predictions/Predictions.yaml"));
+        std::ofstream output6(ProjectPath + std::string("/Detections/Detections.yaml"));
         Save();
     }
 
@@ -212,7 +212,7 @@ namespace IFCS
         CategoryManagement::Get().SetVisibility(false);
         TrainingSetGenerator::Get().SetVisibility(false);
         Train::Get().SetVisibility(false);
-        Prediction::Get().SetVisibility(false);
+        Detection::Get().SetVisibility(false);
         DataBrowser::Get().SetVisibility(true);
         ActiveWorkspace = NewWorkspace;
         switch (ActiveWorkspace)
@@ -228,8 +228,8 @@ namespace IFCS
             Train::Get().SetVisibility(true);
             BGPanel::Get().SetTrainWksNow = true;
             break;
-        case EWorkspace::Predict:
-            Prediction::Get().SetVisibility(true);
+        case EWorkspace::Detect:
+            Detection::Get().SetVisibility(true);
             BGPanel::Get().SetPredictWksNow = true;
             break;
         }

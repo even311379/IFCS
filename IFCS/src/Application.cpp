@@ -18,7 +18,7 @@
 #include "Log.h"
 #include "MainMenu.h"
 #include "Train.h"
-#include "Prediction.h"
+#include "Detection.h"
 #include "TrainingSetGenerator.h"
 #include "Utils.h"
 
@@ -126,7 +126,7 @@ namespace IFCS
     	Annotation::Get().Setup("Annotation", true, 0);
     	TrainingSetGenerator::Get().Setup("Training Set Generator", true, 0);
     	Train::Get().Setup("Model Generator", true, 0);
-    	Prediction::Get().Setup("Prediction", true, 0);
+    	Detection::Get().Setup("Prediction", true, 0);
     	CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
     	if (Setting::Get().ProjectIsLoaded)
 			glfwSetWindowTitle(Window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
@@ -157,7 +157,7 @@ namespace IFCS
         	TrainingSetGenerator::Get().Render();
         	CategoryManagement::Get().Render();
         	Train::Get().Render();
-        	Prediction::Get().Render();
+        	Detection::Get().Render();
 
             // task modals
         	if (!Setting::Get().ProjectIsLoaded && !WelcomeModal::Get().IsChoosingFolder)

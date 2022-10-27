@@ -8,7 +8,7 @@
 #include "imgui.h"
 #include "Log.h"
 #include "Train.h"
-#include "Prediction.h"
+#include "Detection.h"
 #include "Setting.h"
 #include "TrainingSetGenerator.h"
 #include "Utils.h"
@@ -73,11 +73,11 @@ void IFCS::MainMenu::Render()
                 }
                 ImGui::EndMenu();
             }
-            if (ImGui::BeginMenu(LOCTEXT("ToolbarMenu.Predict")))
+            if (ImGui::BeginMenu(LOCTEXT("ToolbarMenu.Detect")))
             {
-                if (ImGui::MenuItem("Prediction", "", Prediction::Get().GetVisibility()))
+                if (ImGui::MenuItem("Detection", "", Detection::Get().GetVisibility()))
                 {
-                    Prediction::Get().ToggleVisibility();
+                    Detection::Get().ToggleVisibility();
                 }
                 ImGui::EndMenu();
             }
@@ -136,18 +136,18 @@ void IFCS::MainMenu::Render()
         if (CurrentWks == EWorkspace::Train)
             ImGui::PopStyleColor(3);
         ImGui::Text(ICON_FA_ANGLE_RIGHT);
-        if (CurrentWks == EWorkspace::Predict)
+        if (CurrentWks == EWorkspace::Detect)
         {
             ImGui::PushStyleColor(ImGuiCol_Button, Style::RED(400, CurrentTheme));
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, Style::RED(400, CurrentTheme));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Style::RED(400, CurrentTheme));
         }
-        if (ImGui::Button(LOCTEXT("ToolbarMenu.WksPredict"), WksBtnSize))
+        if (ImGui::Button(LOCTEXT("ToolbarMenu.WksDetect"), WksBtnSize))
         {
-            if (CurrentWks != EWorkspace::Predict)
-                Setting::Get().SetWorkspace(EWorkspace::Predict);
+            if (CurrentWks != EWorkspace::Detect)
+                Setting::Get().SetWorkspace(EWorkspace::Detect);
         }
-        if (CurrentWks == EWorkspace::Predict)
+        if (CurrentWks == EWorkspace::Detect)
             ImGui::PopStyleColor(3);
         ImGui::PopStyleVar();
 

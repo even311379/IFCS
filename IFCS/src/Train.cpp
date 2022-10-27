@@ -8,12 +8,14 @@
 #include <iostream>
 #include <string>
 
+#include "Annotation.h"
 #include "yaml-cpp/yaml.h"
 #include "ImFileDialog/ImFileDialog.h"
 #include "ImguiNotify/font_awesome_5.h"
 #include "imgui_stdlib.h"
 #include "Style.h"
-#include "Implot/implot.h"
+
+#include "shellapi.h"
 
 // TODO: model comparison!!!
 
@@ -37,8 +39,6 @@ namespace IFCS
 
     void Train::RenderContent()
     {
-        // TODO: migrate these env setup to settings?
-
         if (!Setting::Get().IsEnvSet())
         {
             ImGui::Text("Environment not setup yet!");
@@ -87,23 +87,36 @@ namespace IFCS
         }
 
         // epoch
-        if (ImGui::DragInt("Num Epoch", &Epochs, 1, 1, 300))
+        if (ImGui::InputInt("Num Epoch", &Epochs, 1, 10))
         {
+            if (Epochs < 1) Epochs = 1;
+            if (Epochs > 300) Epochs = 300;
             UpdateTrainScript();
         }
         // batch size
-        if (ImGui::DragInt("Num batch size", &BatchSize, 1, 2, 128))
+        if (ImGui::InputInt("Num batch size", &BatchSize, 1, 10))
         {
+            if (BatchSize < 1) BatchSize = 1;
+            if (BatchSize > 128) BatchSize = 128;
             UpdateTrainScript();
         }
         // Image size
-        if (ImGui::DragInt2("Image Size", ImageSize, 16, 64, 1280))
+        if (ImGui::InputInt("Image Width", &ImageSize[0], 32, 128))
         {
+            if (ImageSize[0] < 64) ImageSize[0] = 64;
+            if (ImageSize[0] > 1280) ImageSize[0] = 1280;
+            UpdateTrainScript();
+        }
+        if (ImGui::InputInt("Image Height", &ImageSize[1], 32, 128))
+        {
+            if (ImageSize[1] < 64) ImageSize[1] = 64;
+            if (ImageSize[1] > 1280) ImageSize[1] = 1280;
             UpdateTrainScript();
         }
         // model name
         if (ImGui::InputText("Model name", &ModelName))
         {
+            // TODO: check if the name is used...
             UpdateTrainScript();
         }
         if (SelectedTrainingSet.Name.empty() || ModelName.empty())
@@ -116,131 +129,110 @@ namespace IFCS
             ImGui::SameLine(ImGui::GetWindowContentRegionWidth() - 32);
             if (ImGui::Button(ICON_FA_COPY))
             {
-                ImGui::SetClipboardText((SetPathCommand + TrainScript).c_str());
+                ImGui::SetClipboardText((SetPathScript + "\n" + TrainScript).c_str());
             }
-            ImGui::BeginChildFrame(ImGui::GetID("CDScript"), ImVec2(0, ImGui::GetTextLineHeight() * 1));
-            ImGui::TextWrapped(SetPathCommand.c_str());
-            ImGui::EndChildFrame();
-            ImGui::BeginChildFrame(ImGui::GetID("TrainScript"), ImVec2(0, ImGui::GetTextLineHeight() * 3));
-            ImGui::TextWrapped(TrainScript.c_str());
+            ImGui::BeginChildFrame(ImGui::GetID("TrainScript"), ImVec2(0, ImGui::GetTextLineHeight() * 4));
+            ImGui::TextWrapped((SetPathScript + "\n" + TrainScript).c_str());
             ImGui::EndChildFrame();
             if (ImGui::Button("Start Training", ImVec2(-1, 0)))
             {
                 Training();
             }
-        }
-
-        // TODO: no need to reinvent the wheel!! use tensor board is already good enough!
-
-        
-        // ImGui::Separator();
-        // ImGui::Text("Training Log:");
-        // ImGui::BeginChildFrame(ImGui::GetID("TrainingLog"), ImVec2(0, ImGui::GetTextLineHeight() * 6));
-        // // TODO: I can grab results.txt during traning... as long as one batch is done... that file get updated...
-        // // TODO: use that info to draw table + learning curve
-        // ImGui::TextWrapped("%s", RunResult.c_str());
-        // ImGui::EndChildFrame();
-        ImGui::Text("Training Progress:");
-        ImGui::BeginChildFrame(ImGui::GetID("TrainingProgress"), ImVec2(0, 0));
-        ImGui::Text("%s", StartTime);
-        ImGui::Text("%s", RunStatus);
-        ImGui::Text("%s", EndTime);
-        // TODO:: change table header color... too bad...
-        if (ImGui::BeginTable("##RunProgress", 15))
-        {
-            ImGui::TableSetupColumn("Epoch");
-            ImGui::TableSetupColumn("gpu_mem");
-            ImGui::TableSetupColumn("box");
-            ImGui::TableSetupColumn("obj");
-            ImGui::TableSetupColumn("cls");
-            ImGui::TableSetupColumn("total");
-            ImGui::TableSetupColumn("labels");
-            ImGui::TableSetupColumn("img_size");
-            ImGui::TableSetupColumn("Class");
-            ImGui::TableSetupColumn("Images");
-            ImGui::TableSetupColumn("Labels");
-            ImGui::TableSetupColumn("P");
-            ImGui::TableSetupColumn("R");
-            ImGui::TableSetupColumn("mAP@.5");
-            ImGui::TableSetupColumn("mAP@.5:.95");
-            ImGui::TableHeadersRow();
-
-            for (int R = 0 ; R < ImGui::ProgressBar().size; R++)
+            if (!TrainLog.empty())
             {
-                ImGui::TableNextRow();
-                for (int C=0; C<15; C++)
-                {
-                    ImGui::TableSetColumnIndex(C);
-                    ImGui::Text();
-                }
+                ImGui::Text("Training Log:");
+                ImGui::BeginChildFrame(ImGui::GetID("TrainLog"), ImVec2(0, ImGui::GetTextLineHeight() * 3));
+                ImGui::TextWrapped(TrainLog.c_str());
+                ImGui::EndChildFrame();
             }
         }
-        if (ImPlot::BeginPlot())
+        ImGui::Text("Check progress with tensorboard:");
+        if (ImGui::Button("Host & Open tensorboard", ImVec2(-1, 0)))
         {
-            ImPlot::EndPlot();
-        }
-        // ImGui::TextWrapped("%s", RunProgress.c_str());
-        // display a table and a few graphs...
-        ImGui::EndChildFrame();
-
-        if (ShouldTrackRunProgress)
-        {
-            TrackRunProgress();
-            // ShouldTra
-            Tick++;
+            OpenTensorBoard();
         }
 
-        if (ShouldCheckFuture)
+        if (IsTraining)
         {
-            // if (TestFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
-            // {
-            //     spdlog::info("{}", TestFuture.get());
-            //     ShouldCheckFuture = false;
-            // }
-        }
-    }
+            if (TrainingFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
+            {
+                TrainLog += Utils::GetCurrentTimeString(true) + " Training complete!\n";
+                // TODO: write more log?
+                
+                // TODO: write model info to yaml?
+                // need to calculate best iter and save its metrics
+                /*
 
-
-    bool Train::CheckWeightHasDownloaded()
-    {
-        return false;
-    }
-
-    static void Exec(const char* cmd, bool ShouldClearResult)
-    {
-        std::shared_ptr<FILE> pipe(_popen(cmd, "r"), _pclose);
-        char buffer[1024];
-        if (ShouldClearResult) RunResult = "";
-        while (!feof(pipe.get()))
-        {
-            if (fgets(buffer, 1024, pipe.get()) != NULL)
-                RunResult.append(buffer);
+             fi = fitness(np.array(results).reshape(1, -1))               
+def fitness(x):
+    # Model fitness as a weighted combination of metrics
+    w = [0.0, 0.0, 0.1, 0.9]  # weights for [P, R, mAP@0.5, mAP@0.5:0.95]
+    return (x[:, :4] * w).sum(1)
+                 */
+                IsTraining = false;
+            }
         }
     }
-
 
     void Train::Training()
     {
-        if (!CheckWeightHasDownloaded())
-        {
-            // run script to download particular weight
-        }
-        // create run bash script?
-        std::thread t1(Exec, "Train.bat", true);
-        t1.detach();
+        if (IsTraining) return;
+        TrainLog = Utils::GetCurrentTimeString(true) + " Start training... Check progross in Console or TensorBoard\n";
 
-        /*spdlog::info("async sent...");
-        ShouldCheckFuture = true;
-        TestFuture = std::async(std::launch::async, &Train::TestAsyncFun, 3);*/
+        // system can noy handle command quene...
+        auto func = [=]()
+        {
+            system(SetPathScript.c_str());
+            if (bApplyTransferLearning)
+            {
+                std::string PtFile = Setting::Get().YoloV7Path + "/" + ModelOptions[SelectedModelIdx] + "_training.pt";
+                if (!std::filesystem::exists(PtFile))
+                {
+                    std::string CurrentPath = std::filesystem::current_path().u8string();
+                    std::string DownloadWeightCommand = Setting::Get().PythonPath + "/python " + CurrentPath +
+                        "/Scripts/DownloadWeight.py --model " + std::string(ModelOptions[SelectedModelIdx]);
+                    std::ofstream ofs;
+                    ofs.open("DownloadWeight.bat");
+                    ofs << SetPathScript << " &^\n" << DownloadWeightCommand;
+                    ofs.close();
+                    system("DownloadWeight.bat");
+                }
+            }
+            std::ofstream ofs;
+            ofs.open("Train.bat");
+            ofs << SetPathScript << " &^\n" << TrainScript;
+            ofs.close();
+            system("Train.bat");
+        };
+
+
+        IsTraining = true;
+        TrainingFuture = std::async(std::launch::async, func);
     }
 
-    void Train::TrackRunProgress()
+
+    void Train::OpenTensorBoard()
     {
+        if (!HasHostTensorBoard)
+        {
+            // make host only once
+            const char host[150] =
+                " K:/Python/python-3.10.8-embed-amd64/Scripts/tensorboard --logdir L:/IFCS_DEV_PROJECTS/Great/Models";
+            auto func = [=]()
+            {
+                system(host);
+            };
+            std::thread t(func);
+            t.detach();
+            HasHostTensorBoard = true;
+        }
+        char url[100] = "http://localhost:6006/";
+        ShellExecuteA(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
     }
 
     void Train::UpdateTrainScript()
     {
-        SetPathCommand = "cd " + Setting::Get().YoloV7Path + "\n";
+        SetPathScript = "cd " + Setting::Get().YoloV7Path;
         TrainScript = "";
         TrainScript += Setting::Get().PythonPath + "/python train.py";
         TrainScript += " --weights ";
@@ -249,18 +241,18 @@ namespace IFCS
         else
             TrainScript += "''";
         TrainScript += " --cfg cfg/training/" + std::string(ModelOptions[SelectedModelIdx]) + ".yaml";
-        TrainScript += " --data " + Setting::Get().ProjectPath + "/Data/" + SelectedTrainingSet.Name + ".yaml";
-        TrainScript += " --hyp data/hpy.scratch." + std::string(HypOptions[SelectedHypIdx]) + ".yaml";
+        TrainScript += " --data " + Setting::Get().ProjectPath + "/Data/" + SelectedTrainingSet.Name + "/" + SelectedTrainingSet.Name + ".yaml";
+        TrainScript += " --hyp data/hyp.scratch." + std::string(HypOptions[SelectedHypIdx]) + ".yaml";
         TrainScript += " --epochs " + std::to_string(Epochs);
         TrainScript += " --batch-size " + std::to_string(BatchSize);
         TrainScript += " --img-size " + std::to_string(ImageSize[0]) + " " + std::to_string(ImageSize[1]);
         TrainScript += " --workers 1 --device 0";
+        TrainScript += " --project " + Setting::Get().ProjectPath + "/Models";
         TrainScript += " --name " + std::string(ModelName);
+
+        TensorBoardHostCommand = "";
+        TensorBoardHostCommand += Setting::Get().PythonPath + "/Scripts/tensorboard --logdir " +
+            Setting::Get().ProjectPath + "/Models";
     }
 
-    /*std::string Train::TestAsyncFun(int time)
-    {
-        std::this_thread::sleep_for(std::chrono::seconds(time));
-        return std::string("done?");
-    }*/
 }

@@ -17,24 +17,25 @@ namespace IFCS
     private:
         int SelectedModelIdx = 0;
         FTrainingSetDescription SelectedTrainingSet;
-        bool CheckWeightHasDownloaded();
+        bool IsTraining;
         void Training();
-        void TrackRunProgress();
+        void OpenTensorBoard();
 
         bool bApplyTransferLearning = true;
         int Epochs = 40;
-        int BatchSize = 32;
-        int ImageSize[2] = {640, 640};
+        int BatchSize = 16;
+        int ImageSize[2] = {748, 432};
         bool ShouldTrackRunProgress = false;
-        int Tick;
         void UpdateTrainScript();
-        std::string SetPathCommand = "";
+        std::string SetPathScript = "";
         std::string TrainScript = "";
+        std::string TrainLog = "";
         std::string ModelName;
         int SelectedHypIdx = 0;
-        
-        bool ShouldCheckFuture;
-        // std::future<std::string> TestFuture;
+
+        std::string TensorBoardHostCommand = "";
+        bool HasHostTensorBoard = false;
+        std::future<void> TrainingFuture;
         // static std::string TestAsyncFun(int time);
     };
 }

@@ -27,7 +27,7 @@ namespace IFCS
     {
         Data = 0,
         Train = 1,
-        Predict = 2,
+        Detect = 2,
     };
 
 
@@ -162,13 +162,14 @@ namespace IFCS
         std::string Name;
         std::string CreationTime;
         std::string ModelType;
-        UUID SourceTrainingSetID;
-        int TrainingTime = 0;
+        std::string HyperParameter;
+        std::string SourceTrainingSet; // name
+        float TrainingTime = 0; // hours
+        std::array<int, 2> ImageSize = {748, 432};
         int BatchSize = 0;
         int NumEpochs = 0;
-        std::vector<std::string> Progresses;
+        float Precision = 0.f; // take best?
         float Recall = 0.f;
-        float Precision = 0.f;
         float mAP5 = 0.f;
         float mAP5_95 = 0.f;
         YAML::Node Serialize() const;
@@ -176,16 +177,16 @@ namespace IFCS
         void MakeDetailWidget();
     };
 
-    struct FPredictionDescription
+    struct FDetectionDescription
     {
-        FPredictionDescription() = default;
-        FPredictionDescription(YAML::Node InputNode);
+        FDetectionDescription() = default;
+        FDetectionDescription(YAML::Node InputNode);
         std::string Name;
         std::string CreationTime;
-        UUID ModelID;
+        std::string SourceModel; // name
         std::string TargetClip;
-        float Confidence = 0.001f;
-        float IOU = 0.65f;
+        float Confidence = 0.25f;
+        float IOU = 0.45f;
         YAML::Node Serialize() const;
         void Deserialize(YAML::Node InputNode);
         void MakeDetailWidget();

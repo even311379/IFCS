@@ -49,6 +49,6 @@ namespace IFCS
         std::string SelectedModel;
         FModelDescription ModelDescription;
         std::string SelectedPrediction;
-        FPredictionDescription PredictionDescription;
+        FDetectionDescription PredictionDescription;
     };
 }

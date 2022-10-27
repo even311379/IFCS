@@ -19,7 +19,6 @@
 #include "opencv2/opencv.hpp"
 #include <spdlog/spdlog.h>
 
-// #include <shellapi.h>
 
 
 namespace IFCS
@@ -308,7 +307,7 @@ namespace IFCS
             if (ImGui::IsMouseClicked(0) || ImGui::IsMouseDragging(0))
             {
                 // TODO: after it, need to click play button twice to start play? why?
-                JustPaused = true;
+                if (IsPlaying) JustPaused = true;
                 PlayProgress = (ImGui::GetMousePos().x - Start.x) / (End.x - Start.x) * TimelineDisplayEnd;
             }
             if (ImGui::IsMouseReleased(0))
@@ -459,8 +458,8 @@ namespace IFCS
         cv::Mat frame;
         Cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
         Cap >> frame;
-        // cv::resize(frame, frame, cv::Size(1280, 720)); // 16 : 9 // no need to resize?
-        cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
+        cv::resize(frame, frame, cv::Size(1280, 720)); // 16 : 9 // no need to resize?
+        cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
         DataBrowser::Get().LoadedFramePtr = 0;
         glGenTextures(1, &DataBrowser::Get().LoadedFramePtr);
         glBindTexture(GL_TEXTURE_2D, DataBrowser::Get().LoadedFramePtr);
@@ -468,7 +467,7 @@ namespace IFCS
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, frame.cols, frame.rows, 0, GL_RGBA,
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, frame.cols, frame.rows, 0, GL_RGB,
                      GL_UNSIGNED_BYTE, frame.data);
         CurrentFrame += 1;
         PlayProgress += (1.0f / (float)CurrentFrameRange) * 100.0f;
