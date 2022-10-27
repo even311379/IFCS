@@ -150,16 +150,17 @@ namespace IFCS
         return OutString;
     }
 
-
-    FTrainingSetDescription::FTrainingSetDescription(YAML::Node InputNode)
+    FTrainingSetDescription::FTrainingSetDescription(const std::string& InName, const YAML::Node& InputNode)
     {
-        Deserialize(InputNode);
+        Deserialize(InName, InputNode);
     }
+
+
 
     YAML::Node FTrainingSetDescription::Serialize()
     {
         YAML::Node OutNode;
-        OutNode["Name"] = Name;
+        OutNode["Categories"] = Categories;
         OutNode["CreationTime"] = CreationTime;
         OutNode["IncludeClips"] = IncludeClips;
         OutNode["IncludeImageFolders"] = IncludeImageFolders;
@@ -171,9 +172,10 @@ namespace IFCS
         return OutNode;
     }
 
-    void FTrainingSetDescription::Deserialize(YAML::Node InputNode)
+    void FTrainingSetDescription::Deserialize(const std::string& InName, const YAML::Node& InputNode)
     {
-        Name = InputNode["Name"].as<std::string>();
+        Name = InName;
+        Categories = InputNode["Categories"].as<std::vector<std::string>>();
         CreationTime = InputNode["CreationTime"].as<std::string>();
         IncludeClips = InputNode["IncludeClips"].as<std::vector<std::string>>();
         IncludeImageFolders = InputNode["IncludeImageFolders"].as<std::vector<std::string>>();
@@ -184,6 +186,7 @@ namespace IFCS
         AppliedAugmentationDescription = InputNode["AppliedAugmentationDescription"].as<std::string>();
     }
 
+    // TODO: detail widgets not completed!
     void FTrainingSetDescription::MakeDetailWidget()
     {
         float Width = ImGui::GetContentRegionAvail().x;
@@ -216,15 +219,15 @@ namespace IFCS
         // TrainingSetDescription.CreationTime.c_str());
     }
 
-    FModelDescription::FModelDescription(YAML::Node InputNode)
+    FModelDescription::FModelDescription(const std::string& InName, const YAML::Node& InputNode)
     {
-        Deserialize(InputNode);
+        Deserialize(InName, InputNode);
     }
 
     YAML::Node FModelDescription::Serialize() const
     {
         YAML::Node OutNode;
-        OutNode["Name"] = Name;
+        OutNode["Categories"] = Categories;
         OutNode["CreationTime"] = CreationTime;
         OutNode["ModelType"] = ModelType;
         OutNode["HyperParameter"] = HyperParameter;
@@ -240,9 +243,10 @@ namespace IFCS
         return OutNode;
     }
 
-    void FModelDescription::Deserialize(YAML::Node InputNode)
+    void FModelDescription::Deserialize(const std::string& InName, const YAML::Node& InputNode)
     {
-        Name = InputNode["Name"].as<std::string>();
+        Name = InName;
+        Categories = InputNode["Categories"].as<std::vector<std::string>>();
         CreationTime = InputNode["CreationTime"].as<std::string>();
         ModelType = InputNode["ModelType"].as<std::string>();
         HyperParameter = InputNode["HyperParameter"].as<std::string>();
@@ -261,32 +265,37 @@ namespace IFCS
     {
     }
 
-    FDetectionDescription::FDetectionDescription(YAML::Node InputNode)
+    FDetectionDescription::FDetectionDescription(const std::string& InName, const YAML::Node& InputNode)
     {
-        Deserialize(InputNode);
+        Deserialize(InName, InputNode);
     }
+
 
     YAML::Node FDetectionDescription::Serialize() const
     {
         YAML::Node OutNode;
-        OutNode["Name"] = Name;
+        OutNode["Categories"] = Categories;
         OutNode["CreationTime"] = CreationTime;
         OutNode["SourceModel"] = SourceModel;
         OutNode["TargetClip"] = TargetClip;
         OutNode["Confidence"] = Confidence;
         OutNode["IOU"] = IOU;
+        OutNode["ImageSize"] = ImageSize;
         return OutNode;
     }
 
-    void FDetectionDescription::Deserialize(YAML::Node InputNode)
+    void FDetectionDescription::Deserialize(const std::string& InName, const YAML::Node& InputNode)
     {
-        Name = InputNode["Name"].as<std::string>();
+        Name = InName;
+        Categories = InputNode["Categories"].as<std::vector<std::string>>();
         CreationTime = InputNode["CreationTime"].as<std::string>();
         SourceModel = InputNode["ModelID"].as<std::string>();
         TargetClip = InputNode["TargetClip"].as<std::string>();
         Confidence = InputNode["Confidence"].as<float>();
         IOU = InputNode["IOU"].as<float>();
+        ImageSize = InputNode["ImageSize"].as<int>();
     }
+
 
     void FDetectionDescription::MakeDetailWidget()
     {

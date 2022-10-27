@@ -140,8 +140,9 @@ namespace IFCS
     struct FTrainingSetDescription
     {
         FTrainingSetDescription() = default;
-        FTrainingSetDescription(YAML::Node InputNode);
+        FTrainingSetDescription(const std::string& InName, const YAML::Node& InputNode);
         std::string Name;
+        std::vector<std::string> Categories; // exported format...
         std::string CreationTime;
         std::vector<std::string> IncludeClips;
         std::vector<std::string> IncludeImageFolders;
@@ -151,15 +152,16 @@ namespace IFCS
         int TotalImagesExported = 1000; // Not include duplicated ones...
         std::string AppliedAugmentationDescription;
         YAML::Node Serialize();
-        void Deserialize(YAML::Node InputNode);
+        void Deserialize(const std::string& InName, const YAML::Node& InputNode);
         void MakeDetailWidget();
     };
 
     struct FModelDescription
     {
         FModelDescription() = default;
-        FModelDescription(YAML::Node InputNode);
+        FModelDescription(const std::string& InName, const YAML::Node& InputNode);
         std::string Name;
+        std::vector<std::string> Categories; // exported format...
         std::string CreationTime;
         std::string ModelType;
         std::string HyperParameter;
@@ -173,22 +175,25 @@ namespace IFCS
         float mAP5 = 0.f;
         float mAP5_95 = 0.f;
         YAML::Node Serialize() const;
-        void Deserialize(YAML::Node InputNode);
+        void Deserialize(const std::string& InName, const YAML::Node& InputNode);
         void MakeDetailWidget();
     };
 
+    // TODO: carry category info here??
     struct FDetectionDescription
     {
         FDetectionDescription() = default;
-        FDetectionDescription(YAML::Node InputNode);
+        FDetectionDescription(const std::string& InName, const YAML::Node& InputNode);
         std::string Name;
+        std::vector<std::string> Categories; // exported format...
         std::string CreationTime;
         std::string SourceModel; // name
         std::string TargetClip;
         float Confidence = 0.25f;
         float IOU = 0.45f;
+        int ImageSize = 640;
         YAML::Node Serialize() const;
-        void Deserialize(YAML::Node InputNode);
+        void Deserialize(const std::string& InName, const YAML::Node& InputNode);
         void MakeDetailWidget();
     };
 }

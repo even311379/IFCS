@@ -11,6 +11,8 @@
 #include "imgui_stdlib.h"
 
 #include <fstream>
+#include <variant>
+
 #include "yaml-cpp/yaml.h"
 #include "opencv2/opencv.hpp"
 #include "imgui_impl_glfw.h"
@@ -26,11 +28,10 @@ namespace IFCS
             // ImGui::SetNextItemWidth(240.f);
             if (ImGui::BeginCombo("Choose Model", SelectedModel))
             {
-                YAML::Node ModelData = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
-                for (size_t i = 0; i < ModelData.size(); i++)
+                YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
+                for (YAML::const_iterator it = Data.begin(); it != Data.end(); ++it)
                 {
-                    std::string Name = ModelData[i]["Name"].as<std::string>();
-                    // ImGui::Selectable(Name.c_str(), false);
+                    auto Name = it->first.as<std::string>();
                     if (ImGui::Selectable(Name.c_str(), Name == SelectedModel))
                     {
                         strcpy(SelectedModel, Name.c_str());
@@ -78,9 +79,9 @@ namespace IFCS
                 UpdateDetectionScript();
                 YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Detections/Detections.yaml");
                 IsDetectionNameUsed = false;
-                for (size_t i = 0; i < Data.size(); i++)
+                for (YAML::const_iterator it = Data.begin(); it != Data.end(); ++it)
                 {
-                    if (Data[i]["Name"].as<std::string>() == DetectionName)
+                    if (it->first.as<std::string>() == DetectionName)
                     {
                         IsDetectionNameUsed = true;
                         break;
@@ -119,8 +120,26 @@ namespace IFCS
             if (DetectFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
             {
                 DetectionLog += Utils::GetCurrentTimeString(true) + " Done!\n";
-                DetectionName = ""; // force prevent same name
+                // append to project data
+                FDetectionDescription Desc;
+                Desc.Name = DetectionName;
+                Desc.Categories = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml")[
+                    std::string(SelectedModel)]["Categories"].as<std::vector<std::string>>();
+                Desc.CreationTime = Utils::GetCurrentTimeString();
+                Desc.SourceModel = SelectedModel;
+                Desc.TargetClip = Setting::Get().ProjectPath + "/Clips/" + SelectedClip;
+                Desc.Confidence = Confidence;
+                Desc.IOU = IOU;
+                Desc.ImageSize = ImageSize;
+                YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Detections/Detections.yaml");
+                Data[DetectionName] = Desc.Serialize();
+                YAML::Emitter Out;
+                Out << Data;
+                std::ofstream ofs(Setting::Get().ProjectPath + "/Detections/Detections.yaml");
+                ofs << Out.c_str();
+                ofs.close();
                 IsDetecting = false;
+                DetectionName = ""; // force prevent same name
             }
         }
 
@@ -130,14 +149,50 @@ namespace IFCS
             if (ImGui::BeginCombo("Choose Detection", SelectedDetection))
             {
                 YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Detections/Detections.yaml");
-                for (size_t i = 0; i < Data.size(); i++)
+                for (YAML::const_iterator it = Data.begin(); it != Data.end(); ++it)
                 {
-                    std::string Name = Data[i]["Name"].as<std::string>();
+                    std::string Name = it->first.as<std::string>();
                     if (ImGui::Selectable(Name.c_str(), Name == SelectedDetection))
                     {
                         strcpy(SelectedDetection, Name.c_str());
-                        DetectionClip = Setting::Get().ProjectPath + "/Clips/" + Data[i]["TargetClip"].as<
-                            std::string>();
+                        DetectionClip = it->second["TargetClip"].as<std::string>();
+                        LoadedLabels.clear();
+                        std::string Path = Setting::Get().ProjectPath + "/Detections/" + Name + "/labels";
+                        for (const auto& Entry : std::filesystem::directory_iterator(Path))
+                        {
+                            std::string TxtName = Entry.path().filename().u8string();
+                            size_t FrameDigits = TxtName.find('.') - TxtName.find('_') - 1;
+                            std::string Temp = TxtName.substr(TxtName.find('_') + 1, FrameDigits);
+                            int FrameCount = std::stoi(Temp);
+                            std::ifstream TxtFile(Entry.path().u8string());
+                            std::string Line;
+                            std::vector<FLabelData> Labels;
+                            while (std::getline(TxtFile, Line))
+                            {
+                                std::stringstream SS(Line);
+                                std::string Item;
+                                std::vector<std::string> D;
+                                while (std::getline(SS, Item, ' '))
+                                {
+                                    D.push_back(Item);
+                                }
+                                Labels.push_back(FLabelData(
+                                    std::stoi(D[0]),
+                                    std::stof(D[1]),
+                                    std::stof(D[2]),
+                                    std::stof(D[3]),
+                                    std::stof(D[4]),
+                                    std::stof(D[5])
+                                ));
+                            }
+                            spdlog::info("label with size {} add to loaded labels ", Labels.size());
+                            LoadedLabels[FrameCount] = Labels;
+                        }
+                        Categories.clear();
+                        for (const auto& C : it->second["Categories"].as<std::vector<std::string>>())
+                        {
+                            Categories.push_back({C, Utils::RandomPickColor(Setting::Get().Theme)});
+                        }
                         UpdateFrame(1, true);
                     }
                 }
@@ -153,8 +208,22 @@ namespace IFCS
                 ImGui::TreePop();
                 return;
             }
+            // category colors...
+            // No need for this!!
+            int N = 0;
+            for (const auto& [k, v] : Categories)
+            {
+                ImGui::ColorEdit3(k.c_str(), (float*)&v, ImGuiColorEditFlags_NoInputs);
+                N++;
+                if (N < Categories.size() && N % 6 == 0)
+                {
+                    ImGui::SameLine(120.f * N);
+                }
+            }
             ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 1280) * 0.5f);
+            ImVec2 StartPos = ImGui::GetCursorScreenPos();
             ImGui::Image((void*)(intptr_t)LoadedFramePtr, ImVec2(1280, 720));
+            RenderDetectionBox(StartPos);
             static char* PlayIcon;
             if (CurrentFrame == EndFrame)
                 PlayIcon = ICON_FA_SYNC;
@@ -241,7 +310,13 @@ namespace IFCS
         DetectScript += " --project " + ProjectPath + "/Detections";
         DetectScript += " --name " + DetectionName;
         DetectScript += " --source " + ProjectPath + "/Clips/" + SelectedClip;
-        DetectScript += " --device 0 --save-txt --nosave";
+        DetectScript += " --device 0 --save-txt --save-conf";
+
+        ////////////////////////////////////////////////
+        std::string AppPath = std::filesystem::current_path().u8string();
+        SaveToProjectScript = Setting::Get().ProjectPath + "/python " + AppPath +
+            "/Scripts/SaveDetectionDataToProject.py";
+        // TODO: add lots of arguments and write that python script...
     }
 
     void Detection::MakeDetection()
@@ -264,6 +339,69 @@ namespace IFCS
     }
 
 
+    void Detection::RenderDetectionBox(ImVec2 StartPos)
+    {
+        // ImU32 Color = ImGui::ColorConvertFloat4ToU32(Style::RED());
+        // ImGui::GetWindowDrawList()->AddRect(StartPos, StartPos + ImVec2{100, 100}, Color);
+        if (LoadedLabels.count(CurrentFrame))
+        {
+            for (const FLabelData& L : LoadedLabels[CurrentFrame])
+            {
+                ImVec2 P1 = StartPos;
+                ImVec2 P2 = StartPos;
+                P1.x += (L.X - L.Width * 0.5f) * WorkArea.x;
+                P1.y += (L.Y - L.Height * 0.5f) * WorkArea.y;
+                P2.x += (L.X + L.Width * 0.5f) * WorkArea.x;
+                P2.y += (L.Y + L.Height * 0.5f) * WorkArea.y;
+
+                ImU32 Color = ImGui::ColorConvertFloat4ToU32(Categories[L.CatID].CatColor);
+                ImGui::GetWindowDrawList()->AddRect(P1, P2, Color, 0, 0, 2);
+                char buff[32];
+                sprintf(buff, "%s %.2f", Categories[L.CatID].CatName.c_str(), L.Conf);
+                ImVec2 TxtSize = ImGui::CalcTextSize(buff);
+                ImGui::GetWindowDrawList()->AddRectFilled(P1 + ImVec2(0, -TxtSize.y), P1 + ImVec2(TxtSize.x, 0), Color);
+                ImGui::GetWindowDrawList()->AddText(P1 + ImVec2(0, -TxtSize.y),
+                                                    ImGui::ColorConvertFloat4ToU32({1, 1, 1, 1}), buff);
+            }
+        }
+        // also render fish way hint
+        if (SelectedAnalysisType == 0) // "Pass"
+        {
+            ImVec2 FSP1 = StartPos;
+            ImVec2 FEP1 = StartPos;
+            ImVec2 FSP2, FEP2;
+            ImU32 Col = ImGui::ColorConvertFloat4ToU32(FishWayHintColor);
+            float W = 1280.f;
+            float H = 720.f;
+            if (IsVertical)
+            {
+                FSP1.x += FishWayPos[0] * W;
+                FSP2 = FSP1;
+                FSP2.y += H;
+                FEP1.x += FishWayPos[1] * W;
+                FEP2 = FEP1;
+                FEP2.y += H;
+                ImGui::GetWindowDrawList()->AddText(FSP1 + ImVec2(0, -ImGui::GetFontSize()), Col, "Start");
+                ImGui::GetWindowDrawList()->AddText(FEP1 + ImVec2(0, -ImGui::GetFontSize()), Col, "End");
+            }
+            else
+            {
+                FSP1.y +=  FishWayPos[0] * H;
+                FSP2 = FSP1;
+                FSP2.x += W;
+                FEP1.y += FishWayPos[1] * H;
+                FEP2 = FEP1;
+                FEP2.x += W;
+                ImGui::GetWindowDrawList()->AddText(FSP2, Col, "Start");
+                ImGui::GetWindowDrawList()->AddText(FEP2, Col, "End");
+            }
+            // spdlog::info("start:{}  end:{} ", FishWayPos[0], FishWayPos[1]);
+            // spdlog::info("{} {}, {} {} ", FSP1.x, FSP1.y, FSP2.x, FSP2.y);
+            ImGui::GetWindowDrawList()->AddLine(FSP1, FSP2, Col, 3);
+            ImGui::GetWindowDrawList()->AddLine(FEP1, FEP2, Col, 3);
+        }
+    }
+
     void Detection::UpdateFrame(int FrameNumber, bool UpdateClipInfo)
     {
         cv::Mat frame;
@@ -280,7 +418,7 @@ namespace IFCS
             // cv::resize(frame, frame, cv::Size(1280, 720)); // 16 : 9
             cap.release();
         }
-        FrameToGL(frame);
+        FrameToGL(frame, FrameNumber);
     }
 
     // TODO: performance so bad!!, cpu usage goes to 5X%, because of its a 4k video?
@@ -295,7 +433,6 @@ namespace IFCS
         if (JustPlayed)
         {
             Cap.open(DetectionClip);
-
             Cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
             JustPlayed = false;
         }
@@ -315,9 +452,9 @@ namespace IFCS
         // update frame
         static cv::Mat frame;
         Cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
-        
+
         Cap >> frame;
-        FrameToGL(frame);
+        FrameToGL(frame, CurrentFrame);
         CurrentFrame += 1;
         //check should release cap and stop play
         if (CurrentFrame == EndFrame)
@@ -327,16 +464,36 @@ namespace IFCS
         }
     }
 
-    void Detection::FrameToGL(cv::Mat Data)
+    void Detection::FrameToGL(cv::Mat Data, int FrameCount)
     {
         // Resize will can save gpu utilization
-        cv::resize(Data, Data, cv::Size(1280, 720));
+        cv::resize(Data, Data, cv::Size((int)WorkArea.x, (int)WorkArea.y));
         cv::cvtColor(Data, Data, cv::COLOR_BGR2RGB); // test just rgb?
 
+        // TODO: nothing is drawn!!! so bad...
+
         // TODO: draw detection box!
+        // Position was Just wrong in opencv // final trial in imgui drawlist...
+        /*if (LoadedLabels.count(FrameCount))
+        {
+            for (const FLabelData& L : LoadedLabels[FrameCount])
+            {
+                cv::Point P1, P2;
+                P1.x = int((L.X - L.Width * 0.5f) * WorkArea.x);
+                P1.y = int((L.Y - L.Height * 0.5f) * WorkArea.y);
+                P2.x = int((L.X + L.Width * 0.5f) * WorkArea.x);
+                P2.y = int((L.Y + L.Height * 0.5f) * WorkArea.y);
+
+                ImVec4 ImColor = Categories[L.CatID].CatColor;
+                cv::Scalar Color = CV_RGB(int(ImColor.x * 255),int(ImColor.y * 255), int(ImColor.z * 255));
+                cv::rectangle(Data, P1, P2, Color, 2);
+                cv::putText(Data, Categories[L.CatID].CatName, P1 + cv::Point{0, -12}, cv::FONT_HERSHEY_PLAIN, 1.0, Color);
+                // cv::addText(Data, "Fish", P1 + cv::Point(0, -12), cv::FONT_HERSHEY_DUPLEX);
+            }
+        }*/
 
         // TODO: draw n_pass or n_on_screen
-        
+
         glGenTextures(1, &LoadedFramePtr);
         glBindTexture(GL_TEXTURE_2D, LoadedFramePtr);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -361,11 +518,12 @@ namespace IFCS
                                                 10);
         ImGui::GetWindowDrawList()->AddRectFilled(RectPlayStart, RectPlayEnd, PlayColor);
         // draw current frame text?
-        if (IsPlaying && RectPlayEnd.x > RectPlayStart.x + 30)
+        if (RectPlayEnd.x > RectPlayStart.x + 30)
         {
             char FrameTxt[8];
             sprintf(FrameTxt, "%d", CurrentFrame);
-            ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), 16, RectPlayEnd + ImVec2(strlen(FrameTxt)*-16.f, -18.f), Color, FrameTxt );
+            ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), 16,
+                                                RectPlayEnd + ImVec2(strlen(FrameTxt) * -16.f, -18.f), Color, FrameTxt);
         }
         ImGui::SetCursorScreenPos(RectPlayStart);
         ImGui::InvisibleButton("PlayControl", ImVec2(Width, 15));
@@ -386,16 +544,30 @@ namespace IFCS
     {
         // specify line
         ImGui::Text("Set Fish way start and end:");
-        ImGui::SetNextItemWidth(240.f);
-        ImGui::DragFloat2("Start P1", FishWayStartP1, 0.01f, 0, 1);
+        if (ImGui::RadioButton("Vertical", IsVertical))
+        {
+            IsVertical = true;
+        }
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(240.f);
-        ImGui::DragFloat2("Start P2", FishWayStartP2, 0.01f, 0, 1);
-        ImGui::SetNextItemWidth(240.f);
-        ImGui::DragFloat2("End P1", FishWayEndP1, 0.01f, 0, 1);
+        if (ImGui::RadioButton("Horizontal", !IsVertical))
+        {
+            IsVertical = false;
+        }
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(240.f);
-        ImGui::DragFloat2("End P2", FishWayEndP2, 0.01f, 0, 1);
+        ImGui::SliderFloat2("Fish way start / end", FishWayPos, 0.f, 1.f);
+        ImGui::SameLine();
+        ImGui::ColorEdit3("##hint", (float*)&FishWayHintColor, ImGuiColorEditFlags_NoInputs);
+
+        // ImGui::SetNextItemWidth(240.f);
+        // ImGui::DragFloat2("Start P1", FishWayStartP1, 0.01f, 0, 1);
+        // ImGui::SameLine();
+        // ImGui::SetNextItemWidth(240.f);
+        // ImGui::DragFloat2("Start P2", FishWayStartP2, 0.01f, 0, 1);
+        // ImGui::SetNextItemWidth(240.f);
+        // ImGui::DragFloat2("End P1", FishWayEndP1, 0.01f, 0, 1);
+        // ImGui::SameLine();
+        // ImGui::SetNextItemWidth(240.f);
+        // ImGui::DragFloat2("End P2", FishWayEndP2, 0.01f, 0, 1);
 
         static ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV |
             ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable;

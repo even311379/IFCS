@@ -59,12 +59,13 @@ namespace IFCS
         if (ImGui::BeginCombo("Choose Training Set", SelectedTrainingSet.Name.c_str()))
         {
             YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/TrainingSets.yaml");
-            for (size_t i = 0; i < Data.size(); i++)
+            // for (size_t i = 0; i < Data.size(); i++)
+            for (YAML::const_iterator it=Data.begin(); it!=Data.end();++it)
             {
-                std::string Name = Data[i]["Name"].as<std::string>();
+                auto Name = it->first.as<std::string>();
                 if (ImGui::Selectable(Name.c_str(), Name == SelectedTrainingSet.Name))
                 {
-                    SelectedTrainingSet = FTrainingSetDescription(Data[i]);
+                    SelectedTrainingSet = FTrainingSetDescription(it->first.as<std::string>(), it->second);
                     UpdateTrainScript();
                 }
             }
@@ -188,8 +189,8 @@ def fitness(x):
                 std::string PtFile = Setting::Get().YoloV7Path + "/" + ModelOptions[SelectedModelIdx] + "_training.pt";
                 if (!std::filesystem::exists(PtFile))
                 {
-                    std::string CurrentPath = std::filesystem::current_path().u8string();
-                    std::string DownloadWeightCommand = Setting::Get().PythonPath + "/python " + CurrentPath +
+                    std::string AppPath = std::filesystem::current_path().u8string();
+                    std::string DownloadWeightCommand = Setting::Get().PythonPath + "/python " + AppPath +
                         "/Scripts/DownloadWeight.py --model " + std::string(ModelOptions[SelectedModelIdx]);
                     std::ofstream ofs;
                     ofs.open("DownloadWeight.bat");

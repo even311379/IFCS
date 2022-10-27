@@ -314,7 +314,7 @@ namespace IFCS
             if (ImGui::Selectable(Name.c_str(), Name == SelectedTrainingSet))
             {
                 SelectedTrainingSet = Name;
-                TrainingSetDescription = FTrainingSetDescription(Data[i]);
+                TrainingSetDescription = FTrainingSetDescription(Name, Data[i]);
             }
             if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
             {
