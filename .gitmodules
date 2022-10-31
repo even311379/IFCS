@@ -7,6 +7,9 @@
 [submodule "IFCS/vendor/imgui_extensions/ImguiMD"]
 	path = IFCS/vendor/imgui_extensions/ImguiMD
 	url = https://github.com/juliettef/imgui_markdown.git
+[submodule "IFCS/vendor/imgui_extensions/Imspinner"]
+	path = IFCS/vendor/imgui_extensions/Imspinner
+	url = https://github.com/dalerank/imspinner.git
 [submodule "IFCS/vendor/spdlog"]
 	path = IFCS/vendor/spdlog
 	url = https://github.com/gabime/spdlog.git

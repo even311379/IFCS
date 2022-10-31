@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <array>
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <yaml-cpp/binary.h>
@@ -195,5 +196,57 @@ namespace IFCS
         YAML::Node Serialize() const;
         void Deserialize(const std::string& InName, const YAML::Node& InputNode);
         void MakeDetailWidget();
+    };
+
+    // used in individual tracking
+    struct FLabelData
+    {
+        int CatID;
+        float X, Y, Width, Height, Conf;
+        FLabelData() = default;
+        FLabelData(const int& InCatID, const float& InX, const float& InY, const float& InWidth, const float& InHeight,
+            const float& InConf)
+            : CatID(InCatID), X(InX), Y(InY), Width(InWidth), Height(InHeight), Conf(InConf)
+        {}
+        float Distance(const FLabelData& Other, int Width, int Height) const;
+        float GetApproxBodySize(int WPixels, int HPixel) const; // in pixel ^ 2
+
+    };
+
+    enum EIndividualColumnID
+    {
+        IndividualColumnID_Category,
+        IndividualColumnID_IsPassed,
+        IndividualColumnID_ApproxSpeed,
+        IndividualColumnID_ApproxBodySize,
+        IndividualColumnID_EnterFrame,
+        IndividualColumnID_LeaveFrame
+    };
+    
+    // used in individual tracking
+    struct FIndividualData
+    {
+        FIndividualData()=default;
+        FIndividualData(const int& InFrameNum, const FLabelData& InLabel)
+        {
+            AddInfo(InFrameNum, InLabel);
+        }
+        inline static int Width, Height;
+        inline static std::vector<std::string> CategoryNames;
+        
+        std::map<int, FLabelData> Info;
+        bool IsCompleted = false;
+        int GetEnterFrame() const;
+        int GetLeaveFrame() const;
+        float GetApproxBodySize() const;
+        float GetApproxSpeed() const;
+        std::string GetName(bool IsCommon = true) const;
+        void AddInfo(const int& InFrameNum, const FLabelData& InLabel)
+        {
+            Info[InFrameNum] = InLabel;
+        }
+        // for sort to work?
+        inline static const ImGuiTableSortSpecs* CurrentSortSepcs;
+        static int __cdecl CompareWithSortSpecs(const void* lhs, const void* rhs);
     };
 }

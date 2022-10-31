@@ -11,27 +11,13 @@ namespace cv
     class Mat;
 }
 
+namespace YAML
+{
+    class Node;
+}
+
 namespace IFCS
 {
-    struct FAnalysisResult
-    {
-        std::string CategoryDisplayName;
-        ImVec4 Color;
-        std::vector<float> MeanNums;
-        std::vector<int> PassNums;
-    };
-
-    struct FLabelData
-    {
-        int CatID;
-        float X, Y, Width, Height, Conf;
-        FLabelData() = default;
-        FLabelData(const int& InCatID, const float& InX, const float& InY, const float& InWidth, const float& InHeight,
-            const float& InConf)
-            : CatID(InCatID), X(InX), Y(InY), Width(InWidth), Height(InHeight), Conf(InConf)
-        {}
-    };
-
     struct FCategoryData
     {
         std::string CatName;
@@ -42,12 +28,12 @@ namespace IFCS
         {}
     };
     
-
-
     class Detection : public Panel
     {
     public:
         MAKE_SINGLETON(Detection)
+        void Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose = true) override;
+        void ClearCacheIndividuals();
     protected:
 
         void RenderContent() override;
@@ -76,12 +62,15 @@ namespace IFCS
         std::string DetectionClip;
         std::map<int, std::vector<FLabelData>> LoadedLabels;
         std::vector<FCategoryData> Categories; // exported format...
+        // clip info 
         float ClipFPS = 30.0f;
+        int ClipWidth;
+        int ClipHeight;
         unsigned int LoadedFramePtr;
         void RenderDetectionBox(ImVec2 StartPos);
         void UpdateFrame(int FrameNumber, bool UpdateClipInfo = false);
         void ProcessingVideoPlay();
-        void FrameToGL(cv::Mat Data, int FrameCount);
+        void UpdateFrameImpl(cv::Mat Data);
         bool IsPlaying = false;
         bool JustPlayed = false;
         bool JustPaused = false;
@@ -89,35 +78,40 @@ namespace IFCS
         // int SelectedDetection;
         
         int CurrnetPlayPosition = 0;
-        int MaxDisplayNums = 10;
         int PlayOffset = 0;
 
         void DrawPlayRange();
         int StartFrame = 1;
         int EndFrame = 100;
-        int CurrentFrame = 50;
-        void RenderAnaylysisWidgets_Pass();
-        void RenderAnaylysisWidgets_InScreen();
-        bool IsVertical = false;
-        float FishWayPos[2] = {0.2f, 0.8f};
-        ImVec4 FishWayHintColor = Style::RED();
-        // float FishWayStartP1[2] = {0, 0};
-        // float FishWayStartP2[2] = {0, 1};
-        // float FishWayEndP1[2] = {1, 0};
-        // float FishWayEndP2[2] = {1, 1};
-        // int PUFS = 1; // per unit frame size
+        int CurrentFrame = 1;
         int TotalClipFrameSize = 100;
-
-        void Analysis();
-    public:
-        void Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose = true) override;
-    private:
-        std::vector<FAnalysisResult> Results;
-
-        // void Sparkline(const char* id, const float* values, int count, float min_v, float max_v, int offset,
-        //                const ImVec4& col, const ImVec2& size);
-
-        // int VW;
-        // int VH;
+        bool DisplayHelperLines = true;
+        ImVec4 HintColor = Style::RED();
+        void RenderAnaylysisWidgets_Pass();
+        bool IsVertical = false;
+        // todo: prevent these two value the same...
+        // maybe one point is enough? no... Using two points also contains the idea of ROI...
+        float FishWayPos[2] = {0.2f, 0.8f};
+        bool IsIndividualDataLatest = false;
+        bool IsSizeSimilar(const FLabelData& Label1, const FLabelData& Label2);
+        void TrackIndividual();
+        void GenerateCachedIndividualImages();
+        std::vector<FIndividualData> IndividualData;
+        std::map<std::string, int> TotalPass;
+        std::map<std::string, int> CurrentPass;
+        void UpdateAccumulatedPasses();
+        int GetMaxPass();
+        
+        // TODO: how to store the pass data
+        void RenderAnaylysisWidgets_InScreen();
+        bool bSetROI = false;
+        float RoiRegion[4] = {0.1f, 0.1f, 0.9f, 0.9f};
+        std::map<std::string, std::vector<int>> InScreenRoiData;
+        void UpdateRoiScreenData();
+        std::map<std::string, int> CurrentCatCount;
+        void UpdateCurrentCatCount();
+        void Analysis(const std::string& DName, const YAML::Node& DataNode);
+        bool IsAnalyzing = false;
+        std::future<void> AnalyzeFuture;
     };
 }

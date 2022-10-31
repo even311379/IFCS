@@ -43,8 +43,29 @@ namespace IFCS
         float Round(const float& InValue, const int& N_Digits);
         bool FloatCompare(float A, float B, float Tolerance = 0.005f);
 
-        // Getter for the old Combo() API: "item1\0item2\0item3\0" // copy form imgui_widgets.cpp 1817 (an internal impl function)
-        bool Items_SingleStringGetter(const char* data, int idx, const char* out_text);
+        // common math
+        template <typename T>
+        float Mean(const std::vector<T>& InData)
+        {
+            T Sum = 0;
+            for (const auto& i : InData)
+                Sum += i;
+            return (float)Sum / (float)InData.size();
+        }
+
+        template <typename T>
+        T Max(const std::vector<T>& InData)
+        {
+            int out = -99999;
+            for (const int i : InData)
+            {
+                if (i > out) out = i;
+            }
+            return (T)out;
+        }
+        
+        float Distance(float X1, float Y1, float X2, float Y2);
+
     }
 }
 

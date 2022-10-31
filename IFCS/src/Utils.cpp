@@ -201,24 +201,27 @@ namespace IFCS
             return (std::fabs(A - B) < Tolerance);
         }
 
-        bool Items_SingleStringGetter(const char* data, int idx, const char* out_text)
+        // float Mean(const std::vector<int>& InData)
+        // {
+        //     int Sum = 0;
+        //     for (const auto& i : InData)
+        //         Sum += i;
+        //     return (float)Sum / (float)InData.size();
+        // }
+        //
+        // int Max(const std::vector<int>& InData)
+        // {
+        //     int out = -99999;
+        //     for (const int i : InData)
+        //     {
+        //         if (i > out) out = i;
+        //     }
+        //     return out;
+        // }
+
+        float Distance(float X1, float Y1, float X2, float Y2)
         {
-            // FIXME-OPT: we could pre-compute the indices to fasten this. But only 1 active combo means the waste is limited.
-            const char* items_separated_by_zeros = data;
-            int items_count = 0;
-            const char* p = items_separated_by_zeros;
-            while (*p)
-            {
-                if (idx == items_count)
-                    break;
-                p += strlen(p) + 1;
-                items_count++;
-            }
-            if (!*p)
-                return false;
-            if (out_text)
-                out_text = p;
-            return true;
+            return (float)std::pow(std::pow(X1-X2, 2 ) + std::pow(Y1-Y2, 2), 0.5);
         }
     }
 }

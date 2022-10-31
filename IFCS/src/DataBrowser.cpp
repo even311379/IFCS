@@ -142,22 +142,39 @@ namespace IFCS
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_HorizontalScrollbar;
         ImGui::BeginChild("DataBrowserWindow", ChildWindowSize, false, window_flags);
         {
-            if (ImGui::TreeNodeEx((std::string(ICON_FA_VIDEO) + " Training Clips").c_str(),
+            if (ImGui::TreeNodeEx((std::string(ICON_FA_VIDEO) + " Clips").c_str(),
                                   ImGuiTreeNodeFlags_DefaultOpen))
             {
                 RecursiveClipTreeNodeGenerator(ClipFolderPath, 0);
+                if (!HasAnyClip)
+                {
+                    if (ImGui::Button("Open Folder", ImVec2(-1, 0)))
+                    {
+                        ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Clips").c_str(), NULL, NULL,
+                                      SW_SHOWDEFAULT);
+                    }
+                }
                 // TODO: add some hint to add things in content browser if nothing here...
                 ImGui::Checkbox("Need review only?", &NeedReviewedOnly);
 
                 ImGui::TreePop();
             }
 
-            if (ImGui::TreeNode((std::string(ICON_FA_IMAGE) + " Training Images").c_str()))
+            if (ImGui::TreeNode((std::string(ICON_FA_IMAGE) + " Images").c_str()))
             {
                 // TODO: add from raw image as very end...leave it when all major feature is done...
-                for (int i = 0; i < 100; i++)
+                // for (int i = 0; i < 100; i++)
+                // {
+                //     ImGui::Selectable("img");
+                // }
+                if (!HasAnyImage)
                 {
-                    ImGui::Selectable("img");
+                    if (ImGui::Button("Open Folder", ImVec2(-1, 0)))
+                    {
+                        ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Images").c_str(), NULL, NULL,
+                                      SW_SHOWDEFAULT);
+                    }
+                    
                 }
                 ImGui::TreePop();
             }
@@ -237,6 +254,7 @@ namespace IFCS
                     }
                 }
                 if (!pass) return;
+                HasAnyClip = true;
                 if (Depth > 0)
                 {
                     ImGui::Indent();

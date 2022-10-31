@@ -37,6 +37,8 @@ namespace IFCS
         void RenderDetailWidget();
         void UpdateData();
         void MakeFrameTitle();
+        bool HasAnyClip = false;
+        bool HasAnyImage = false;
         ImVec2 GetBtnSize();
         float TimePassed;
         bool NeedReviewedOnly;
@@ -44,6 +46,7 @@ namespace IFCS
         void DeselectAll(); // Make sure only one asset is selected...
         std::map<int, size_t> FramesData;
         const std::array<std::string, 6> AcceptedClipsFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"};
+        const std::array<std::string, 6> AcceptedImageFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"}; // TODO: ... 
         std::string SelectedTrainingSet;
         FTrainingSetDescription TrainingSetDescription;
         std::string SelectedModel;

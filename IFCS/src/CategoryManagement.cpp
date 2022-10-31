@@ -43,7 +43,6 @@ namespace IFCS
             for (auto& [ID, Cat] : Data)
             {
                 ImGui::PushID(int(ID));
-                // TODO: move a few pixel down for this eye button? it's just not aligned correctly
                 const char* VisibilityIcon = Cat.Visibility ? ICON_FA_EYE : ICON_FA_EYE_SLASH;
                 if (ImGui::InvisibleButton("##vis_btn", ImGui::CalcTextSize(VisibilityIcon)))
                 {

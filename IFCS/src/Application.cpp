@@ -204,8 +204,8 @@ namespace IFCS
         	
         	tick ++;
         }
+    	Detection::Get().ClearCacheIndividuals();
     	Setting::Get().Save();
-		spdlog::warn("end run loop is called...");
     }
 
     void Application::CreateFileDialog()

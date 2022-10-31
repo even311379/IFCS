@@ -156,7 +156,6 @@ namespace IFCS
     }
 
 
-
     YAML::Node FTrainingSetDescription::Serialize()
     {
         YAML::Node OutNode;
@@ -299,5 +298,136 @@ namespace IFCS
 
     void FDetectionDescription::MakeDetailWidget()
     {
+    }
+
+    float FLabelData::Distance(const FLabelData& Other, const int Width, const int Height) const
+    {
+        return Utils::Distance(X * Width, Y * Height, Other.X * Width, Other.Y * Height);
+    }
+
+    float FLabelData::GetApproxBodySize(int WPixels, int HPixels) const
+    {
+        return WPixels * Width * HPixels * Height;
+    }
+
+    int FIndividualData::GetEnterFrame() const
+    {
+        return Info.begin()->first;
+    }
+
+    int FIndividualData::GetLeaveFrame() const
+    {
+        return std::prev(Info.end())->first;
+    }
+
+    float FIndividualData::GetApproxBodySize() const
+    {
+        std::vector<float> S;
+        for (const auto& [k, v] : Info)
+            S.push_back(v.GetApproxBodySize(Width, Height));
+        return Utils::Mean(S);
+    }
+
+    float FIndividualData::GetApproxSpeed() const
+    {
+        if (Info.size() == 1) return 0.f;
+        std::vector<float> S;
+        int i = 0;
+        int LastF;
+        FLabelData LastLabel;
+        for (const auto& [F, L] : Info)
+        {
+            if (i != 0)
+            {
+                S.push_back(Utils::Distance(L.X * Width, L.Y * Height, LastLabel.X * Width, LastLabel.Y * Height)
+                    / (float)(F - LastF));
+            }
+            LastF = F;
+            LastLabel = L;
+            i++;
+        }
+        return Utils::Mean(S);
+    }
+
+    std::string FIndividualData::GetName(bool IsCommon) const
+    {
+        std::map<std::string, int> CatCount;
+        for (const auto& [F, L] : Info)
+        {
+            if (L.CatID + 1 > (int)CategoryNames.size())
+            {
+                return "Error";
+            }
+            if (CatCount.count(CategoryNames[L.CatID]))
+            {
+                CatCount[CategoryNames[L.CatID]] += 1;
+            }
+            else
+            {
+                CatCount[CategoryNames[L.CatID]] = 0;
+            }
+        }
+
+        // TODO: only implement "IsCommon = true" for now...
+
+        //find max counts
+        //check if there are equals...
+        bool HasEqualMax = false;
+        int MaxCount = 0;
+        std::string CandidateOut;
+        for (const auto& [Cat, Count] : CatCount)
+        {
+            if (Count > MaxCount)
+            {
+                MaxCount = Count;
+                CandidateOut = Cat;
+                HasEqualMax = false;
+            }
+            else if (Count == MaxCount)
+            {
+                HasEqualMax = true;
+            }
+        }
+        // TODO: should not see "uncertain"... something is wrong in my code...
+        return HasEqualMax ? "Uncertain" : CandidateOut;
+    }
+
+
+    int FIndividualData::CompareWithSortSpecs(const void* lhs, const void* rhs)
+    {
+        const FIndividualData* a = (const FIndividualData*)lhs;
+        const FIndividualData* b = (const FIndividualData*)rhs;
+        for (int n = 0; n < CurrentSortSepcs->SpecsCount; n++)
+        {
+            const ImGuiTableColumnSortSpecs* SortSpecs = &CurrentSortSepcs->Specs[n];
+            int delta = 0;
+            switch (SortSpecs->ColumnUserID)
+            {
+            case IndividualColumnID_Category:
+                delta = a->GetName().compare(b->GetName());
+                break;
+            case IndividualColumnID_IsPassed:
+                delta = a->IsCompleted == b->IsCompleted;
+                break;
+            case IndividualColumnID_ApproxSpeed:
+                delta = (int)a->GetApproxSpeed() - (int)b->GetApproxSpeed();
+                break;
+            case IndividualColumnID_ApproxBodySize:
+                delta = (int)a->GetApproxBodySize() - (int)b->GetApproxBodySize();
+                break;
+            case IndividualColumnID_EnterFrame:
+                delta = a->GetEnterFrame() - b->GetLeaveFrame();
+                break;
+            case IndividualColumnID_LeaveFrame:
+                delta = a->GetLeaveFrame() - b->GetLeaveFrame();
+                break;
+            default: break;
+            }
+            if (delta > 0)
+                return SortSpecs->SortDirection == ImGuiSortDirection_Ascending? +1 : -1;
+            if (delta < 0)
+                return SortSpecs->SortDirection == ImGuiSortDirection_Ascending? -1 : +1;
+        }
+        return a->GetName().compare(b->GetName());
     }
 }
