@@ -12,6 +12,8 @@
 
 #include "yaml-cpp/yaml.h"
 
+// TODO: Loaded Check... and add something when nothing is loaded...
+
 namespace IFCS
 {
     void Annotation::RenderContent()
@@ -151,6 +153,7 @@ namespace IFCS
                 GetAbsRectMinMax(AddPointStart, ImGui::GetMousePos(), AbsMin, AbsMax);
                 std::array<float, 4> NewXYWH = MouseRectToXYWH(AbsMin, AbsMax);
                 Data[UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
+                CategoryManagement::Get().AddCount();
                 IsCurrentFrameModified = true;
             }
             if (ImGui::IsKeyPressed(ImGuiKey_W))
@@ -163,6 +166,7 @@ namespace IFCS
             }
         }
 
+        static float ButtonsOffset;
         ImGui::SetCursorPosX(ButtonsOffset);
         ImGui::BeginGroup();
         {
@@ -221,13 +225,13 @@ namespace IFCS
             DataNode[std::to_string(k)] = v.Serialize();
 
         // TODO: this make out of order, but it shouldn't...
-        YAML::Node OutNode = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"));
+        YAML::Node OutNode = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"));
         OutNode[DataBrowser::Get().SelectedClipInfo.ClipPath][std::to_string(DataBrowser::Get().SelectedFrame)] =
             DataNode;
 
         YAML::Emitter Out;
         Out << OutNode;
-        std::ofstream Fout(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"));
+        std::ofstream Fout(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"));
         Fout << Out.c_str();
         IsCurrentFrameModified = true;
     }
@@ -235,7 +239,7 @@ namespace IFCS
     void Annotation::Load()
     {
         Data.clear();
-        YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"))[
+        YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"))[
             DataBrowser::Get().SelectedClipInfo.ClipPath][std::to_string(DataBrowser::Get().SelectedFrame)];
         for (YAML::const_iterator it = Node.begin(); it != Node.end(); ++it)
         {
@@ -276,7 +280,12 @@ namespace IFCS
     {
         UUID NewCat = CategoryManagement::Get().SelectedCatID;
         if (NewCat != 0)
+        {
+            UUID OldCat = Data[ID].CategoryID;
+            CategoryManagement::Get().Data[OldCat].TotalUsedCount -= 1;
             Data[ID].CategoryID = NewCat;
+            CategoryManagement::Get().AddCount();
+        }
     }
 
     void Annotation::Trash(UUID ID)
@@ -348,3 +357,5 @@ namespace IFCS
         };
     }
 }
+
+//TODO: implemnet frame discard?

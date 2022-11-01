@@ -7,18 +7,21 @@
 
 namespace IFCS
 {
-
-    
+    // struct FAvailFrames 
+    // {
+    //     std::string Clip;
+    //     int FrameNum;
+    // };
+    //
     class TrainingSetGenerator : public Panel
     {
     protected:
         void RenderContent() override;
     public:
         MAKE_SINGLETON(TrainingSetGenerator)
+        void SyncCategoyData(std::vector<UUID> InCatIDs);
     private:
         void GenerateTrainingSet();
-        // void GenerateImgTxt(const std::string& Path, int FrameNum, const char* GenName, bool IsOriginal = true,
-        //                     const char* SplitName = "Train", bool IsFromClip = true);
         void GenerateImgTxt(cv::VideoCapture& Cap, int FrameNum, const std::vector<FAnnotation>& InAnnotations, const char* GenName, bool IsOriginal = true,
                             const char* SplitName = "Train");
         void UpdatePreviewAugmentations();
@@ -27,6 +30,9 @@ namespace IFCS
         void IncludeGenFolder(const std::string& InFolder);
         std::set<std::string> IncludedGenClips;
         std::set<std::string> IncludedImageFolders;
+        std::unordered_map<UUID, bool> CategoriesChecker;
+        std::map<std::string, int> CategoriesToExport; // displayname, and export count
+        // std::vector<FAvailFrames> AvailFrames;
         int NumIncludedFrames = 0;
         int NumIncludedImages = 0; // leave for future update...
         int TotalExportImages = 1;
@@ -34,20 +40,19 @@ namespace IFCS
         void UpdateExportInfo();
 
         void RenderDataSelectWidget();
-        // TODO: Need to study train / valid / test again. make sure I understand 100% where they are used in deep learning?
+        void RenderCategoryWidget();
         void RenderSplitWidget();
         void RenderResizeWidget();
-        void RenderCategoryWidget();
         void RenderAugmentationWidget();
         void RenderSummary();
         void RenderExportWidget();
-        
+
         float SplitControlPos1 = 0.80f;
         float SplitControlPos2 = 0.90f;
         float SplitPercent[3] = {80.f, 10.f, 10.f};
         int SplitImgs[3] = {0, 0, 0};
 
-        int SelectedResizeRule = 0;
+        int SelectedResizeAspectRatio = 0;
         int NewSize[2] = {720, 405};
 
         bool bApplyImageAugmentation;
@@ -85,9 +90,10 @@ namespace IFCS
         unsigned int Var8;
 
 
-        bool bApplyDefaultCategories = true;
-        bool bApplySMOTE = false;
-        std::unordered_map<UUID, int> CategoryExportData;
-        std::vector<std::string> ExportedCategories;
+
+        // bool bApplySMOTE = false;
+        // bool bApplyDefaultCategories = true;
+        // std::unordered_map<UUID, bool> CategoryExportCheck;
+        // std::vector<std::string> ExportedCategories;
     };
 }

@@ -34,15 +34,11 @@ namespace IFCS
         static float GetZoom(int InZoom);
         bool IsAdding = false;
         ImVec2 AddPointStart;
-
         ImVec2 WorkStartPos;
 
         void GetAbsRectMinMax(ImVec2 p0, ImVec2 p1, ImVec2& OutMin, ImVec2& OutMax);
         std::array<float, 4> MouseRectToXYWH(ImVec2 RectMin, ImVec2 RectMax);
         std::array<float, 4> TransformXYWH(const std::array<float, 4>& InXYWH);
-    private:
-        // some style controls...
-        float ButtonsOffset = 0;
         
     };
     

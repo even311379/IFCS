@@ -74,10 +74,7 @@ namespace IFCS
 
     struct FCategory
     {
-        FCategory()
-        {
-        }
-
+        FCategory()=default;
         FCategory(std::string NewDisplayName); // construct when user click add new
         FCategory(YAML::Node InputNode); // construct when load from yaml
 
@@ -87,9 +84,7 @@ namespace IFCS
         bool Visibility = true;
 
         // info
-        int UsedCountInThisFrame = 0;
-        int TotalUsedCount = 0;
-
+        ImU16 TotalUsedCount = 0;
         inline bool HasParent() const { return ParentID != 0; }
         YAML::Node Serialize() const; // DON't serialize ID... they will be the key in data...
         void Deserialize(YAML::Node InputNode);
@@ -134,8 +129,7 @@ namespace IFCS
         void Deserialize(YAML::Node InputNode);
         void Pan(std::array<float, 2> Changed);
         void Resize(EBoxCorner WhichCorner, std::array<float, 2> Changed);
-        std::string GetExportTxt(std::unordered_map<UUID, int>& CategoryChecker,
-                                 const FAnnotationShiftData& InShiftData) const;
+        std::string GetExportTxt(int CID, const FAnnotationShiftData& InShiftData) const;
     };
 
     struct FTrainingSetDescription

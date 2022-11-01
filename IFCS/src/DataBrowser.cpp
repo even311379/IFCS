@@ -403,7 +403,7 @@ namespace IFCS
     void DataBrowser::UpdateData()
     {
         FramesData.clear();
-        YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"))[
+        YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"))[
             SelectedClipInfo.ClipPath];
         for (YAML::const_iterator it = Node.begin(); it != Node.end(); ++it)
         {

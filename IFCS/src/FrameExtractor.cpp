@@ -19,7 +19,7 @@
 #include "opencv2/opencv.hpp"
 #include <spdlog/spdlog.h>
 
-
+// TODO: Loaded Check... and add something when nothing is loaded...
 
 namespace IFCS
 {
@@ -128,7 +128,7 @@ namespace IFCS
         bool Hovered = false;
 
         ImGui::Text("%s", ID);
-        bool JustDeleteRegion = false;
+        JustDeleteRegion = false;
         if (ImGui::BeginPopupContextItem(ID))
         {
             if (ImGui::Button("Delete this region?"))
@@ -304,11 +304,15 @@ namespace IFCS
         if (ImGui::IsItemHovered())
         {
             ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+            const float TempPlayProgress = (ImGui::GetMousePos().x - Start.x) / (End.x - Start.x) * TimelineDisplayEnd;
+            const int HintClickFrame = int(CurrentFrameStart + TempPlayProgress / 100.0f * CurrentFrameRange);
+            ImGui::SetTooltip("%d", HintClickFrame);
             if (ImGui::IsMouseClicked(0) || ImGui::IsMouseDragging(0))
             {
                 // TODO: after it, need to click play button twice to start play? why?
                 if (IsPlaying) JustPaused = true;
-                PlayProgress = (ImGui::GetMousePos().x - Start.x) / (End.x - Start.x) * TimelineDisplayEnd;
+                // PlayProgress = (ImGui::GetMousePos().x - Start.x) / (End.x - Start.x) * TimelineDisplayEnd;
+                PlayProgress = TempPlayProgress;
             }
             if (ImGui::IsMouseReleased(0))
             {
@@ -340,24 +344,46 @@ namespace IFCS
             CheckZoomInput();
         }
         ImGui::SetCursorPos(ImVec2(0, ImGui::GetCursorPosY() + row_height * 1.5f));
-        if (ImGui::Button(ICON_FA_PLUS, ImVec2(96, 24)))
+        if (ImGui::Button(ICON_FA_PLUS, ImVec2(96, 0)))
         {
             Regions.push_back((float)CurrentFrameStart + int(0.3f * (float)CurrentFrameRange));
             Regions.push_back((float)CurrentFrameStart + int(0.7f * (float)CurrentFrameRange));
         }
         Utils::AddSimpleTooltip("Add new region to perform frame extraction...");
         ImGui::SameLine();
-        // TODO: add combo button here to choose which region to remove
-        // hide functions in right click is really bad...
-        ImGui::Dummy({ColumnOffset - 96, 0});
+        ImGui::SetNextItemWidth(96);
+        char buf[8];
+        sprintf(buf, "    %s", ICON_FA_MINUS);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, GImGui->Style.Colors[ImGuiCol_Button]);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, GImGui->Style.Colors[ImGuiCol_ButtonHovered]);
+        if (ImGui::BeginCombo("##remove region", buf, ImGuiComboFlags_NoArrowButton))
+        {
+            for (int i = 0; i < (int)Regions.size() / 2; i++)
+            {
+                char temp[16];
+                sprintf(temp, "Region %d", i);
+                if (ImGui::Selectable(temp))
+                {
+                    Regions.erase(Regions.begin() + 2 * i);
+                    Regions.erase(Regions.begin() + 2 * i);
+                    JustDeleteRegion = true;
+                }
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::PopStyleColor(2);
+        Utils::AddSimpleTooltip("Choose region to remove");
+        ImGui::SameLine();
         ImGui::SameLine();
     }
 
     void FrameExtractor::TimelineControlButtons()
     {
+        float GapSize = (ImGui::GetWindowContentRegionWidth() - 1056 )/2;
         static char* PlayIcon;
         PlayIcon = IsPlaying ? ICON_FA_PAUSE : ICON_FA_PLAY;
-        if (ImGui::Button(PlayIcon, {96, 24}))
+        ImGui::Dummy({GapSize, 0}); ImGui::SameLine();
+        if (ImGui::Button(PlayIcon, {96, 0}))
         {
             if (!IsPlaying)
             {
@@ -369,27 +395,38 @@ namespace IFCS
                 JustPaused = true;
             }
         }
-        if (ImGui::IsItemHovered())
-        {
-            ImGui::SetTooltip("Play / Pause clip");
-        }
+        Utils::AddSimpleTooltip("Play / Pause clip");
 
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_SYNC, {96, 24}))
+        if (ImGui::Button(ICON_FA_SYNC, {96, 0}))
         {
             TimelinePan = 0.0f;
             TimelineZoom = 1.0f;
             UpdateCurrentFrameInfo();
         }
-        if (ImGui::IsItemHovered())
+        Utils::AddSimpleTooltip("Reset zoom and pan for this clip");
+        ImGui::SameLine();
+        if (ImGui::Button(ICON_FA_SEARCH_PLUS, {96, 0}))
         {
-            ImGui::SetTooltip("Reset zoom and pan for this clip");
+            TimelineZoom += 1.0f;
+            if (TimelineZoom < 1) TimelineZoom = 1.f;
+            if (TimelineZoom > 50) TimelineZoom = 50.f;
+            float MaxPan = 1.f - (1.f / float(TimelineZoom));
+            if (TimelinePan >= MaxPan) TimelinePan = MaxPan;
+            UpdateCurrentFrameInfo();
         }
         ImGui::SameLine();
-        // TODO: Add zoom control... hide it in ctrl + wheel it too unhuman...
-        ImGui::Dummy({200, 0});
+        if (ImGui::Button(ICON_FA_SEARCH_MINUS, {96, 0}))
+        {
+            TimelineZoom -= 1.0f;
+            if (TimelineZoom < 1) TimelineZoom = 1.f;
+            if (TimelineZoom > 50) TimelineZoom = 50.f;
+            float MaxPan = 1.f - (1.f / float(TimelineZoom));
+            if (TimelinePan >= MaxPan) TimelinePan = MaxPan;
+            UpdateCurrentFrameInfo();
+        }
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(160.f);
+        ImGui::Dummy({GapSize, 0}); ImGui::SameLine();
         int MaxExtract = 0;
         for (size_t i = 0; i < Regions.size() / 2; i++)
         {
@@ -398,28 +435,36 @@ namespace IFCS
 
         if (NumFramesToExtract > MaxExtract)
             NumFramesToExtract = MaxExtract;
-        if (Regions.size() == 0) MaxExtract = 1;
-        ImGui::DragInt("frames to ", &NumFramesToExtract, 1, 1, MaxExtract);
+        if (Regions.empty()) MaxExtract = 1;
+        ImGui::SetNextItemWidth(144.f);
+        ImGui::DragInt("##frames", &NumFramesToExtract, 1, 1, MaxExtract);
         ImGui::SameLine();
-        if (ImGui::Button("Extract"))
+        static const char* ExtractionModeTitles[] = {
+            "Mode A","Mode B","Mode C"
+        };
+        static const char* ExtractionModeTooltips[] = {
+            "Remove frames without annotation, then extract to requested number",
+            "Extract to requested number with out any removal",
+            "Remove all previous extracts, then extract to request number"
+        };
+        ImGui::SetNextItemWidth(144.f);
+        if (ImGui::BeginCombo("##ExtractionOptionsCombo", ExtractionModeTitles[ExtractionMode]))
+        {
+            for (uint8_t i = 0; i <  3; i++)
+            {
+                if (ImGui::Selectable(ExtractionModeTitles[i]))
+                {
+                    ExtractionMode = i;
+                }
+                Utils::AddSimpleTooltip(ExtractionModeTooltips[i], 25, 30);
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Extract", ImVec2(96, 0)))
         {
             PerformExtraction();
         }
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(240.f);
-
-        // TODO: can not load this way... all become ????? ...
-        /*symotion-prefix)
-        const char* Options[] = {
-            LOCTEXT("FrameExtractor.ModeOption1"),LOCTEXT("FrameExtractor.ModeOption2"),
-            LOCTEXT("FrameExtractor.ModeOption3")
-        };
-        */
-        const char* Options[] = {
-            "Remove all previous extracts, then extract", "No remove, extract to requested numbers",
-            "Remove frames without annotations, then extract to requested numbers", "中文會變亂碼嗎?"
-        };
-        ImGui::Combo("##ExtractionOptionsCombo", &SelectedExtractionOption, Options, IM_ARRAYSIZE(Options));
     }
 
     /*
@@ -458,6 +503,7 @@ namespace IFCS
         cv::Mat frame;
         Cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
         Cap >> frame;
+        if (frame.empty()) return; // prevent crash?? will this trigger something more severe?
         cv::resize(frame, frame, cv::Size(1280, 720)); // 16 : 9 // no need to resize?
         cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
         DataBrowser::Get().LoadedFramePtr = 0;
@@ -496,7 +542,6 @@ namespace IFCS
 
     void FrameExtractor::UpdateCurrentFrameInfo()
     {
-        // CurrentFrameStart = int((float)ClipInfo.FrameCount / TimelineZoom * TimelinePan) + 1;
         CurrentFrameStart = int((float)ClipInfo.FrameCount * TimelinePan) + 1;
         CurrentFrameRange = int((float)ClipInfo.FrameCount / TimelineZoom);
         CurrentFrame = int(CurrentFrameStart + PlayProgress / 100.0f * CurrentFrameRange);
@@ -537,7 +582,7 @@ namespace IFCS
         std::sort(ExtractedFrames.begin(), ExtractedFrames.end()); // is sort required?
 
         // write to YAML!
-        YAML::Node AnnotationData = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"));
+        YAML::Node AnnotationData = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"));
         // handle extract for existing clip
         // follows extraction option 1... clear anything existing...
         YAML::Node NewFramesNode;
@@ -550,7 +595,7 @@ namespace IFCS
 
         YAML::Emitter Out2;
         Out2 << AnnotationData;
-        std::ofstream fout2(Setting::Get().ProjectPath + std::string("/Data/Annotation.yaml"));
+        std::ofstream fout2(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"));
         fout2 << Out2.c_str();
     }
 }

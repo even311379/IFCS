@@ -12,6 +12,7 @@
 #include <GLFW/glfw3.h>
 #include <yaml-cpp/node/node.h>
 
+#include "Annotation.h"
 #include "CategoryManagement.h"
 #include "imgui_internal.h"
 #include "ImguiNotify/font_awesome_5.h"
@@ -53,6 +54,11 @@ namespace IFCS
             RenderDataSelectWidget();
             ImGui::TreePop();
         }
+        if (ImGui::TreeNode("Category To Export"))
+        {
+            RenderCategoryWidget();
+            ImGui::TreePop();
+        }
         if (ImGui::TreeNode("Train / Valid / Test Split"))
         {
             RenderSplitWidget();
@@ -66,11 +72,6 @@ namespace IFCS
         if (ImGui::TreeNode("Augmentation"))
         {
             RenderAugmentationWidget();
-            ImGui::TreePop();
-        }
-        if (ImGui::TreeNode("Category To Export"))
-        {
-            RenderCategoryWidget();
             ImGui::TreePop();
         }
         ImGui::Unindent();
@@ -89,6 +90,19 @@ namespace IFCS
         ImGui::Unindent();
     }
 
+    void TrainingSetGenerator::SyncCategoyData(std::vector<UUID> InCatIDs)
+    {
+        for (UUID UID : InCatIDs)
+        {
+            if (!CategoriesChecker.count(UID))
+            {
+                CategoriesChecker[UID] = true;
+            }
+        }
+        UpdateExportInfo();
+    }
+
+    // TODO: WRONG! change of Cat to export may affect frames to extract... So many work needed for that...
     void TrainingSetGenerator::GenerateTrainingSet()
     {
         if (std::strlen(NewTrainingSetName) == 0) return;
@@ -142,6 +156,7 @@ namespace IFCS
             ofs << Out.c_str();
         }
         ofs.close();
+
         //write data file for yolo
         ofs.open(ProjectPath + "/Data/" + NewTrainingSetName + "/" + NewTrainingSetName + ".yaml");
         if (ofs.is_open())
@@ -149,26 +164,21 @@ namespace IFCS
             ofs << "train: " << ProjectPath + "/Data/" + NewTrainingSetName + "/train/images" << std::endl;
             ofs << "val: " << ProjectPath + "/Data/" + NewTrainingSetName + "/valid/images" << std::endl;
             ofs << "test: " << ProjectPath + "/Data/" + NewTrainingSetName + "/test/images" << std::endl << std::endl;
-            // ofs << "nc: " << ExportedCategories.size() << std::endl;
-            ofs << "nc: " << 1 << std::endl;
+            size_t S = CategoriesToExport.size();
+            ofs << "nc: " << S << std::endl;
             ofs << "names: [";
-            for (const std::string& Cat : ExportedCategories)
+            size_t i = 0;
+            for (const auto& [Cat, N] : CategoriesToExport)
             {
                 ofs << "'" << Cat << "'";
-                if (Cat != ExportedCategories[ExportedCategories.size() - 1])
+                if (i < S - 1)
                     ofs << ", ";
+                i++;
             }
             ofs << "]" << std::endl;
         }
         ofs.close();
         // save export setting
-
-        // Category... so far let everyone to be 0  //TODO: need make it proper later
-        CategoryExportData.clear();
-        for (UUID CID : CategoryManagement::Get().GetRegisterCIDs())
-        {
-            CategoryExportData[CID] = 0;
-        }
 
         // random choose train, valid, test based on options
         std::vector<int> RemainIdx(TotalExportImages);
@@ -194,7 +204,7 @@ namespace IFCS
         // distribute train / valid / test and generate .jpg .txt to folders
         // only include frames with at least 1 annotation...
         int N = 0;
-        YAML::Node Data = YAML::LoadFile(ProjectPath + "/Data/Annotation.yaml");
+        YAML::Node Data = YAML::LoadFile(ProjectPath + "/Data/Annotations.yaml");
         for (const std::string& Clip : IncludedGenClips)
         {
             cv::VideoCapture Cap(Clip);
@@ -257,14 +267,14 @@ namespace IFCS
         cv::imwrite(OutImgName, Frame);
         // TODO: this writes nothing now... fix it!!!
         std::ofstream ofs;
-        ofs.open(OutTxtName);
+        /*ofs.open(OutTxtName);
         if (ofs.is_open())
         {
             for (auto& A : InAnnotations)
             {
-                ofs << A.GetExportTxt(CategoryExportData, ShiftData).c_str() << std::endl;
+                ofs << A.GetExportTxt(CategoryToExport, ShiftData).c_str() << std::endl;
             }
-        }
+        }*/
         ofs.close();
     }
 
@@ -373,17 +383,38 @@ namespace IFCS
 
     void TrainingSetGenerator::UpdateExportInfo()
     {
-        YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotation.yaml");
+        YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
+        auto CatData = CategoryManagement::Get().Data;
+        CategoriesToExport.clear();
+        for (const auto& [UID, Check] : CategoriesChecker)
+        {
+            if (Check)
+                CategoriesToExport[CatData[UID].DisplayName] = 0;
+        }
         NumIncludedFrames = 0;
         NumIncludedAnnotation = 0;
         for (const auto& C : IncludedGenClips)
         {
             for (YAML::const_iterator Frame = Data[C].begin(); Frame != Data[C].end(); ++Frame)
             {
-                YAML::Node Annotation = Frame->second.as<YAML::Node>();
-                if (Annotation.size() != 0) NumIncludedFrames ++;
-                NumIncludedAnnotation += (int)Annotation.size();
+                YAML::Node ANode = Frame->second.as<YAML::Node>();
+                bool ContainsExportedCategory = false;
+                for (YAML::const_iterator A = ANode.begin(); A != ANode.end(); ++A)
+                {
+                    UUID CID = A->second["CategoryID"].as<uint64_t>();
+                    if (CategoriesChecker[CID])
+                    {
+                        CategoriesToExport[CatData[CID].DisplayName] += 1;
+                        NumIncludedAnnotation++;
+                        ContainsExportedCategory = true;
+                    }
+                }
+                if (ContainsExportedCategory) NumIncludedFrames += 1;
             }
+        }
+        for (auto [c, i] : CategoriesToExport)
+        {
+            spdlog::warn("{}:{} ... is this correct?", c, i);
         }
         TotalExportImages = NumIncludedFrames + NumIncludedImages;
         SplitImgs[0] = int(SplitPercent[0] * 0.01f * TotalExportImages);
@@ -480,48 +511,98 @@ namespace IFCS
 
     void TrainingSetGenerator::RenderResizeWidget()
     {
-        // ImGui::Text("Add crop and pan???");
-        const char* ResizeRules[] = {"Stretch", "Fit"};
-        ImGui::Combo("Resize Rule", &SelectedResizeRule, ResizeRules, IM_ARRAYSIZE(ResizeRules));
-        ImGui::SetNextItemWidth(130.f);
-        ImGui::InputInt2("New Size", NewSize);
-        ImGui::Button("Preview");
-        ImGui::Text("Add preview directly here??");
+        // Just use cv::linear to interpolate... no need to expose other options...
+        static const char* AspectRatioOptions[] = {"16x9", "4x3", "Custom"};
+        if (ImGui::Combo("Aspect Ratio", &SelectedResizeAspectRatio, AspectRatioOptions,
+                         IM_ARRAYSIZE(AspectRatioOptions)))
+        {
+            switch (SelectedResizeAspectRatio)
+            {
+            case 0: // 16x9
+                NewSize[1] = NewSize[0] * 9 / 16;
+                break;
+            case 1: // 4x3
+                NewSize[1] = NewSize[0] * 3 / 4;
+                break;
+            default: break;
+            }
+        }
+        int OldSize[2] = {NewSize[0], NewSize[1]};
+        if (ImGui::InputInt2("New Size", NewSize))
+        {
+            const bool OtherIdx = OldSize[0] != NewSize[0];
+            const bool ChangedIdx = !OtherIdx;
+            switch (SelectedResizeAspectRatio)
+            {
+            case 0: // 16x9
+                NewSize[OtherIdx] = ChangedIdx ? NewSize[ChangedIdx] * 16 / 9 : NewSize[ChangedIdx] * 9 / 16;
+                break;
+            case 1: // 4x3
+                NewSize[OtherIdx] = ChangedIdx ? NewSize[ChangedIdx] * 4 / 3 : NewSize[ChangedIdx] * 3 / 4;
+                break;
+            default: break;
+            }
+        }
     }
 
     void TrainingSetGenerator::RenderCategoryWidget()
     {
-            ImGui::Checkbox("Apply default categories", &bApplyDefaultCategories);
-            // TODO: skip the impl for now...
-            if (!bApplyDefaultCategories)
+        auto CatData = CategoryManagement::Get().Data;
+        for (auto& [UID, Should] : CategoriesChecker)
+        {
+            if (ImGui::Checkbox(CatData[UID].DisplayName.c_str(), &Should))
             {
-                ImGui::Text("some category merging tools");
+                UpdateExportInfo();
             }
-            // TODO: add implot to check category imbalance
-            // static std::vector<int> TestCounts = {1654, 5132, 1260, 352};
-            // if (ImPlot::BeginPlot("Category counts"))
-            // {
-            //     static std::vector<ImVec4> Colors = {
-            //         Utils::RandomPickColor(),
-            //         Utils::RandomPickColor(),
-            //         Utils::RandomPickColor(),
-            //         Utils::RandomPickColor()
-            //     };
-            //     ImPlot::AddColormap("RandomBarColor", Colors.data(), Colors.size()); // Use category color!!!!
-            //     if (ImPlot::BeginPlot("Category Counts"))
-            //     {
-            //         // plot indivisual for better viz?
-            //         ImPlot::PlotBars("Different Categories", TestCounts.data(), TestCounts.size(), 0.5, 1);
-            //         ImPlot::EndPlot();
-            //     }
-            //     ImPlot::PopColormap();
-            //     ImPlot::EndPlot();
-            // }
+        }
 
+        if (ImGui::Button("Add all catogories"))
+        {
+            for (auto& [UID, Should] : CategoriesChecker)
+            {
+                Should = true;
+            }
+            UpdateExportInfo();
+        }
 
-            ImGui::Checkbox("Apply SMOTE", &bApplySMOTE);
-            Utils::AddSimpleTooltip("SMOTE: Synthetic Minority Oversampling Technique, if your categories "
-                "are highly imbalanced, you should apply SMOTE to handle it! (Undev yet)");
+        const size_t NumBars = CategoriesToExport.size();
+        if (NumBars > 1)
+        {
+            std::vector<ImVec4> Colors;
+            std::vector<std::vector<ImU16>> BarData;
+            std::vector<const char*> CatNames;
+            std::vector<double> Positions;
+            size_t i = 0;
+            for (const auto& [Cat, N] : CategoriesToExport)
+            {
+                std::vector<ImU16> Temp(NumBars, 0);
+                Temp[i] = (ImU16)N;
+                CatNames.emplace_back(Cat.c_str());
+                BarData.emplace_back(Temp);
+                Colors.emplace_back(CategoryManagement::Get().GetColorFrameDisplayName(Cat));
+                i++;
+                Positions.push_back((double)i);
+            }
+            static ImPlotColormap RC = ImPlot::AddColormap("ExpBarColors", Colors.data(), (int)NumBars);
+            ImPlot::PushColormap(RC);
+            if (ImPlot::BeginPlot("Category Counts", ImVec2(-1, 0), ImPlotFlags_NoInputs |
+                ImPlotFlags_NoTitle | ImPlotFlags_NoLegend | ImPlotFlags_NoFrame))
+            {
+                ImPlot::SetupAxes(0, 0, ImPlotAxisFlags_NoLabel, ImPlotAxisFlags_NoLabel);
+                ImPlot::SetupAxisTicks(ImAxis_Y1, Positions.data(), (int)NumBars, CatNames.data());
+                // TODO: is the order important? So hard to match so far...
+                for (size_t j = 0; j < NumBars; j++)
+                    ImPlot::PlotBars(CatNames[j], BarData[j].data(), (int)NumBars, 0.5, 1,
+                                     ImPlotBarGroupsFlags_Horizontal);
+                ImPlot::EndPlot();
+            }
+            ImPlot::PopColormap();
+            ImGui::TextWrapped("HINT! Imbalanced data may result in bad model! You should prevent it! ... somehow...");
+        }
+        // CategoryManagement::Get().DrawSummaryBar(IncludedID);
+        // ImGui::Checkbox("Apply SMOTE", &bApplySMOTE);
+        // Utils::AddSimpleTooltip("SMOTE: Synthetic Minority Oversampling Technique, if your categories "
+        //     "are highly imbalanced, you should apply SMOTE to handle it! (Undev yet)");
     }
 
     void TrainingSetGenerator::RenderAugmentationWidget()
@@ -529,7 +610,7 @@ namespace IFCS
         ImGui::Checkbox("Should apply image augmentation?", &bApplyImageAugmentation);
         if (!bApplyImageAugmentation)
             return;
-        
+
         if (ImGui::InputInt("Augmentation Duplicates", &AugmentationDuplicates, 1, 5))
         {
             if (AugmentationDuplicates < 1) AugmentationDuplicates = 1;
@@ -554,7 +635,7 @@ namespace IFCS
             ImGui::Checkbox("Add Noise?", &bApplyNoise);
             if (bApplyNoise)
             {
-                ImGui::DragIntRange2("Noise Mean", &NoiseMeanMin, &NoiseMeanMax, 1,  0, 50);
+                ImGui::DragIntRange2("Noise Mean", &NoiseMeanMin, &NoiseMeanMax, 1, 0, 50);
                 ImGui::DragIntRange2("Noise Std", &NoiseStdMin, &NoiseStdMax, 1, 0, 50);
             }
             ImGui::TreePop();
@@ -564,7 +645,7 @@ namespace IFCS
             ImGui::Checkbox("Apply Hue Shift", &bApplyHue);
             if (bApplyHue)
             {
-                ImGui::DragInt("Max Random Hue (+ -)", &HueAmount, 1,1, 60, "%d %");
+                ImGui::DragInt("Max Random Hue (+ -)", &HueAmount, 1, 1, 60, "%d %");
             }
             ImGui::TreePop();
         }

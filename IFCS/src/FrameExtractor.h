@@ -1,11 +1,11 @@
 ﻿#pragma once
 #include <vector>
 #include "Panel.h"
-#include "ImguiNotify/font_awesome_5.h"
 
 
 namespace IFCS
 {
+    
     class FrameExtractor : public IFCS::Panel
     {
     public:
@@ -19,6 +19,7 @@ namespace IFCS
         // copied info
         bool ClipInfoIsLoaded = false;
         std::vector<float> Regions;
+        bool JustDeleteRegion;
         // due to float or int issue?... it' true float to int is the cause... let's stick on float... 
 
         // timeline from https://github.com/ocornut/imgui/issues/76#issuecomment-287739415 as template and modified a lot
@@ -32,7 +33,6 @@ namespace IFCS
         const float TimelineDisplayStart = 0.f; // in pixel? .. nothing to do with real time stamp
         const float TimelineDisplayEnd = 100.f; // in pixel? just an arbitrary value...
         int temp_TimelineIndex = -1;
-        
         float TimelineZoom = 1.0f;  // 1 ~ 50
         float TimelinePan = 0.0f; // 0.0 ~ 1.0f
 
@@ -52,8 +52,8 @@ namespace IFCS
         int NumFramesToExtract = 1;
 
         // extraction
-        int SelectedExtractionOption;
-        std::string ExtractionOptions;
+        uint8_t ExtractionMode;
+        // std::string ExtractionOptions;
         void PerformExtraction();
     };
 }

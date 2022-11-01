@@ -132,8 +132,7 @@ namespace IFCS
     }
 
 
-    std::string FAnnotation::GetExportTxt(std::unordered_map<UUID, int>& CategoryChecker,
-                                          const FAnnotationShiftData& InShiftData) const
+    std::string FAnnotation::GetExportTxt(int CID, const FAnnotationShiftData& InShiftData) const
     {
         // TODO: ignore shift data for now... MUST add later...
         std::array<float, 4> ToShift = XYWH;
@@ -142,7 +141,7 @@ namespace IFCS
         ToShift[2] /= WorkArea.x;
         ToShift[3] /= WorkArea.y;
 
-        std::string OutString = std::to_string(CategoryChecker[CategoryID]);
+        std::string OutString = std::to_string(CID);
         for (int i = 0; i < 4; i++)
         {
             OutString += " " + std::to_string(ToShift[i]);

@@ -12,7 +12,6 @@
 #include "Imspinner/imspinner.h"
 
 #include <fstream>
-#include <numeric>
 #include <variant>
 
 #include "yaml-cpp/yaml.h"
@@ -184,7 +183,7 @@ namespace IFCS
                 ImSpinner::SpinnerBarsScaleMiddle("Spinner2", 6, ImColor(Style::BLUE(400, Setting::Get().Theme)));
                 if (AnalyzeFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
                 {
-                    CurrentFrame = 1;
+                    CurrentFrame = 0;
                     UpdateFrame(CurrentFrame, true);
                     UpdateRoiScreenData();
                     IsAnalyzing = false;
@@ -238,7 +237,7 @@ namespace IFCS
             static ImVec2 NewFramePad(4, (32 - ImGui::GetFontSize()) / 2);
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, NewFramePad);
             ImGui::SetNextItemWidth(120.f);
-            if (ImGui::DragInt("##PlayStart", &StartFrame, 1, 1, EndFrame - 1))
+            if (ImGui::DragInt("##PlayStart", &StartFrame, 1, 0, EndFrame - 1))
             {
                 if (CurrentFrame < StartFrame) CurrentFrame = StartFrame;
                 if (StartFrame > EndFrame) StartFrame = EndFrame - 1;
@@ -268,17 +267,7 @@ namespace IFCS
             ImGui::TreePop();
         }
 
-
         ProcessingVideoPlay();
-        // if (IsPlaying)
-        // {
-        //     CurrentFrame++;
-        //     if (CurrentFrame >= EndFrame)
-        //     {
-        //         CurrentFrame = EndFrame;
-        //         IsPlaying = false;
-        //     }
-        // }
     }
 
     bool Detection::ReadyToDetect()

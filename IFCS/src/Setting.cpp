@@ -196,7 +196,7 @@ namespace IFCS
         std::filesystem::create_directories(ProjectPath + std::string("/Detections"));
         std::filesystem::create_directories(ProjectPath + std::string("/Data"));
         // should create empty files for future use...
-        std::ofstream output1(ProjectPath + std::string("/Data/Annotation.yaml"));
+        std::ofstream output1(ProjectPath + std::string("/Data/Annotations.yaml"));
         std::ofstream output2(ProjectPath + std::string("/Data/Categories.yaml"));
         std::ofstream output3(ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
         std::ofstream output4(ProjectPath + std::string("/Data/TrainingSets.yaml"));

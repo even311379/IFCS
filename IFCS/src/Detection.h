@@ -81,9 +81,9 @@ namespace IFCS
         int PlayOffset = 0;
 
         void DrawPlayRange();
-        int StartFrame = 1;
+        int StartFrame = 0;
         int EndFrame = 100;
-        int CurrentFrame = 1;
+        int CurrentFrame = 0;
         int TotalClipFrameSize = 100;
         bool DisplayHelperLines = true;
         ImVec4 HintColor = Style::RED();

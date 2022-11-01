@@ -3,12 +3,11 @@
 
 #include <ctime>
 #include <fstream>
-#include <chrono>
-#include <iostream>
 #include <istream>
 #include <sstream>
 #include <random>
 
+#include "imgui_internal.h"
 #include "Style.h"
 
 
@@ -16,17 +15,6 @@ namespace IFCS
 {
     namespace Utils
     {
-        // char* GetCurrentTimeString()
-        // {
-        //     time_t curr_time;
-        //     char out_string[200];
-        //
-        //     time(&curr_time);
-        //     tm* LocalTime = localtime(&curr_time);
-        //     strftime(out_string, 100, "%T %Y/%m/%d", LocalTime);
-        //     return out_string;
-        // }
-
         std::string GetCurrentTimeString(bool IsStyled)
         {
             time_t rawtime;
@@ -93,16 +81,63 @@ namespace IFCS
             return GetLocText(LocID, s.PreferredLanguage);
         }
 
-        void AddSimpleTooltip(const char* Desc, float WrapSize)
+        void AddSimpleTooltip(const char* Desc, float WrapSize, float Offset)
         {
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
             {
+                if (Offset != 0.f)
+                {
+                    ImVec2 TooltipPos = ImGui::GetIO().MousePos;
+                    TooltipPos.x += Offset;
+                    ImGui::SetNextWindowPos(TooltipPos);
+                }
                 ImGui::BeginTooltip();
                 ImGui::PushTextWrapPos(ImGui::GetFontSize() * WrapSize);
                 ImGui::Text(Desc);
                 ImGui::PopTextWrapPos();
                 ImGui::EndTooltip();
             }
+        }
+
+        bool SelectableInput(const char* str_id, bool selected, ImGuiSelectableFlags flags, char* buf, size_t buf_size)
+        {
+            ImGuiContext& g = *GImGui;
+            ImGuiWindow* window = g.CurrentWindow;
+            ImVec2 pos_before = window->DC.CursorPos;
+            // ImVec2 pos_before = ImGui::GetCursorPos();
+
+            ImGui::PushID(str_id);
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
+                                ImVec2(g.Style.ItemSpacing.x, g.Style.FramePadding.y * 2.0f));
+            bool ret = ImGui::Selectable("##Selectable", selected,
+                                         flags | ImGuiSelectableFlags_AllowDoubleClick |
+                                         ImGuiSelectableFlags_AllowItemOverlap);
+            ImGui::PopStyleVar();
+
+            ImGuiID id = ImGui::GetID("##Input");
+            bool temp_input_is_active = ImGui::TempInputIsActive(id);
+            bool temp_input_start = ret ? ImGui::IsMouseDoubleClicked(0) : false;
+
+            if (temp_input_start)
+                ImGui::SetActiveID(id, ImGui::GetCurrentWindow());
+
+            if (temp_input_is_active || temp_input_start)
+            {
+                ImVec2 pos_after = window->DC.CursorPos;
+                // ImVec2 pos_after = ImGui::GetCursorPos();
+                window->DC.CursorPos = pos_before;
+                ImRect ItemRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+                ret = ImGui::TempInputText(ItemRect, id, "##Input", buf, (int)buf_size,
+                                           ImGuiInputTextFlags_None);
+                window->DC.CursorPos = pos_after;
+            }
+            else
+            {
+                ImGui::GetWindowDrawList()->AddText(pos_before, ImGui::GetColorU32(ImGuiCol_Text), buf);
+            }
+
+            ImGui::PopID();
+            return ret;
         }
 
         std::vector<std::string> Split(const std::string& str, const char& delimiter)
@@ -221,7 +256,7 @@ namespace IFCS
 
         float Distance(float X1, float Y1, float X2, float Y2)
         {
-            return (float)std::pow(std::pow(X1-X2, 2 ) + std::pow(Y1-Y2, 2), 0.5);
+            return (float)std::pow(std::pow(X1 - X2, 2) + std::pow(Y1 - Y2, 2), 0.5);
         }
     }
 }
