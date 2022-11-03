@@ -281,19 +281,15 @@ namespace IFCS
         YAML::Node ClipNode = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
         for (YAML::const_iterator it = ClipNode.begin(); it != ClipNode.end(); ++it)
         {
-            spdlog::info(it->first.as<std::string>());
             auto FrameNode = it->second.as<YAML::Node>();
             for (YAML::const_iterator it1 = FrameNode.begin(); it1 != FrameNode.end(); ++it1)
             {
                 uint64_t TT = it1->first.as<uint64_t>();
-                spdlog::info(TT);
                 auto ANode = it1->second.as<YAML::Node>();
                 for (YAML::const_iterator it2 = ANode.begin(); it2 != ANode.end(); ++it2)
                 {
                     uint64_t TTT = it2->first.as<uint64_t>();
-                    spdlog::info(TTT);
                     uint64_t CID = it2->second.as<YAML::Node>()["CategoryID"].as<uint64_t>();
-                    spdlog::info(CID);
                     Data[CID].TotalUsedCount += 1;
                 }
             }

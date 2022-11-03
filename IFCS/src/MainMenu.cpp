@@ -9,6 +9,7 @@
 #include "Log.h"
 #include "Train.h"
 #include "Detection.h"
+#include "Modals.h"
 #include "Setting.h"
 #include "TrainingSetGenerator.h"
 #include "Utils.h"
@@ -28,19 +29,26 @@ void IFCS::MainMenu::Render()
         {
             if (ImGui::MenuItem(LOCTEXT("ToolbarItem.NewProject")))
             {
-                
+                Modals::Get().IsModalOpen_NewProject = true;
             }
+            // TODO: recent projects...
             if (ImGui::MenuItem(LOCTEXT("ToolbarItem.LoadProject")))
             {
-                
+                Modals::Get().IsModalOpen_LoadProject = true;
             }
-            ImGui::MenuItem(LOCTEXT("ToolbarItem.ImportData"));
-            ImGui::MenuItem(LOCTEXT("ToolbarItem.ExportData"));
+            if (ImGui::MenuItem(LOCTEXT("ToolbarItem.ImportData")))
+            {
+                // TODO: weird problem that makes opening this widget so much buggy...
+                // Modals::Get().IsModalOpen_ImportData = true;
+            }
+            if (ImGui::MenuItem(LOCTEXT("ToolbarItem.ExportData")))
+            {
+                // Modals::Get().IsModalOpen_ExportData = true;
+            }
             ImGui::Separator();
             if (ImGui::MenuItem(LOCTEXT("ToolbarItem.Setting")))
             {
-                // ImGui::OpenPopup("Setting");
-                Setting::Get().IsModalOpen = true;
+                Modals::Get().IsModalOpen_Setting = true;
             }
             ImGui::Separator();
             if (ImGui::MenuItem(LOCTEXT("ToolbarItem.Quit")))
@@ -99,10 +107,22 @@ void IFCS::MainMenu::Render()
         }
         if (ImGui::BeginMenu(LOCTEXT("ToolbarMenu.Help")))
         {
-            ImGui::MenuItem(LOCTEXT("ToolbarItem.About"));
-            ImGui::MenuItem(LOCTEXT("ToolbarItem.Tutorial"));
-            ImGui::MenuItem(LOCTEXT("ToolbarItem.Contact"));
-            ImGui::MenuItem(LOCTEXT("ToolbarItem.Licence"));
+            if (ImGui::MenuItem(LOCTEXT("ToolbarItem.About")))
+            {
+                Modals::Get().IsModalOpen_About = true;
+            }
+            if (ImGui::MenuItem(LOCTEXT("ToolbarItem.Tutorial")))
+            {
+                Modals::Get().IsModalOpen_Tutorial = true;
+            }
+            if (ImGui::MenuItem(LOCTEXT("ToolbarItem.Contact")))
+            {
+                Modals::Get().IsModalOpen_Contact = true;
+            }
+            if (ImGui::MenuItem(LOCTEXT("ToolbarItem.Licence")))
+            {
+                Modals::Get().IsModalOpen_License = true;
+            }
             ImGui::EndMenu();
         }
         ImGui::Dummy({200, 1});

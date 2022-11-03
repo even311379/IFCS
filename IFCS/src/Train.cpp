@@ -13,6 +13,7 @@
 #include "ImFileDialog/ImFileDialog.h"
 #include "ImguiNotify/font_awesome_5.h"
 #include "imgui_stdlib.h"
+#include "Modals.h"
 #include "Style.h"
 
 #include "shellapi.h"
@@ -44,7 +45,7 @@ namespace IFCS
             ImGui::Text("Environment not setup yet!");
             if (ImGui::Button("Open setting to set it now?"))
             {
-                Setting::Get().IsModalOpen = true;
+                Modals::Get().IsModalOpen_Setting = true;
             }
             return;
         }

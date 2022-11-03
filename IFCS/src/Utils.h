@@ -66,12 +66,15 @@ namespace IFCS
             }
             return (T)out;
         }
-        
-        float Distance(float X1, float Y1, float X2, float Y2);
 
+        float Distance(float X1, float Y1, float X2, float Y2);
     }
 }
 
+/*
+ * Meyers Singleton
+ * Ref from: https://shengyu7697.github.io/cpp-singleton-pattern/
+ */
 #define MAKE_SINGLETON(class_name) \
     class_name()=default; \
     static class_name& Get() \

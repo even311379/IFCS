@@ -1,5 +1,6 @@
 ﻿#include "Setting.h"
 #include "Style.h"
+#include "Modals.h"
 
 #include <filesystem>
 #include <fstream>
@@ -13,7 +14,6 @@
 #include "Panel.h"
 #include "Detection.h"
 #include "TrainingSetGenerator.h"
-#include "ImFileDialog/ImFileDialog.h"
 #include "yaml-cpp/yaml.h"
 
 namespace IFCS
@@ -26,84 +26,6 @@ namespace IFCS
     /*
      * Modal might fail due tp ID stack issue... use specified boolean to control it could help!
      */
-    void Setting::RenderModal()
-    {
-        const ImVec2 Center = ImGui::GetMainViewport()->GetCenter();
-        ImGui::SetNextWindowPos(Center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-        if (ImGui::BeginPopupModal("Setting", &IsModalOpen, ImGuiWindowFlags_AlwaysAutoResize))
-        {
-            ImGui::BulletText("Choose Theme:");
-            ImGui::SameLine();
-            if (ImGui::RadioButton("Light", &ThemeToUse, 0))
-            {
-                Theme = ETheme::Light;
-                Style::ApplyTheme(Theme);
-            }
-            ImGui::SameLine();
-            if (ImGui::RadioButton("Dark", &ThemeToUse, 1))
-            {
-                Theme = ETheme::Dark;
-                Style::ApplyTheme(Theme);
-            }
-            ImGui::BulletText("Prefered Language:");
-            ImGui::SameLine();
-            // TODO: this is a static way... not considering future expansion yet...
-            const static char* LanguageOptions[] = {"English", "Traditional Chinese"};
-            ImGui::SetNextItemWidth(240.f);
-            ImGui::Combo("##Language_options", &LanguageToUse, LanguageOptions, IM_ARRAYSIZE(LanguageOptions));
-            const static char* AppSizeOptions[] = {
-                "FHD (1920 x 1080)", "2K (2560 x 1440)", "4k (3840 x 2160)", "Custom"
-            };
-            ImGui::BulletText("App size: ");
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(240.f);
-            ImGui::Combo("##AppSize", &AppSizeToUse, AppSizeOptions, IM_ARRAYSIZE(AppSizeOptions));
-            if (AppSizeToUse == 3)
-            {
-                ImGui::Separator();
-                ImGui::Indent();
-                ImGui::BeginGroup();
-                {
-                    ImGui::BulletText("Custom App size: ");
-                    ImGui::SetNextItemWidth(120.f);
-                    ImGui::SliderInt("Width", &CustomWidth, 1280, 3840);
-                    ImGui::SameLine();
-                    ImGui::SetNextItemWidth(120.f);
-                    ImGui::SliderInt("Height", &CustomHeight, 720, 2160);
-                    ImGui::BulletText("Size Adjustment: ");
-                    ImGui::SetNextItemWidth(120.f);
-                    ImGui::DragFloat("Widgets", &WidgetResizeScale, 0.2f, 0.1f, 10.f);
-                    ImGui::SameLine();
-                    ImGui::SetNextItemWidth(120.f);
-                    ImGui::DragFloat("Font", &GlobalFontScaling, 0.2f, 0.1f, 5.0f);
-                }
-                ImGui::EndGroup();
-                ImGui::Unindent();
-            }
-            ImGui::Separator();
-            ImGui::BulletText("Yolo v7 Environment");
-            ImGui::InputText("Python path", TempPythonPath, IM_ARRAYSIZE(TempPythonPath), ImGuiInputTextFlags_ReadOnly);
-            ImGui::SameLine();
-            if (ImGui::Button("Choose"))
-            {
-                IsChoosingFolder = true;
-                ifd::FileDialog::Instance().Open("ChoosePythonPath", "Choose python path", "");
-            }
-            ImGui::InputText("Yolo v7 path", TempYoloV7Path, IM_ARRAYSIZE(TempYoloV7Path), ImGuiInputTextFlags_ReadOnly);
-            ImGui::SameLine();
-            if (ImGui::Button("Choose Yolo V7 Folder"))
-            {
-                IsChoosingFolder = true;
-                ifd::FileDialog::Instance().Open("ChooseYoloV7Path", "Choose yolo V7 path", "");
-            }
-            if (ImGui::Button("OK", ImVec2(ImGui::GetWindowWidth() * 0.2f, ImGui::GetFontSize() * 1.5f)))
-            {
-                ImGui::CloseCurrentPopup();
-                IsModalOpen = false;
-            }
-            ImGui::EndPopup();
-        }
-    }
 
     void Setting::LoadEditorIni()
     {
@@ -137,12 +59,10 @@ namespace IFCS
         PreferredLanguage = static_cast<ESupportedLanguage>(UserIni["PreferredLanguage"].as<int>());
         ActiveWorkspace = static_cast<EWorkspace>(UserIni["ActiveWorkspace"].as<int>());
         Theme = static_cast<ETheme>(UserIni["Theme"].as<int>());
-        ThemeToUse = static_cast<int>(Theme);
         PythonPath = UserIni["PythonPath"].as<std::string>();
         YoloV7Path = UserIni["YoloV7Path"].as<std::string>();
-        strcpy(TempPythonPath, PythonPath.c_str());
-        strcpy(TempYoloV7Path, YoloV7Path.c_str());
         Style::ApplyTheme(Theme);
+        Modals::Get().Sync();
         ProjectIsLoaded = true;
     }
 

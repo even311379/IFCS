@@ -123,25 +123,25 @@ namespace IFCS
         char MM[128];
     };
     
-   /*
-    * TODO: returned dir path encode error?
-    * TODO: ... this shoul be Modal!!!! not a normal panel...
-    */ 
-    class WelcomeModal
-    {
-    public:
-        MAKE_SINGLETON(WelcomeModal)
-        void Render();
-        bool IsChoosingFolder = false;
-        char TempProjectLocation[256];
-        char TempExistingProjectLocation[256];
-    private:
-        // ImVec2 pos;
-        // ImVec2 size;
-        char TempProjectName[128];
-        bool CheckValidProjectName();
-        bool CheckValidExistingProject();
-    };
+   // /*
+   //  * TODO: returned dir path encode error?
+   //  * TODO: ... this shoul be Modal!!!! not a normal panel...
+   //  */ 
+   //  class WelcomeModal
+   //  {
+   //  public:
+   //      MAKE_SINGLETON(WelcomeModal)
+   //      void Render();
+   //      bool IsChoosingFolder = false;
+   //      char TempProjectLocation[256];
+   //      char TempExistingProjectLocation[256];
+   //  private:
+   //      // ImVec2 pos;
+   //      // ImVec2 size;
+   //      char TempProjectName[128];
+   //      bool CheckValidProjectName();
+   //      bool CheckValidExistingProject();
+   //  };
 
     
 }

@@ -1,10 +1,9 @@
 ﻿#include "Detection.h"
 
-#include <charconv>
-
 #include "DataBrowser.h"
 #include "Setting.h"
 #include "Style.h"
+#include "Modals.h"
 
 #include "ImguiNotify/font_awesome_5.h"
 #include "Implot/implot.h"
@@ -17,6 +16,7 @@
 #include "yaml-cpp/yaml.h"
 #include "opencv2/opencv.hpp"
 #include <GLFW/glfw3.h>
+
 
 namespace IFCS
 {
@@ -32,6 +32,15 @@ namespace IFCS
 
     void Detection::RenderContent()
     {
+        if (!Setting::Get().IsEnvSet())
+        {
+            ImGui::Text("Environment not setup yet!");
+            if (ImGui::Button("Open setting to set it now?"))
+            {
+                Modals::Get().IsModalOpen_Setting = true;
+            }
+            return;
+        }
         if (ImGui::TreeNodeEx("Make Detection", ImGuiTreeNodeFlags_DefaultOpen))
         {
             const float AvailWidth = ImGui::GetContentRegionAvail().x;

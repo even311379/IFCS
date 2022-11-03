@@ -176,7 +176,7 @@ namespace IFCS
     {
         if (!Setting::Get().ProjectIsLoaded) return;
         // Inside child window to have independent scroll
-        static std::string ClipFolderPath = Setting::Get().ProjectPath + "/Clips";
+        const std::string ClipFolderPath = Setting::Get().ProjectPath + "/Clips";
         ImGui::PushFont(Setting::Get().TitleFont);
         ImGui::Text("Data Browser");
         ImGui::PopFont();

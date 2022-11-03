@@ -133,7 +133,11 @@ namespace IFCS
             glfwSetWindowTitle(Window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
             CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
         }
-
+        else
+        {
+            Modals::Get().IsModalOpen_Welcome = true;
+        }
+        
         // DEV
         // TestPanel* test = new TestPanel();
         // test->Setup("abstraction", true, 0);
@@ -173,16 +177,6 @@ namespace IFCS
 
             // task modals
             Modals::Get().Render();
-            // if (!Setting::Get().ProjectIsLoaded && !WelcomeModal::Get().IsChoosingFolder)
-            // {
-            //     ImGui::OpenPopup("Welcome");
-            // }
-            // if (Setting::Get().IsModalOpen && !Setting::Get().IsChoosingFolder)
-            // {
-            //     ImGui::OpenPopup("Setting");
-            // }
-            // WelcomeModal::Get().Render();
-            // Setting::Get().RenderModal();
 
             // Dev panels
             // test->Render();
@@ -248,51 +242,6 @@ namespace IFCS
 
     void Application::HandleDialogClose()
     {
-        if (ifd::FileDialog::Instance().IsDone("ChooseExistingProjectLocationDialog"))
-        {
-            if (ifd::FileDialog::Instance().HasResult())
-            {
-                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-                std::replace(RawString.begin(), RawString.end(), '\\', '/');
-                strcpy(WelcomeModal::Get().TempExistingProjectLocation, RawString.c_str());
-            }
-            ifd::FileDialog::Instance().Close();
-            WelcomeModal::Get().IsChoosingFolder = false;
-        }
-        if (ifd::FileDialog::Instance().IsDone("ChooseNewProjectLocationDialog"))
-        {
-            if (ifd::FileDialog::Instance().HasResult())
-            {
-                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-                std::replace(RawString.begin(), RawString.end(), '\\', '/');
-                strcpy(WelcomeModal::Get().TempProjectLocation, RawString.c_str());
-            }
-            ifd::FileDialog::Instance().Close();
-            WelcomeModal::Get().IsChoosingFolder = false;
-        }
-        if (ifd::FileDialog::Instance().IsDone("ChoosePythonPath"))
-        {
-            if (ifd::FileDialog::Instance().HasResult())
-            {
-                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-                std::replace(RawString.begin(), RawString.end(), '\\', '/');
-                strcpy(Setting::Get().TempPythonPath, RawString.c_str());
-                Setting::Get().PythonPath = RawString;
-            }
-            ifd::FileDialog::Instance().Close();
-            Setting::Get().IsChoosingFolder = false;
-        }
-        if (ifd::FileDialog::Instance().IsDone("ChooseYoloV7Path"))
-        {
-            if (ifd::FileDialog::Instance().HasResult())
-            {
-                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-                std::replace(RawString.begin(), RawString.end(), '\\', '/');
-                strcpy(Setting::Get().TempYoloV7Path, RawString.c_str());
-                Setting::Get().YoloV7Path = RawString;
-            }
-            ifd::FileDialog::Instance().Close();
-            Setting::Get().IsChoosingFolder = false;
-        }
+
     }
 }
