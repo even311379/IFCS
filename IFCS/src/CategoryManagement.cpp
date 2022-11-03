@@ -15,7 +15,6 @@
 
 namespace IFCS
 {
-    // TODO: Add delete cat and make editable cat name
     void CategoryManagement::Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose)
     {
         Panel::Setup(InName, InShouldOpen, InFlags, InCanClose);

@@ -19,6 +19,7 @@
 #include "MainMenu.h"
 #include "Train.h"
 #include "Detection.h"
+#include "Modals.h"
 #include "TrainingSetGenerator.h"
 #include "Utils.h"
 
@@ -52,7 +53,6 @@ namespace IFCS
 
     void Application::init()
     {
-        
         glfwSetErrorCallback(glfw_error_callback);
         if (!glfwInit()) return;
 
@@ -66,7 +66,7 @@ namespace IFCS
         Window = glfwCreateWindow(1920, 1030, "IFCS", NULL, NULL);
         if (Window == NULL) return;
         glfwSetWindowPos(Window, 0, 50);
-    	glfwSetWindowAttrib(Window, GLFW_RESIZABLE, 0);
+        glfwSetWindowAttrib(Window, GLFW_RESIZABLE, 0);
         glfwMakeContextCurrent(Window);
         glfwSwapInterval(1); // enable vsync
 
@@ -93,51 +93,53 @@ namespace IFCS
 
         // load font
         // first loaded will become default font!
-        Setting::Get().DefaultFont = io.Fonts->AddFontFromFileTTF("Resources/Font/cjkFonts_allseto_v1.11.ttf", 18.0f, NULL,
-                                     io.Fonts->GetGlyphRangesChineseFull());
+        Style::ApplyTheme();
+        Setting::Get().DefaultFont = io.Fonts->AddFontFromFileTTF("Resources/Font/cjkFonts_allseto_v1.11.ttf", 18.0f,
+                                                                  NULL,
+                                                                  io.Fonts->GetGlyphRangesChineseFull());
         ImFontConfig font_cfg;
         font_cfg.FontDataOwnedByAtlas = false;
         font_cfg.MergeMode = true;
         font_cfg.GlyphMaxAdvanceX = 16.0f;
         static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
         io.Fonts->AddFontFromMemoryTTF((void*)fa_solid_900, sizeof(fa_solid_900), 18.f, &font_cfg, icon_ranges);
-    	io.Fonts->Build();
-		// instead of dummy way to load same file twice... use deep copy and set scale 1.5?
-    	Setting::Get().TitleFont = new ImFont;
-		*Setting::Get().TitleFont = *Setting::Get().DefaultFont; // is this so called deep copy?
-    	Setting::Get().TitleFont->Scale = 1.5;
+        io.Fonts->Build();
+        // instead of dummy way to load same file twice... use deep copy and set scale 1.5?
+        Setting::Get().TitleFont = new ImFont;
+        *Setting::Get().TitleFont = *Setting::Get().DefaultFont; // is this so called deep copy?
+        Setting::Get().TitleFont->Scale = 1.5;
 
         // load static images?
-    	
     }
 
     void Application::run()
     {
-    	// setup third party stuff
-    	CreateFileDialog();
+        // setup third party stuff
+        CreateFileDialog();
 
-    	// setup this app
-    	MainMenu::Get().SetApp(this);
+        // setup this app
+        MainMenu::Get().SetApp(this);
         BGPanel::Get().Setup();
         Setting::Get().LoadEditorIni();
         LogPanel::Get().Setup("Log", false, 0);
-    	DataBrowser::Get().Setup("Data Browser", true, 0);
-    	FrameExtractor::Get().Setup("Frame Extractor", true, 0);
-    	Annotation::Get().Setup("Annotation", true, 0);
-    	TrainingSetGenerator::Get().Setup("Training Set Generator", true, 0);
-    	Train::Get().Setup("Model Generator", true, 0);
-    	Detection::Get().Setup("Prediction", true, 0);
-    	CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
-    	if (Setting::Get().ProjectIsLoaded)
-			glfwSetWindowTitle(Window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
+        DataBrowser::Get().Setup("Data Browser", true, 0);
+        FrameExtractor::Get().Setup("Frame Extractor", true, 0);
+        Annotation::Get().Setup("Annotation", true, 0);
+        TrainingSetGenerator::Get().Setup("Training Set Generator", true, 0);
+        Train::Get().Setup("Model Generator", true, 0);
+        Detection::Get().Setup("Prediction", true, 0);
+        if (Setting::Get().ProjectIsLoaded)
+        {
+            glfwSetWindowTitle(Window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
+            CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
+        }
 
-
-    	// DEV
+        // DEV
         // TestPanel* test = new TestPanel();
         // test->Setup("abstraction", true, 0);
-    	// UtilPanel::Get().Setup("Util", true, 0);
+        // UtilPanel::Get().Setup("Util", true, 0);
 
-    	int tick = 0;
+        int tick = 0;
         while (!glfwWindowShouldClose(Window))
         {
             glfwPollEvents();
@@ -145,45 +147,56 @@ namespace IFCS
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
 
+            if (Setting::Get().JustSetup)
+            {
+                glfwSetWindowTitle(Window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
+                CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
+                Setting::Get().JustSetup = false;
+            }
+
             // render all the contents...
             BGPanel::Get().Render();
             MainMenu::Get().Render();
             LogPanel::Get().Render();
 
             // major panels
-            DataBrowser::Get().Render();
-        	FrameExtractor::Get().Render();
-        	Annotation::Get().Render();
-        	TrainingSetGenerator::Get().Render();
-        	CategoryManagement::Get().Render();
-        	Train::Get().Render();
-        	Detection::Get().Render();
+            if (Setting::Get().ProjectIsLoaded)
+            {
+                DataBrowser::Get().Render();
+                FrameExtractor::Get().Render();
+                Annotation::Get().Render();
+                TrainingSetGenerator::Get().Render();
+                CategoryManagement::Get().Render();
+                Train::Get().Render();
+                Detection::Get().Render();
+            }
 
             // task modals
-        	if (!Setting::Get().ProjectIsLoaded && !WelcomeModal::Get().IsChoosingFolder)
-        	{
-        		ImGui::OpenPopup("Welcome");
-        	}
-        	if (Setting::Get().IsModalOpen && !Setting::Get().IsChoosingFolder)
-        	{
-        		ImGui::OpenPopup("Setting");
-        	}
-			WelcomeModal::Get().Render();
-        	Setting::Get().RenderModal();
+            Modals::Get().Render();
+            // if (!Setting::Get().ProjectIsLoaded && !WelcomeModal::Get().IsChoosingFolder)
+            // {
+            //     ImGui::OpenPopup("Welcome");
+            // }
+            // if (Setting::Get().IsModalOpen && !Setting::Get().IsChoosingFolder)
+            // {
+            //     ImGui::OpenPopup("Setting");
+            // }
+            // WelcomeModal::Get().Render();
+            // Setting::Get().RenderModal();
 
             // Dev panels
             // test->Render();
             // ImGui::ShowDemoWindow();
-        	// UtilPanel::Get().Render();
-        	// ImPlot::ShowDemoWindow();
+            // UtilPanel::Get().Render();
+            // ImPlot::ShowDemoWindow();
 
-        	// third party close/end
-        	HandleDialogClose();
+            // third party close/end
+            HandleDialogClose();
 
-        	if (tick == 1)
-        	{
-        		Setting::Get().Tick1();
-        	}
+            if (tick == 1)
+            {
+                Setting::Get().Tick1();
+            }
 
             // end of render content
             // Rendering
@@ -197,85 +210,89 @@ namespace IFCS
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
             glfwSwapBuffers(Window);
 
-			if (RequestToQuit)
-			{
-				glfwDestroyWindow(Window);
-			}
-        	
-        	tick ++;
+            if (RequestToQuit)
+            {
+                glfwDestroyWindow(Window);
+            }
+
+            tick ++;
         }
-    	Detection::Get().ClearCacheIndividuals();
-    	Setting::Get().Save();
+        Detection::Get().ClearCacheIndividuals();
+        Setting::Get().Save();
     }
 
     void Application::CreateFileDialog()
     {
-		ifd::FileDialog::Instance().CreateTexture = [](uint8_t* data, int w, int h, char fmt) -> void* {
-			GLuint tex;
+        ifd::FileDialog::Instance().CreateTexture = [](uint8_t* data, int w, int h, char fmt) -> void*
+        {
+            GLuint tex;
 
-			glGenTextures(1, &tex);
-			glBindTexture(GL_TEXTURE_2D, tex);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-			// glGenerateMipmap(GL_TEXTURE_2D);
-			glBindTexture(GL_TEXTURE_2D, 0);
+            glGenTextures(1, &tex);
+            glBindTexture(GL_TEXTURE_2D, tex);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+            // glGenerateMipmap(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, 0);
 
-			return (void*)(intptr_t)tex;
-		};
-		ifd::FileDialog::Instance().DeleteTexture = [](void* tex) {
-			GLuint texID = (GLuint)((uintptr_t)tex);
-			glDeleteTextures(1, &texID);
-		};
+            return (void*)(intptr_t)tex;
+        };
+        ifd::FileDialog::Instance().DeleteTexture = [](void* tex)
+        {
+            GLuint texID = (GLuint)((uintptr_t)tex);
+            glDeleteTextures(1, &texID);
+        };
     }
 
     void Application::HandleDialogClose()
     {
-		if (ifd::FileDialog::Instance().IsDone("ChooseExistingProjectLocationDialog")) {
-			if (ifd::FileDialog::Instance().HasResult()) {
-				std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-				std::replace(RawString.begin(), RawString.end(), '\\', '/');
-				strcpy(WelcomeModal::Get().TempProjectLocation, RawString.c_str());
-				// char buff[128];
-				// sprintf(buff,  "Choose project location: %s.", RawString.c_str());
-				// LogPanel::Get().AddLog(ELogLevel::Info, buff);
-			}
-			ifd::FileDialog::Instance().Close();
-			WelcomeModal::Get().IsChoosingFolder = false;
-		}
-		if (ifd::FileDialog::Instance().IsDone("ChooseNewProjectLocationDialog")) {
-			if (ifd::FileDialog::Instance().HasResult()) {
-				std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-				std::replace(RawString.begin(), RawString.end(), '\\', '/');
-				strcpy(WelcomeModal::Get().TempProjectLocation, RawString.c_str());
-				// char buff[128];
-				// sprintf(buff,  "Choose project location: %s.", RawString.c_str());
-				// LogPanel::Get().AddLog(ELogLevel::Info, buff);
-			}
-			ifd::FileDialog::Instance().Close();
-			WelcomeModal::Get().IsChoosingFolder = false;
-		}
-		if (ifd::FileDialog::Instance().IsDone("ChoosePythonPath")) {
-			if (ifd::FileDialog::Instance().HasResult()) {
-				std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-				std::replace(RawString.begin(), RawString.end(), '\\', '/');
-				strcpy(Setting::Get().TempPythonPath, RawString.c_str());
-				Setting::Get().PythonPath = RawString;
-			}
-			ifd::FileDialog::Instance().Close();
-			Setting::Get().IsChoosingFolder = false;
-		}
-		if (ifd::FileDialog::Instance().IsDone("ChooseYoloV7Path")) {
-			if (ifd::FileDialog::Instance().HasResult()) {
-				std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-				std::replace(RawString.begin(), RawString.end(), '\\', '/');
-				strcpy(Setting::Get().TempYoloV7Path, RawString.c_str());
-				Setting::Get().YoloV7Path = RawString;
-			}
-			ifd::FileDialog::Instance().Close();
-			Setting::Get().IsChoosingFolder = false;
-		}
+        if (ifd::FileDialog::Instance().IsDone("ChooseExistingProjectLocationDialog"))
+        {
+            if (ifd::FileDialog::Instance().HasResult())
+            {
+                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
+                std::replace(RawString.begin(), RawString.end(), '\\', '/');
+                strcpy(WelcomeModal::Get().TempExistingProjectLocation, RawString.c_str());
+            }
+            ifd::FileDialog::Instance().Close();
+            WelcomeModal::Get().IsChoosingFolder = false;
+        }
+        if (ifd::FileDialog::Instance().IsDone("ChooseNewProjectLocationDialog"))
+        {
+            if (ifd::FileDialog::Instance().HasResult())
+            {
+                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
+                std::replace(RawString.begin(), RawString.end(), '\\', '/');
+                strcpy(WelcomeModal::Get().TempProjectLocation, RawString.c_str());
+            }
+            ifd::FileDialog::Instance().Close();
+            WelcomeModal::Get().IsChoosingFolder = false;
+        }
+        if (ifd::FileDialog::Instance().IsDone("ChoosePythonPath"))
+        {
+            if (ifd::FileDialog::Instance().HasResult())
+            {
+                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
+                std::replace(RawString.begin(), RawString.end(), '\\', '/');
+                strcpy(Setting::Get().TempPythonPath, RawString.c_str());
+                Setting::Get().PythonPath = RawString;
+            }
+            ifd::FileDialog::Instance().Close();
+            Setting::Get().IsChoosingFolder = false;
+        }
+        if (ifd::FileDialog::Instance().IsDone("ChooseYoloV7Path"))
+        {
+            if (ifd::FileDialog::Instance().HasResult())
+            {
+                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
+                std::replace(RawString.begin(), RawString.end(), '\\', '/');
+                strcpy(Setting::Get().TempYoloV7Path, RawString.c_str());
+                Setting::Get().YoloV7Path = RawString;
+            }
+            ifd::FileDialog::Instance().Close();
+            Setting::Get().IsChoosingFolder = false;
+        }
     }
 }

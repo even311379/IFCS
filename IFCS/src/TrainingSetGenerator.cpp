@@ -102,7 +102,7 @@ namespace IFCS
         UpdateExportInfo();
     }
 
-    // TODO: WRONG! change of Cat to export may affect frames to extract... So many work needed for that...
+    // TODO: should be perfect, but test is still needed...
     void TrainingSetGenerator::GenerateTrainingSet()
     {
         if (std::strlen(NewTrainingSetName) == 0) return;
@@ -215,9 +215,14 @@ namespace IFCS
                 std::string GenName = Clip.substr(ProjectPath.size() + 1) + "_" + std::to_string(FrameNum);
                 std::replace(GenName.begin(), GenName.end(), '/', '-');
                 std::vector<FAnnotation> Annotations;
-                YAML::Node Node = it->second.as<YAML::Node>();
+                auto Node = it->second.as<YAML::Node>();
+                // should check category in each frame
                 for (YAML::const_iterator A = Node.begin(); A != Node.end(); ++A)
-                    Annotations.push_back(FAnnotation(A->second.as<YAML::Node>()));
+                {
+                    if (CategoriesChecker[A->second["CategoryID"].as<uint64_t>()])
+                        Annotations.emplace_back(A->second);
+                }
+                if (Annotations.empty()) continue;
 
                 if (std::find(TrainingIdx.begin(), TrainingIdx.end(), N) != TrainingIdx.end())
                 {
@@ -265,16 +270,15 @@ namespace IFCS
             Frame = GenerateAugentationImage(Frame, ShiftData);
         }
         cv::imwrite(OutImgName, Frame);
-        // TODO: this writes nothing now... fix it!!!
         std::ofstream ofs;
-        /*ofs.open(OutTxtName);
+        ofs.open(OutTxtName);
         if (ofs.is_open())
         {
             for (auto& A : InAnnotations)
             {
-                ofs << A.GetExportTxt(CategoryToExport, ShiftData).c_str() << std::endl;
+                ofs << A.GetExportTxt(CategoryExportID[A.CategoryID], ShiftData).c_str() << std::endl;
             }
-        }*/
+        }
         ofs.close();
     }
 
@@ -352,6 +356,7 @@ namespace IFCS
             if (FlipXPercent >= Utils::RandomIntInRange(0, 100))
             {
                 cv::flip(Img, Img, 0);
+                OutShift.IsFlipX = true;
             }
         }
         if (bApplyFlipY)
@@ -359,11 +364,13 @@ namespace IFCS
             if (FlipYPercent >= Utils::RandomIntInRange(0, 100))
             {
                 cv::flip(Img, Img, 1);
+                OutShift.IsFlipY = true;
             }
         }
         if (bApplyRotation)
         {
             int RotationAmount = Utils::RandomIntInRange(-MaxRotationAmount, MaxRotationAmount);
+            OutShift.RotationDegree = RotationAmount;
             cv::Mat ForRotation = cv::getRotationMatrix2D(cv::Point(Img.rows / 2, Img.cols / 2), RotationAmount, 1);
             cv::warpAffine(Img, Img, ForRotation, Img.size());
         }
@@ -386,10 +393,16 @@ namespace IFCS
         YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
         auto CatData = CategoryManagement::Get().Data;
         CategoriesToExport.clear();
+        CategoryExportID.clear();
+        int i = 0;
         for (const auto& [UID, Check] : CategoriesChecker)
         {
             if (Check)
+            {
                 CategoriesToExport[CatData[UID].DisplayName] = 0;
+                CategoryExportID[UID] = i;
+                i++;
+            }
         }
         NumIncludedFrames = 0;
         NumIncludedAnnotation = 0;
@@ -412,10 +425,6 @@ namespace IFCS
                 if (ContainsExportedCategory) NumIncludedFrames += 1;
             }
         }
-        for (auto [c, i] : CategoriesToExport)
-        {
-            spdlog::warn("{}:{} ... is this correct?", c, i);
-        }
         TotalExportImages = NumIncludedFrames + NumIncludedImages;
         SplitImgs[0] = int(SplitPercent[0] * 0.01f * TotalExportImages);
         SplitImgs[1] = int(SplitPercent[1] * 0.01f * TotalExportImages);
@@ -427,10 +436,11 @@ namespace IFCS
         ImGui::Text("Select which folders / clips to include in this training set:");
         const ImVec2 FrameSize = ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 9);
         float HalfWidth = ImGui::GetContentRegionAvail().x * 0.5f;
+        const size_t RelativeClipNameOffset = Setting::Get().ProjectPath.size() + 7;
         ImGui::BeginChildFrame(ImGui::GetID("Included Contents"), FrameSize, ImGuiWindowFlags_NoMove);
         for (const std::string& Clip : IncludedGenClips)
         {
-            std::string s = Clip.substr(Setting::Get().ProjectPath.size() + 1);
+            std::string s = Clip.substr(RelativeClipNameOffset);
             ImGui::Text(s.c_str());
         }
         ImGui::EndChildFrame();
@@ -445,7 +455,6 @@ namespace IFCS
         char AddClipPreviewTitle[128];
         sprintf(AddClipPreviewTitle, "%s Add Clip", ICON_FA_PLUS);
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.5f);
-        // TODO: remove the project path...
         if (ImGui::BeginCombo("##AddClip", AddClipPreviewTitle))
         {
             std::vector<std::string> AllClips = DataBrowser::Get().GetAllClips();
@@ -457,7 +466,7 @@ namespace IFCS
             AllClips.erase(NewEnd, AllClips.end());
             for (size_t i = 0; i < AllClips.size(); i++)
             {
-                if (ImGui::Selectable(AllClips[i].c_str(), false)) // no need to show selected
+                if (ImGui::Selectable(AllClips[i].substr(RelativeClipNameOffset).c_str(), false)) // no need to show selected
                 {
                     IncludeGenClip(AllClips[i]);
                 }
@@ -470,21 +479,22 @@ namespace IFCS
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
         if (ImGui::BeginCombo("##AddFolder", AddFolderPreviewTitle))
         {
-            std::vector<std::string> AllFolders = DataBrowser::Get().GetAllFolders();
+            ImGui::Selectable("Not supported yet...");
+            // TODO: leave include folder for now...
+            /*std::vector<std::string> AllFolders = DataBrowser::Get().GetAllFolders();
             auto NewEnd = std::remove_if(AllFolders.begin(), AllFolders.end(), [this](const std::string& C)
             {
                 return std::find(IncludedImageFolders.begin(), IncludedImageFolders.end(), C) !=
                     IncludedImageFolders.end();
             });
             AllFolders.erase(NewEnd, AllFolders.end());
-            // TODO: leave include folder for now...
             for (size_t i = 0; i < AllFolders.size(); i++)
             {
                 if (ImGui::Selectable(AllFolders[i].c_str(), false)) // no need to show selected
                 {
                     IncludeGenFolder(AllFolders[i]);
                 }
-            }
+            }*/
             ImGui::EndCombo();
         }
         if (ImGui::Button("Add All", ImVec2(HalfWidth, ImGui::GetFontSize() * 1.5f)))

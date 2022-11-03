@@ -33,6 +33,7 @@ namespace IFCS
         void Save();
         void Tick1();
         void CreateStartup();
+        void StartFromPreviousProject();
         std::string ProjectPath;
         std::set<std::string> RecentProjects;
         std::string Project;
@@ -54,6 +55,7 @@ namespace IFCS
         char TempYoloV7Path[128];
         char TempPythonEnv[128];
         bool IsEnvSet() const;
+        bool JustSetup = false;
     private:
         // modal  vars
         int ThemeToUse = 0;

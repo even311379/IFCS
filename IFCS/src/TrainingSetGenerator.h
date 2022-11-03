@@ -7,12 +7,6 @@
 
 namespace IFCS
 {
-    // struct FAvailFrames 
-    // {
-    //     std::string Clip;
-    //     int FrameNum;
-    // };
-    //
     class TrainingSetGenerator : public Panel
     {
     protected:
@@ -32,7 +26,7 @@ namespace IFCS
         std::set<std::string> IncludedImageFolders;
         std::unordered_map<UUID, bool> CategoriesChecker;
         std::map<std::string, int> CategoriesToExport; // displayname, and export count
-        // std::vector<FAvailFrames> AvailFrames;
+        std::map<UUID, int> CategoryExportID;
         int NumIncludedFrames = 0;
         int NumIncludedImages = 0; // leave for future update...
         int TotalExportImages = 1;

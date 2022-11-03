@@ -23,7 +23,9 @@ namespace IFCS
     }
 
 
-    // TODO: the way modal works is very different from example code, what could it get wrong?
+    /*
+     * Modal might fail due tp ID stack issue... use specified boolean to control it could help!
+     */
     void Setting::RenderModal()
     {
         const ImVec2 Center = ImGui::GetMainViewport()->GetCenter();
@@ -79,7 +81,7 @@ namespace IFCS
                 ImGui::Unindent();
             }
             ImGui::Separator();
-            ImGui::Text("Yolo v7 Environment");
+            ImGui::BulletText("Yolo v7 Environment");
             ImGui::InputText("Python path", TempPythonPath, IM_ARRAYSIZE(TempPythonPath), ImGuiInputTextFlags_ReadOnly);
             ImGui::SameLine();
             if (ImGui::Button("Choose"))
@@ -129,6 +131,7 @@ namespace IFCS
 
     void Setting::LoadUserIni()
     {
+        if (ProjectPath == "null") return;
         YAML::Node UserIni = YAML::LoadFile(ProjectPath + std::string("/IFCSUser.ini"));
         Project = UserIni["Project"].as<std::string>();
         PreferredLanguage = static_cast<ESupportedLanguage>(UserIni["PreferredLanguage"].as<int>());
@@ -192,17 +195,23 @@ namespace IFCS
         // lack of ..."i"...tra_ning ... waste me 2 hours...
         std::filesystem::create_directories(ProjectPath + std::string("/Images"));
         std::filesystem::create_directories(ProjectPath + std::string("/Models"));
-        // TODO: check what to create in later dev cycle
         std::filesystem::create_directories(ProjectPath + std::string("/Detections"));
         std::filesystem::create_directories(ProjectPath + std::string("/Data"));
-        // should create empty files for future use...
         std::ofstream output1(ProjectPath + std::string("/Data/Annotations.yaml"));
         std::ofstream output2(ProjectPath + std::string("/Data/Categories.yaml"));
         std::ofstream output3(ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
         std::ofstream output4(ProjectPath + std::string("/Data/TrainingSets.yaml"));
         std::ofstream output5(ProjectPath + std::string("/Models/Models.yaml"));
         std::ofstream output6(ProjectPath + std::string("/Detections/Detections.yaml"));
+        std::ofstream output7(ProjectPath + std::string("/Data/Reviews.yaml"));
         Save();
+        JustSetup = true;
+    }
+
+    void Setting::StartFromPreviousProject()
+    {
+        RecentProjects.insert(ProjectPath);
+        LoadUserIni();
     }
 
     void Setting::SetWorkspace(EWorkspace NewWorkspace)

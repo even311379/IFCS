@@ -14,16 +14,19 @@ namespace IFCS
         MAKE_SINGLETON(DataBrowser)
         void Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose = true) override;
         void LoadOtherFrame(bool IsNext); // ture for next, false for previous
-        void LoadFrame(int FrameNumber);
+        void LoadFrame(int FrameNumber); // if frame num < 0 .. load first extracted frame
         // TODO: make access of opencv clip info centric to here...
         std::vector<std::string> GetAllClips() const;
         std::vector<std::string> GetAllFolders() const;
 
+        bool MakeClipSelectCombo();
+        void MakeFrameSelectCombo();
+        bool IsFramesEmpty() const {return FramesData.empty(); }
         FClipInfo SelectedClipInfo;
         int SelectedFrame = -1;
-        std::string FrameTitle;
+        bool IsSelectedFrameReviewed;
+        std::string ReviewTime;
         unsigned int LoadedFramePtr;
-        bool AnyFrameLoaded = false;
         bool ShouldUpdateData = false;
 
     protected:
@@ -33,14 +36,13 @@ namespace IFCS
         void RecursiveClipTreeNodeGenerator(const std::filesystem::path& Path, unsigned int Depth);
         void CreateSeletable_TrainingSets();
         void CreateSeletable_Models();
-        void CreateSeletable_Predictions();
+        void CreateSeletable_Detections();
         void RenderDetailWidget();
         void UpdateData();
-        void MakeFrameTitle();
+        // void MakeFrameTitle();
         bool HasAnyClip = false;
         bool HasAnyImage = false;
         ImVec2 GetBtnSize();
-        float TimePassed;
         bool NeedReviewedOnly;
         bool IsViewingSomeDetail() const;
         void DeselectAll(); // Make sure only one asset is selected...
@@ -51,7 +53,7 @@ namespace IFCS
         FTrainingSetDescription TrainingSetDescription;
         std::string SelectedModel;
         FModelDescription ModelDescription;
-        std::string SelectedPrediction;
-        FDetectionDescription PredictionDescription;
+        std::string SelectedDetection;
+        FDetectionDescription DetectionDescription;
     };
 }

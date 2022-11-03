@@ -68,6 +68,7 @@ namespace IFCS
         int Height;
         float FPS;
         std::string GetClipFileName() const;
+        std::string GetRelativePath() const;
     };
 
     //TODO: when to serialize them to the yaml file?
@@ -161,7 +162,7 @@ namespace IFCS
         std::string ModelType;
         std::string HyperParameter;
         std::string SourceTrainingSet; // name
-        float TrainingTime = 0; // hours
+        float TrainingTime = 0.f; // hours
         std::array<int, 2> ImageSize = {748, 432};
         int BatchSize = 0;
         int NumEpochs = 0;
@@ -174,7 +175,6 @@ namespace IFCS
         void MakeDetailWidget();
     };
 
-    // TODO: carry category info here??
     struct FDetectionDescription
     {
         FDetectionDescription() = default;

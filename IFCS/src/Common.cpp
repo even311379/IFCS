@@ -12,6 +12,13 @@ namespace IFCS
         return temp.back();
     }
 
+    std::string FClipInfo::GetRelativePath() const
+    {
+        if (!Setting::Get().ProjectIsLoaded) return ClipPath;
+        if (ClipPath.empty()) return ClipPath;
+        return ClipPath.substr(Setting::Get().ProjectPath.size() + 7);
+    }
+
     FCategory::FCategory(std::string NewDisplayName)
     {
         DisplayName = NewDisplayName;
@@ -184,7 +191,6 @@ namespace IFCS
         AppliedAugmentationDescription = InputNode["AppliedAugmentationDescription"].as<std::string>();
     }
 
-    // TODO: detail widgets not completed!
     void FTrainingSetDescription::MakeDetailWidget()
     {
         float Width = ImGui::GetContentRegionAvail().x;
@@ -207,14 +213,26 @@ namespace IFCS
             ImGui::Text("PASS");
             ImGui::EndChildFrame();
         }
-        // Utils::AddTitle("%s", SelectedTrainingSet.c_str());
-        // ImGui::BulletText("Creation time:");
-        // ImGui::Indent();
-        // ImGui::TextWrapped(TrainingSetDescription.CreationTime.c_str());
-        // ImGui::Unindent();
-        //
-        //
-        // TrainingSetDescription.CreationTime.c_str());
+        // Cats
+        std::string OutCatTxt;
+        for (const std::string& Cat : Categories)
+        {
+            OutCatTxt += Cat;
+            if (Cat != Categories.back())
+                OutCatTxt += ", ";
+        }
+        ImGui::TextWrapped("Categories:\n  [%s]", OutCatTxt.c_str());
+
+        // Split and total export
+        ImGui::TextWrapped("Train: %d, Valid: %d, Test: %d", int(Split[0] * TotalImagesExported),
+                           int(Split[1] * TotalImagesExported), int(Split[2] * TotalImagesExported));
+        if (NumDuplicates == 0) return;
+        ImGui::Separator();
+        ImGui::Text("Aug duplicates: %d", NumDuplicates);
+        ImGui::Text("Applied Augmentation:");
+        ImGui::BeginChildFrame(ImGui::GetID("AAs"), ImVec2(Width, ImGui::GetTextLineHeight() * 3));
+        ImGui::Text(AppliedAugmentationDescription.c_str());
+        ImGui::EndChildFrame();
     }
 
     FModelDescription::FModelDescription(const std::string& InName, const YAML::Node& InputNode)
@@ -249,7 +267,7 @@ namespace IFCS
         ModelType = InputNode["ModelType"].as<std::string>();
         HyperParameter = InputNode["HyperParameter"].as<std::string>();
         SourceTrainingSet = InputNode["SourceTrainingSet"].as<std::string>();
-        TrainingTime = InputNode["TraningTime"].as<float>();
+        TrainingTime = InputNode["TrainingTime"].as<float>();
         ImageSize = InputNode["ImageSize"].as<std::array<int, 2>>();
         BatchSize = InputNode["BatchSize"].as<int>();
         NumEpochs = InputNode["NumEpochs"].as<int>();
@@ -261,6 +279,39 @@ namespace IFCS
 
     void FModelDescription::MakeDetailWidget()
     {
+        ImGui::TextWrapped(CreationTime.c_str());
+        // Cats
+        std::string OutCatTxt;
+        for (const std::string& Cat : Categories)
+        {
+            OutCatTxt += Cat;
+            if (Cat != Categories.back())
+                OutCatTxt += ", ";
+        }
+        const float Offset = 140.f;
+        ImGui::TextWrapped("Categories:\n  [%s]", OutCatTxt.c_str());
+        ImGui::Text("Model Type:");ImGui::SameLine(Offset);
+        ImGui::Text(ModelType.c_str());
+        ImGui::Text("Hyp:");ImGui::SameLine(Offset);
+        ImGui::Text(HyperParameter.c_str());
+        ImGui::Text("Data Set:");ImGui::SameLine(Offset);
+        ImGui::Text(SourceTrainingSet.c_str());
+        ImGui::Text("Train Time:");ImGui::SameLine(Offset);
+        ImGui::Text("%.2f hours", TrainingTime);
+        ImGui::Text("Image Size:");ImGui::SameLine(Offset);
+        ImGui::Text("%d x %d", ImageSize[0], ImageSize[1]);
+        ImGui::Text("Batch Size:");ImGui::SameLine(Offset);
+        ImGui::Text("%d", BatchSize);
+        ImGui::Text("Num Epochs:");ImGui::SameLine(Offset);
+        ImGui::Text("%d", NumEpochs);
+        ImGui::Text("Precision:");ImGui::SameLine(Offset);
+        ImGui::Text("%.3f", Precision);
+        ImGui::Text("Recall:");ImGui::SameLine(Offset);
+        ImGui::Text("%.3f", Recall);
+        ImGui::Text("mAP@.5:");ImGui::SameLine(Offset);
+        ImGui::Text("%.3f", mAP5);
+        ImGui::Text("mAP@.5:.95:");ImGui::SameLine(Offset);
+        ImGui::Text("%.3f", mAP5_95);
     }
 
     FDetectionDescription::FDetectionDescription(const std::string& InName, const YAML::Node& InputNode)
@@ -287,7 +338,7 @@ namespace IFCS
         Name = InName;
         Categories = InputNode["Categories"].as<std::vector<std::string>>();
         CreationTime = InputNode["CreationTime"].as<std::string>();
-        SourceModel = InputNode["ModelID"].as<std::string>();
+        SourceModel = InputNode["SourceModel"].as<std::string>();
         TargetClip = InputNode["TargetClip"].as<std::string>();
         Confidence = InputNode["Confidence"].as<float>();
         IOU = InputNode["IOU"].as<float>();
@@ -297,6 +348,27 @@ namespace IFCS
 
     void FDetectionDescription::MakeDetailWidget()
     {
+        ImGui::TextWrapped(CreationTime.c_str());
+        // Cats
+        std::string OutCatTxt;
+        for (const std::string& Cat : Categories)
+        {
+            OutCatTxt += Cat;
+            if (Cat != Categories.back())
+                OutCatTxt += ", ";
+        }
+        ImGui::TextWrapped("Categories: \n  [%s]", OutCatTxt.c_str());
+        const float Offset = 140.f;
+        ImGui::Text("Source Model:");ImGui::SameLine(Offset);
+        ImGui::Text("%s", SourceModel.c_str());
+        ImGui::Text("Target Clip:");ImGui::SameLine(Offset);
+        ImGui::Text("%s", TargetClip.c_str());
+        ImGui::Text("Confidence:");ImGui::SameLine(Offset);
+        ImGui::Text("%.2f", Confidence);
+        ImGui::Text("IOU:");ImGui::SameLine(Offset);
+        ImGui::Text("%.2f", IOU);
+        ImGui::Text("Image Size:");ImGui::SameLine(Offset);
+        ImGui::Text("%d", ImageSize);
     }
 
     float FLabelData::Distance(const FLabelData& Other, const int Width, const int Height) const
@@ -423,9 +495,9 @@ namespace IFCS
             default: break;
             }
             if (delta > 0)
-                return SortSpecs->SortDirection == ImGuiSortDirection_Ascending? +1 : -1;
+                return SortSpecs->SortDirection == ImGuiSortDirection_Ascending ? +1 : -1;
             if (delta < 0)
-                return SortSpecs->SortDirection == ImGuiSortDirection_Ascending? -1 : +1;
+                return SortSpecs->SortDirection == ImGuiSortDirection_Ascending ? -1 : +1;
         }
         return a->GetName().compare(b->GetName());
     }

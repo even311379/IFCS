@@ -26,8 +26,14 @@ void IFCS::MainMenu::Render()
     {
         if (ImGui::BeginMenu(LOCTEXT("ToolbarMenu.Project")))
         {
-            ImGui::MenuItem(LOCTEXT("ToolbarItem.NewProject"));
-            ImGui::MenuItem(LOCTEXT("ToolbarItem.LoadProject"));
+            if (ImGui::MenuItem(LOCTEXT("ToolbarItem.NewProject")))
+            {
+                
+            }
+            if (ImGui::MenuItem(LOCTEXT("ToolbarItem.LoadProject")))
+            {
+                
+            }
             ImGui::MenuItem(LOCTEXT("ToolbarItem.ImportData"));
             ImGui::MenuItem(LOCTEXT("ToolbarItem.ExportData"));
             ImGui::Separator();

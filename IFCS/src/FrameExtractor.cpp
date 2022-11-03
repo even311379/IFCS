@@ -40,14 +40,25 @@ namespace IFCS
     // wow... clicks define here will get triggered even if its in behind... Need detaied test... will it triger thing in other docked?
     void FrameExtractor::RenderContent()
     {
-        if (!ClipInfoIsLoaded) return;
+        /*if (!ClipInfoIsLoaded) return;
 
         std::string Title = DataBrowser::Get().FrameTitle;
         ImGui::PushFont(Setting::Get().TitleFont);
         float TitleWidth = ImGui::CalcTextSize(Title.c_str()).x;
         ImGui::SetCursorPosX((ImGui::GetWindowSize().x - TitleWidth) * 0.5f);
         ImGui::Text(Title.c_str());
-        ImGui::PopFont();
+        ImGui::PopFont();*/
+
+
+        static float ClipComboWidth;
+        ImGui::SetCursorPosX((ImGui::GetWindowWidth() - ClipComboWidth) * 0.5f);
+        if (DataBrowser::Get().MakeClipSelectCombo())
+        {
+            DataBrowser::Get().LoadFrame(0);
+        }
+        ClipComboWidth = ImGui::GetItemRectSize().x;
+
+        
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 1024) * 0.5f);
         ImGui::Image((void*)(intptr_t)DataBrowser::Get().LoadedFramePtr, ImVec2(1024, 576));
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 1024) * 0.5f);
@@ -62,8 +73,8 @@ namespace IFCS
             ImGui::TableNextColumn();
             ImGui::BulletText("clip length");
             ImGui::TableNextColumn();
-            int minute = ClipInfo.FrameCount / int(ClipInfo.FPS) / 60;
-            int sec = (ClipInfo.FrameCount / int(ClipInfo.FPS)) % 60;
+            int minute = ClipInfo.FrameCount / std::max(int(ClipInfo.FPS), 1) / 60;
+            int sec = (ClipInfo.FrameCount / std::max(int(ClipInfo.FPS), 1)) % 60;
             ImGui::Text("%dm%ds", minute, sec);
             ImGui::TableNextRow();
             ImGui::TableNextColumn();

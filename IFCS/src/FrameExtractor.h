@@ -18,6 +18,7 @@ namespace IFCS
     private:
         // copied info
         bool ClipInfoIsLoaded = false;
+        
         std::vector<float> Regions;
         bool JustDeleteRegion;
         // due to float or int issue?... it' true float to int is the cause... let's stick on float... 

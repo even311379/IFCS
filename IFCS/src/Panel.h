@@ -134,11 +134,13 @@ namespace IFCS
         void Render();
         bool IsChoosingFolder = false;
         char TempProjectLocation[256];
+        char TempExistingProjectLocation[256];
     private:
         // ImVec2 pos;
         // ImVec2 size;
         char TempProjectName[128];
         bool CheckValidProjectName();
+        bool CheckValidExistingProject();
     };
 
     

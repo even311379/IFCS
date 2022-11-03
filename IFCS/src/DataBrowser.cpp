@@ -3,7 +3,6 @@
 #include "Setting.h"
 
 #include "ImguiNotify/font_awesome_5.h"
-#include <iostream>
 #include <spdlog/spdlog.h>
 #include <shellapi.h>
 #include <yaml-cpp/yaml.h>
@@ -26,29 +25,29 @@ namespace IFCS
         Panel::Setup(InName, InShouldOpen, InFlags, InCanClose);
         SelectedTrainingSet = "";
         SelectedModel = "";
-        SelectedPrediction = "";
+        SelectedDetection = "";
         ShouldUpdateData = true;
     }
 
-    // TODO: incorrect edge behavior
     void DataBrowser::LoadOtherFrame(bool IsNext)
     {
-        std::queue<int> q;
-        bool PrepareToStop = false;
-        for (const auto& [k, v] : FramesData)
+  
+        int NewFrame = -1;
+        for (auto it=FramesData.begin();it!=FramesData.end();++it)
         {
-            int FrameNum = k;
-            q.push(FrameNum);
-            if (q.size() > 3) q.pop();
-            if (PrepareToStop) break;
-            if (SelectedFrame == FrameNum)
-                PrepareToStop = true;
+            if (it->first == SelectedFrame)
+            {
+                if (it==FramesData.begin() && !IsNext) return;
+                if (it==std::prev(FramesData.end()) && IsNext) return;
+                if (IsNext)
+                    NewFrame = std::next(it)->first;
+                else
+                    NewFrame = std::prev(it)->first;
+                break;    
+            }
         }
-        if (q.size() == 2) // in case that selected frame is the first or last frame;
-            return;
         Annotation::Get().Save();
-        if (IsNext) SelectedFrame = q.back();
-        else SelectedFrame = q.front();
+        SelectedFrame = NewFrame;
         LoadFrame(SelectedFrame);
         Annotation::Get().Load();
         ImGui::SetWindowFocus("Annotation");
@@ -57,8 +56,13 @@ namespace IFCS
 
     void DataBrowser::LoadFrame(int FrameNumber)
     {
-        AnyFrameLoaded = true;
-
+        if (FrameNumber < 0)
+        {
+            if (FramesData.empty()) return;
+            FrameNumber = FramesData.begin()->first;
+            SelectedFrame = FrameNumber;
+            Annotation::Get().Load();
+        }
         cv::Mat frame;
         {
             cv::VideoCapture cap(SelectedClipInfo.ClipPath);
@@ -82,15 +86,13 @@ namespace IFCS
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-        // This is required on WebGL for non power-of-two textures
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, frame.cols, frame.rows, 0, GL_RGB,
                      GL_UNSIGNED_BYTE, frame.data);
-        MakeFrameTitle();
+        // MakeFrameTitle();
         FrameExtractor::Get().OnFrameLoaded();
     }
 
-    // TODO: remove project path for better looking?
     std::vector<std::string> DataBrowser::GetAllClips() const
     {
         std::vector<std::string> Out;
@@ -124,6 +126,50 @@ namespace IFCS
     {
         std::vector<std::string> Out;
         return Out;
+    }
+
+    bool DataBrowser::MakeClipSelectCombo()
+    {
+        bool Changed = false;
+        size_t RelOffset = Setting::Get().ProjectPath.size() + 7;
+        if (ImGui::BeginCombo("##ClipSelect", SelectedClipInfo.GetRelativePath().c_str()))
+        {
+            for (const std::string& C : GetAllClips())
+            {
+                if (ImGui::Selectable(C.substr(RelOffset).c_str()))
+                {
+                    SelectedClipInfo.ClipPath = C;
+                    Changed = true;
+                    UpdateData();
+                }
+            }
+            ImGui::EndCombo();
+        }
+        return Changed;
+    }
+
+    void DataBrowser::MakeFrameSelectCombo()
+    {
+        if (FramesData.empty())
+        {
+            ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "No frame extracted for this clip!");
+            return;
+        }
+        if (ImGui::BeginCombo("##FrameSelect", std::to_string(SelectedFrame).c_str()))
+        {
+            for (const auto& [F, S] : FramesData)
+            {
+                if (ImGui::Selectable(std::to_string(F).c_str()))
+                {
+                    Annotation::Get().Save();
+                    SelectedFrame = F;
+                    LoadFrame(SelectedFrame);
+                    Annotation::Get().Load();
+                    ShouldUpdateData = true;
+                }
+            }
+            ImGui::EndCombo();
+        }
     }
 
     void DataBrowser::RenderContent()
@@ -167,6 +213,8 @@ namespace IFCS
                 // {
                 //     ImGui::Selectable("img");
                 // }
+                ImGui::TextColored(Style::RED(400, Setting::Get().Theme),
+                                   "Image is not supported yet!\nIt's not the major workflow.");
                 if (!HasAnyImage)
                 {
                     if (ImGui::Button("Open Folder", ImVec2(-1, 0)))
@@ -174,7 +222,6 @@ namespace IFCS
                         ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Images").c_str(), NULL, NULL,
                                       SW_SHOWDEFAULT);
                     }
-                    
                 }
                 ImGui::TreePop();
             }
@@ -190,7 +237,7 @@ namespace IFCS
             }
             if (ImGui::TreeNode((std::string(ICON_FA_WAVE_SQUARE) + " Predictions").c_str()))
             {
-                CreateSeletable_Predictions();
+                CreateSeletable_Detections();
                 ImGui::TreePop();
             }
         }
@@ -326,32 +373,60 @@ namespace IFCS
     void DataBrowser::CreateSeletable_TrainingSets()
     {
         YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/TrainingSets.yaml");
-        for (size_t i = 0; i < Data.size(); i++)
+        for (YAML::const_iterator it = Data.begin(); it != Data.end(); ++it)
         {
-            std::string Name = Data[i]["Name"].as<std::string>();
+            std::string Name = it->first.as<std::string>();
             if (ImGui::Selectable(Name.c_str(), Name == SelectedTrainingSet))
             {
                 SelectedTrainingSet = Name;
-                TrainingSetDescription = FTrainingSetDescription(Name, Data[i]);
+                TrainingSetDescription = FTrainingSetDescription(Name, it->second);
+                SelectedModel = "";
+                SelectedDetection = "";
             }
-            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
-            {
-                char Send[128];
-                strcpy(Send, Name.c_str());
-                ImGui::SetDragDropPayload("TrainingSet", &Send, sizeof(Send));
-                // for test now
-                ImGui::Text(Send);
-                ImGui::EndDragDropSource();
-            }
+            // TODO: block the drag source for now...
+            // if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+            // {
+            //     char Send[128];
+            //     strcpy(Send, Name.c_str());
+            //     ImGui::SetDragDropPayload("TrainingSet", &Send, sizeof(Send));
+            //     ImGui::Text(Send);
+            //     ImGui::EndDragDropSource();
+            // }
         }
     }
 
     void DataBrowser::CreateSeletable_Models()
     {
+        YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
+        for (YAML::const_iterator it = Data.begin(); it != Data.end(); ++it)
+        {
+            std::string Name = it->first.as<std::string>();
+            if (ImGui::Selectable(Name.c_str(), Name == SelectedModel))
+            {
+                SelectedTrainingSet = "";
+                SelectedModel = Name;
+                ModelDescription = FModelDescription(Name, it->second);
+                SelectedDetection = "";
+            }
+            // TODO: drag source??
+        }
     }
 
-    void DataBrowser::CreateSeletable_Predictions()
+    void DataBrowser::CreateSeletable_Detections()
     {
+        YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Detections/Detections.yaml");
+        for (YAML::const_iterator it = Data.begin(); it != Data.end(); ++it)
+        {
+            std::string Name = it->first.as<std::string>();
+            if (ImGui::Selectable(Name.c_str(), Name == SelectedDetection))
+            {
+                SelectedTrainingSet = "";
+                SelectedModel = "";
+                SelectedDetection = Name;
+                DetectionDescription = FDetectionDescription(Name, it->second);
+            }
+            // TODO: drag source??
+        }
     }
 
     void DataBrowser::RenderDetailWidget()
@@ -367,18 +442,23 @@ namespace IFCS
             // name
             if (!SelectedTrainingSet.empty())
             {
+                ImGui::PushFont(Setting::Get().TitleFont);
                 ImGui::Text("%s", TrainingSetDescription.Name.c_str());
+                ImGui::PopFont();
             }
             else if (!SelectedModel.empty())
             {
+                ImGui::PushFont(Setting::Get().TitleFont);
                 ImGui::Text("%s", ModelDescription.Name.c_str());
+                ImGui::PopFont();
             }
-            else if (!SelectedPrediction.empty())
+            else if (!SelectedDetection.empty())
             {
-                ImGui::Text("%s", PredictionDescription.Name.c_str());
+                ImGui::PushFont(Setting::Get().TitleFont);
+                ImGui::Text("%s", DetectionDescription.Name.c_str());
+                ImGui::PopFont();
             }
             ImGui::SameLine(ContentWidth - 32);
-            // ImGui::SetCursorPosX(ContentWidth - 32);
             if (ImGui::Button(ICON_FA_TIMES, ImVec2(32, 0)))
             {
                 DeselectAll();
@@ -392,9 +472,9 @@ namespace IFCS
             {
                 ModelDescription.MakeDetailWidget();
             }
-            if (!SelectedPrediction.empty())
+            if (!SelectedDetection.empty())
             {
-                PredictionDescription.MakeDetailWidget();
+                DetectionDescription.MakeDetailWidget();
             }
         }
         ImGui::EndChild();
@@ -409,31 +489,20 @@ namespace IFCS
         {
             FramesData.insert({it->first.as<int>(), it->second.size()});
         }
+        IsSelectedFrameReviewed = false;
+        ReviewTime = "";
+        YAML::Node ReviewData = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Reviews.yaml");
+        if (ReviewData[SelectedClipInfo.ClipPath])
+        {
+            if (ReviewData[SelectedClipInfo.ClipPath][SelectedFrame])
+            {
+                ReviewTime = ReviewData[SelectedClipInfo.ClipPath][SelectedFrame].as<std::string>();
+                IsSelectedFrameReviewed = true;
+            }
+        }
         spdlog::info("Data is updated...");
     }
 
-    void DataBrowser::MakeFrameTitle()
-    {
-        float i = 1.0f;
-        while (SelectedClipInfo.FrameCount > pow(10, i))
-        {
-            i += 1.0f;
-        }
-        int FrameCountDigits = int(i) - 1;
-        i = 1.0f;
-        while (SelectedFrame > pow(10, i))
-        {
-            i += 1.0f;
-        }
-        int CurrentFrameDigits = int(i) - 1;
-        std::string temp = std::to_string(SelectedFrame);
-        for (int i = 0; i < FrameCountDigits - CurrentFrameDigits; i++)
-        {
-            temp = std::string("0") + temp;
-        }
-        FrameTitle = SelectedClipInfo.GetClipFileName() + "......(" + temp + "/" + std::to_string(
-            SelectedClipInfo.FrameCount) + ")";
-    }
 
     ImVec2 DataBrowser::GetBtnSize()
     {
@@ -444,7 +513,7 @@ namespace IFCS
     {
         if (!SelectedTrainingSet.empty()) return true;
         if (!SelectedModel.empty()) return true;
-        if (!SelectedPrediction.empty()) return true;
+        if (!SelectedDetection.empty()) return true;
         return false;
     }
 
@@ -453,6 +522,6 @@ namespace IFCS
         // SelectedFrame = -1;
         SelectedTrainingSet = "";
         SelectedModel = "";
-        SelectedPrediction = "";
+        SelectedDetection = "";
     }
 }

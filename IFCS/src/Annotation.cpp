@@ -18,18 +18,35 @@ namespace IFCS
 {
     void Annotation::RenderContent()
     {
-        if (!DataBrowser::Get().AnyFrameLoaded) return;
+        // if (!DataBrowser::Get().AnyFrameLoaded) return;
 
-        std::string Title = DataBrowser::Get().FrameTitle;
-        ImGui::PushFont(Setting::Get().TitleFont);
-        float TitleWidth = ImGui::CalcTextSize(Title.c_str()).x;
-        ImGui::SetCursorPosX((ImGui::GetWindowSize().x - TitleWidth) * 0.5f);
-        ImGui::Text(Title.c_str());
-        ImGui::PopFont();
+        // std::string Title = DataBrowser::Get().FrameTitle;
+        // ImGui::PushFont(Setting::Get().TitleFont);
+        // float TitleWidth = ImGui::CalcTextSize(Title.c_str()).x;
+        // ImGui::SetCursorPosX((ImGui::GetWindowSize().x - TitleWidth) * 0.5f);
+        // ImGui::Text(Title.c_str());
+        // ImGui::PopFont();
+        static float TitleComboWidth;
+        ImGui::SetCursorPosX((ImGui::GetWindowWidth() - TitleComboWidth) * 0.5f);
+        ImGui::BeginGroup();
+        {
+            ImGui::SetNextItemWidth(360);
+            if (DataBrowser::Get().MakeClipSelectCombo())
+            {
+                spdlog::info("changed clip is triggered??");
+                DataBrowser::Get().LoadFrame(-1);
+            }
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(360);
+            DataBrowser::Get().MakeFrameSelectCombo();
+        }
+        ImGui::EndGroup();
+        TitleComboWidth = ImGui::GetItemRectSize().x;
 
+        if (DataBrowser::Get().IsFramesEmpty()) return;
         ImU32 BgColor = ImGui::ColorConvertFloat4ToU32(Style::GRAY(600, Setting::Get().Theme));
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - WorkArea.x) * 0.5f);
-        ImGui::BeginChild("AnnotaitonWork", WorkArea, true); // show border for debug...
+        ImGui::BeginChild("AnnotaitonWork", WorkArea, false);
         ImGuiWindow* Win = ImGui::GetCurrentWindow();
         WorkStartPos = ImGui::GetItemRectMin();
         Win->DrawList->AddRectFilled(WorkStartPos, WorkStartPos + WorkArea, BgColor); // draw bg
@@ -166,6 +183,26 @@ namespace IFCS
             }
         }
 
+        // TODO: leave review to next update...
+        if (ImGui::Checkbox("Is reviewed?", &DataBrowser::Get().IsSelectedFrameReviewed))
+        {
+            if (DataBrowser::Get().IsSelectedFrameReviewed)
+            {
+                spdlog::info("now add review...");
+            }
+            else
+            {
+                spdlog::info("delete review...");
+            }
+        }
+        ImGui::SameLine();
+        ImGui::Text("(%s)", DataBrowser::Get().ReviewTime.c_str());
+        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 60);
+        if (CurrentMode == EAnnotationEditMode::Add)
+            ImGui::Text("(Add)");
+        else
+            ImGui::Text("(Edit)");
+
         static float ButtonsOffset;
         ImGui::SetCursorPosX(ButtonsOffset);
         ImGui::BeginGroup();
@@ -191,21 +228,28 @@ namespace IFCS
             }
             Utils::AddSimpleTooltip("Reset zoon and pan");
             ImGui::SameLine();
-            if (ImGui::Button(ICON_FA_CHEVRON_LEFT, BtnSize)) // reset pan zoom
+            if (ImGui::Button(ICON_FA_CHEVRON_LEFT, BtnSize))
             {
                 DataBrowser::Get().LoadOtherFrame(false);
             }
             Utils::AddSimpleTooltip("Previous frame");
             ImGui::SameLine();
-            if (ImGui::Button(ICON_FA_CHEVRON_RIGHT, BtnSize)) // reset pan zoom
+            if (ImGui::Button(ICON_FA_CHEVRON_RIGHT, BtnSize))
             {
                 DataBrowser::Get().LoadOtherFrame(true);
             }
             Utils::AddSimpleTooltip("Next frame");
+            ImGui::SameLine();
+            if (ImGui::Button(ICON_FA_TIMES, BtnSize))
+            {
+                // TODO: delete this frame...
+            }
+            Utils::AddSimpleTooltip("Delete frame");
             ImGui::PopFont();
         }
         ImGui::EndGroup();
         ButtonsOffset = (ImGui::GetContentRegionAvail().x - ImGui::GetItemRectSize().x) * 0.5f;
+
     }
 
     void Annotation::PostRender()

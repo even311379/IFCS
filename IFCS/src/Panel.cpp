@@ -39,7 +39,6 @@ namespace IFCS
                 PreRender();
                 ImGui::Begin(Name, CanClose ? &ShouldOpen : nullptr, Flags);
                 {
-                    // if (ImGui::IsWindowAppearing() || bAlwaysRender) // TODO: just checked once ? not working...
                     RenderContent();
                 }
                 ImGui::End();
@@ -203,10 +202,9 @@ namespace IFCS
 
     void WelcomeModal::Render()
     {
-        // TODO: better looking
-        // TODO: start from exising project?
-        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        // TODO: better looking?
+        const ImVec2 Center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(Center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
         if (ImGui::BeginPopupModal("Welcome", NULL, ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImGui::Text("Welcome to IFCS!");
@@ -222,14 +220,21 @@ namespace IFCS
                 ImGui::BulletText("Project Location:");
                 ImGui::SameLine();
                 ImGui::SetNextItemWidth(400);
-                ImGui::InputText("##hidden123", TempProjectLocation, IM_ARRAYSIZE(TempProjectLocation),
-                                 ImGuiInputTextFlags_ReadOnly);
+                ImGui::InputText("##hidden123", TempProjectLocation, IM_ARRAYSIZE(TempProjectLocation), ImGuiInputTextFlags_ReadOnly);
                 ImGui::SameLine();
                 if (ImGui::Button("Choose Existing Project"))
                 {
                     IsChoosingFolder = true;
                     ifd::FileDialog::Instance().Open("ChooseExistingProjectLocationDialog", "Choose existing project location", "");
                 }
+                ImGui::BeginDisabled(!CheckValidExistingProject());
+                if (ImGui::Button("OK", ImVec2(ImGui::GetWindowWidth() * 0.2f, ImGui::GetFontSize() * 1.5f)))
+                {
+                    Setting::Get().ProjectPath = TempExistingProjectLocation;
+                    Setting::Get().StartFromPreviousProject();
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndDisabled();
             }
             else
             {
@@ -241,8 +246,6 @@ namespace IFCS
                 {
                     Setting::Get().Project = TempProjectName;
                 }
-                if (CheckValidProjectName())
-                    ImGui::TextColored(Style::RED(400, ETheme::Light), "project name contains invalid character...");
                 ImGui::BulletText("New Project Location:");
                 ImGui::SameLine();
                 ImGui::SetNextItemWidth(400);
@@ -258,9 +261,10 @@ namespace IFCS
                 ImGui::BeginDisabled(!CheckValidProjectName());
                 if (ImGui::Button("OK", ImVec2(ImGui::GetWindowWidth() * 0.2f, ImGui::GetFontSize() * 1.5f)))
                 {
-                    Setting::Get().ProjectPath = std::string(TempProjectLocation) + Setting::Get().Project;
+                    Setting::Get().ProjectPath = std::string(TempProjectLocation) + "/" + Setting::Get().Project;
                     Setting::Get().CreateStartup();
                     ImGui::CloseCurrentPopup();
+                    Setting::Get().IsModalOpen = true;
                 }
                 ImGui::EndDisabled();
                 if (!CheckValidProjectName())
@@ -270,7 +274,6 @@ namespace IFCS
                 }
                 
             }
-            // TODO: after close this popup open setting popup!
             ImGui::EndPopup();
         }
     }
@@ -278,12 +281,25 @@ namespace IFCS
     // TODO: need test...
     bool WelcomeModal::CheckValidProjectName()
     {
+        if (strlen(TempProjectName) == 0) return false;
+        if (strlen(TempProjectLocation) == 0) return false;
+        // check folder name is used
+        for (const auto& entry : std::filesystem::directory_iterator(TempProjectLocation))
+        {
+            if (entry.path().filename().u8string() == std::string(TempProjectName))
+                return false;
+        }
         const char InvalidChars[] = "\\/:*?\"<>|";
         for (char C : InvalidChars)
         {
-            if (std::string(TempProjectLocation).find(C) == std::string::npos)
+            if (std::string(TempProjectName).find(C) != std::string::npos)
                 return false;
         }
         return true;
+    }
+
+    bool WelcomeModal::CheckValidExistingProject()
+    {
+        return std::filesystem::exists(std::string(TempExistingProjectLocation) + "/IFCSUser.ini");
     }
 }
