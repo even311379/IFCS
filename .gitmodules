@@ -7,3 +7,13 @@
 [submodule "IFCS/vendor/imgui_extensions/Imspinner"]
 	path = IFCS/vendor/imgui_extensions/Imspinner
 	url = https://github.com/even311379/imspinner.git
+[submodule "IFCS/vendor/imgui"]
+	path = IFCS/vendor/imgui
+	url = https://github.com/ocornut/imgui.git
+	branch = docking
+[submodule "IFCS/vendor/imgui_extensions/Implot"]
+	path = IFCS/vendor/imgui_extensions/Implot
+	url = https://github.com/epezent/implot.git
+[submodule "IFCS/vendor/imgui_extensions/ImFileDialog"]
+	path = IFCS/vendor/imgui_extensions/ImFileDialog
+	url = https://github.com/even311379/ImFileDialog.git
