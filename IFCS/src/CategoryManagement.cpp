@@ -5,7 +5,7 @@
 #include <fstream>
 
 #include "imgui_internal.h"
-#include "ImguiNotify/font_awesome_5.h"
+#include "IconFontCppHeaders/IconsFontAwesome5.h"
 #include "Implot/implot.h"
 #include <yaml-cpp/yaml.h>
 

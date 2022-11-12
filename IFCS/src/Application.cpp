@@ -1,5 +1,6 @@
 ﻿#include "Application.h"
 #include "Utils.h"
+
 #include "imgui_internal.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
@@ -25,9 +26,8 @@
 
 
 #include "ImFileDialog/ImFileDialog.h"
-#include "ImguiNotify/imgui_notify.h"
-#include "ImguiNotify/fa_solid_900.h"
-
+#include "fa_solid_900.h"
+#include "IconFontCppHeaders/IconsFontAwesome5.h"
 
 namespace IFCS
 {

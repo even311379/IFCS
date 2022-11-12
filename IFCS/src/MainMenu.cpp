@@ -14,8 +14,7 @@
 #include "TrainingSetGenerator.h"
 #include "Utils.h"
 #include "Style.h"
-#include "ImguiNotify/font_awesome_5.h"
-
+#include "IconFontCppHeaders/IconsFontAwesome5.h"
 
 IFCS::MainMenu::~MainMenu()
 {

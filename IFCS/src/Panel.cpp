@@ -6,8 +6,8 @@
 #include "Style.h"
 #include "Utils.h"
 #include "ImFileDialog/ImFileDialog.h"
-#include "ImguiNotify/font_awesome_5.h"
 
+#include "IconFontCppHeaders/IconsFontAwesome5.h"
 #define LOCTEXT(key) Utils::GetLocText(key).c_str()
 
 namespace IFCS

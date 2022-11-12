@@ -13,7 +13,7 @@
 #include "Utils.h"
 #include "DataBrowser.h"
 
-#include "ImguiNotify/font_awesome_5.h"
+#include "IconFontCppHeaders/IconsFontAwesome5.h"
 #include "imgui_internal.h"
 #include "backends/imgui_impl_glfw.h"
 #include <GLFW/glfw3.h>

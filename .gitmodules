@@ -17,3 +17,6 @@
 [submodule "IFCS/vendor/imgui_extensions/ImFileDialog"]
 	path = IFCS/vendor/imgui_extensions/ImFileDialog
 	url = https://github.com/even311379/ImFileDialog.git
+[submodule "IFCS/vendor/imgui_extensions/IconFontCppHeaders"]
+	path = IFCS/vendor/imgui_extensions/IconFontCppHeaders
+	url = https://github.com/juliettef/IconFontCppHeaders.git

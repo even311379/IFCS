@@ -5,7 +5,7 @@
 #include "Style.h"
 #include "Modals.h"
 
-#include "ImguiNotify/font_awesome_5.h"
+#include "IconFontCppHeaders/IconsFontAwesome5.h"
 #include "Implot/implot.h"
 #include "misc/cpp/imgui_stdlib.h"
 #include "Imspinner/imspinner.h"

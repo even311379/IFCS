@@ -8,8 +8,7 @@
 #include "Log.h"
 #include "Setting.h"
 #include "Style.h"
-#include "ImguiNotify/font_awesome_5.h"
-
+#include "IconFontCppHeaders/IconsFontAwesome5.h"
 #include "yaml-cpp/yaml.h"
 
 // TODO: Loaded Check... and add something when nothing is loaded...

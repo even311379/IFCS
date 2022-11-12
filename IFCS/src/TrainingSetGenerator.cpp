@@ -15,7 +15,7 @@
 #include "Annotation.h"
 #include "CategoryManagement.h"
 #include "imgui_internal.h"
-#include "ImguiNotify/font_awesome_5.h"
+#include "IconFontCppHeaders/IconsFontAwesome5.h"
 #include "Implot/implot.h"
 
 #include "opencv2/opencv.hpp"
