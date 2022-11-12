@@ -1,19 +1,9 @@
-[submodule "IFCS/vendor/imgui"]
-	path = IFCS/vendor/imgui
-	url = https://github.com/ocornut/imgui.git
-	branch = docking
-[submodule "IFCS/vendor/imgui_extensions/Implot"]
-	path = IFCS/vendor/imgui_extensions/Implot
-	url = https://github.com/epezent/implot.git
-[submodule "IFCS/vendor/imgui_extensions/ImFileDialog"]
-	path = IFCS/vendor/imgui_extensions/ImFileDialog
-	url = https://github.com/dfranx/ImFileDialog.git
 [submodule "IFCS/vendor/imgui_extensions/ImguiMD"]
 	path = IFCS/vendor/imgui_extensions/ImguiMD
 	url = https://github.com/juliettef/imgui_markdown.git
-[submodule "IFCS/vendor/imgui_extensions/Imspinner"]
-	path = IFCS/vendor/imgui_extensions/Imspinner
-	url = https://github.com/even311379/imspinner.git
 [submodule "IFCS/vendor/spdlog"]
 	path = IFCS/vendor/spdlog
 	url = https://github.com/gabime/spdlog.git
+[submodule "IFCS/vendor/imgui_extensions/Imspinner"]
+	path = IFCS/vendor/imgui_extensions/Imspinner
+	url = https://github.com/even311379/imspinner.git

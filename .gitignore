@@ -10,5 +10,3 @@ IFCS/.vs/*
 *.vcxproj.user
 *.sln
 *.sln.*
-IFCS/vendor/imgui_extensions/imspinner/
-IFCS/vendor/imgui/*
