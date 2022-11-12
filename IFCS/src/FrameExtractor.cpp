@@ -3,7 +3,10 @@
 #include <fstream>
 #include <numeric>
 #include <random>
+// #include <GL/glew.h>
 
+
+// #include <GL/glew.h>
 
 #include "Log.h"
 #include "Setting.h"
@@ -12,7 +15,7 @@
 
 #include "ImguiNotify/font_awesome_5.h"
 #include "imgui_internal.h"
-#include "imgui_impl_glfw.h"
+#include "backends/imgui_impl_glfw.h"
 #include <GLFW/glfw3.h>
 
 #include "yaml-cpp/yaml.h"
@@ -513,8 +516,11 @@ namespace IFCS
         // update frame
         cv::Mat frame;
         Cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
-        Cap >> frame;
+        // Cap >> frame;
+        Cap.read(frame);
         if (frame.empty()) return; // prevent crash?? will this trigger something more severe?
+        // DataBrowser::Get().LoadedFramePtr = Utils::MatToTexture(frame, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, GL_CLAMP);
+        
         cv::resize(frame, frame, cv::Size(1280, 720)); // 16 : 9 // no need to resize?
         cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
         DataBrowser::Get().LoadedFramePtr = 0;
@@ -526,6 +532,7 @@ namespace IFCS
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, frame.cols, frame.rows, 0, GL_RGB,
                      GL_UNSIGNED_BYTE, frame.data);
+        
         CurrentFrame += 1;
         PlayProgress += (1.0f / (float)CurrentFrameRange) * 100.0f;
         //check should release cap and stop play

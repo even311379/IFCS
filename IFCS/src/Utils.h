@@ -5,6 +5,10 @@
 #include <spdlog/spdlog.h>
 #include "Common.h"
 
+// #include <GL/glew.h>
+// #include <GLFW/glfw3.h>
+// #include "imgui_impl_opengl3_loader.h"
+#include "opencv2/opencv.hpp"
 
 /*
  * TODO: as long as I convert string to c_str() inside this utility function rather then in ImGui implementation...
@@ -15,7 +19,6 @@ namespace IFCS
 {
     namespace Utils
     {
-        // char* GetCurrentTimeString();
         std::string GetCurrentTimeString(bool IsStyled = false);
 
         typedef std::vector<std::vector<std::string>> CSV;
@@ -68,6 +71,9 @@ namespace IFCS
         }
 
         float Distance(float X1, float Y1, float X2, float Y2);
+
+        // opencv to opengl helper
+        // GLuint MatToTexture(const cv::Mat &Mat, GLenum minFilter, GLenum magFilter, GLenum wrapFilter);
     }
 }
 

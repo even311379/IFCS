@@ -1,3 +1,7 @@
+[submodule "IFCS/vendor/imgui"]
+	path = IFCS/vendor/imgui
+	url = https://github.com/ocornut/imgui.git
+	branch = docking
 [submodule "IFCS/vendor/imgui_extensions/Implot"]
 	path = IFCS/vendor/imgui_extensions/Implot
 	url = https://github.com/epezent/implot.git

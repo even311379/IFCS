@@ -9,3 +9,6 @@ IFCS/.vs/*
 *.vcxproj.filters
 *.vcxproj.user
 *.sln
+*.sln.*
+IFCS/vendor/imgui_extensions/imspinner/
+IFCS/vendor/imgui/*

@@ -1,7 +1,8 @@
 ﻿#include "Application.h"
+#include "Utils.h"
 #include "imgui_internal.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
+#include "backends/imgui_impl_glfw.h"
+#include "backends/imgui_impl_opengl3.h"
 #include "Implot/implot.h"
 
 #include <cstdio>
@@ -21,7 +22,6 @@
 #include "Detection.h"
 #include "Modals.h"
 #include "TrainingSetGenerator.h"
-#include "Utils.h"
 
 
 #include "ImFileDialog/ImFileDialog.h"

@@ -8,7 +8,6 @@ project "IFCS"
     kind "ConsoleApp"
     language "C++"
     cppdialect "C++17"
-
     targetdir "build/%{cfg.buildcfg}"
     objdir "build/%{cfg.buildcfg}"
 
@@ -17,12 +16,19 @@ project "IFCS"
     { 
         "%{prj.name}/src/**.h", 
         "%{prj.name}/src/**.cpp",
-        "%{prj.name}/vendor/stb/**.h", 
-        "%{prj.name}/vendor/stb/**.cpp",
-        "%{prj.name}/vendor/imgui/**.h", 
-        "%{prj.name}/vendor/imgui/**.cpp",
+        "%{prj.name}/vendor/imgui/*.h",
+        "%{prj.name}/vendor/imgui/*.cpp",
+        "%{prj.name}/vendor/imgui/misc/cpp/imgui_stdlib.h",
+        "%{prj.name}/vendor/imgui/misc/cpp/imgui_stdlib.cpp",
+        "%{prj.name}/vendor/imgui/backends/imgui_impl_glfw.h",
+        "%{prj.name}/vendor/imgui/backends/imgui_impl_glfw.cpp",
+        "%{prj.name}/vendor/imgui/backends/imgui_impl_opengl3.h",
+        "%{prj.name}/vendor/imgui/backends/imgui_impl_opengl3.cpp",
+        "%{prj.name}/vendor/imgui/backends/imgui_impl_opengl3_loader.h",
         "%{prj.name}/vendor/imgui_extensions/**.h", 
         "%{prj.name}/vendor/imgui_extensions/**.cpp",
+        "%{prj.name}/vendor/stb/**.h", 
+        "%{prj.name}/vendor/stb/**.cpp",
     }
 
     defines
