@@ -63,10 +63,10 @@ namespace IFCS
 
 
         // TODO: set window size by config file 
-        Window = glfwCreateWindow(1920, 1030, "IFCS", NULL, NULL);
+        Window = glfwCreateWindow(1920, 1080, "IFCS", NULL, NULL);
         if (Window == NULL) return;
         glfwSetWindowPos(Window, 0, 50);
-        glfwSetWindowAttrib(Window, GLFW_RESIZABLE, 0);
+        // glfwSetWindowAttrib(Window, GLFW_RESIZABLE, 0); // should not block resize?
         glfwMakeContextCurrent(Window);
         glfwSwapInterval(1); // enable vsync
 

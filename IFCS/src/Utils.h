@@ -73,7 +73,6 @@ namespace IFCS
         float Distance(float X1, float Y1, float X2, float Y2);
 
         // opencv to opengl helper
-        // GLuint MatToTexture(const cv::Mat &Mat, GLenum minFilter, GLenum magFilter, GLenum wrapFilter);
     }
 }
 

@@ -33,12 +33,12 @@ namespace IFCS
     {
   
         int NewFrame = -1;
-        for (auto it=FramesData.begin();it!=FramesData.end();++it)
+        for (auto it=AnnotationFramesData.begin();it!=AnnotationFramesData.end();++it)
         {
             if (it->first == SelectedFrame)
             {
-                if (it==FramesData.begin() && !IsNext) return;
-                if (it==std::prev(FramesData.end()) && IsNext) return;
+                if (it==AnnotationFramesData.begin() && !IsNext) return;
+                if (it==std::prev(AnnotationFramesData.end()) && IsNext) return;
                 if (IsNext)
                     NewFrame = std::next(it)->first;
                 else
@@ -56,10 +56,10 @@ namespace IFCS
 
     void DataBrowser::LoadFrame(int FrameNumber)
     {
-        if (FrameNumber < 0)
+        if (FrameNumber < 0) // special use case...
         {
-            if (FramesData.empty()) return;
-            FrameNumber = FramesData.begin()->first;
+            if (AnnotationFramesData.empty()) return;
+            FrameNumber = AnnotationFramesData.begin()->first;
             SelectedFrame = FrameNumber;
             Annotation::Get().Load();
         }
@@ -81,16 +81,9 @@ namespace IFCS
             cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
             cap.release();
         }
-        glGenTextures(1, &LoadedFramePtr);
-        glBindTexture(GL_TEXTURE_2D, LoadedFramePtr);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, frame.cols, frame.rows, 0, GL_RGB,
-                     GL_UNSIGNED_BYTE, frame.data);
+        FrameToGL(frame);
+
         // MakeFrameTitle();
-        FrameExtractor::Get().OnFrameLoaded();
     }
 
     std::vector<std::string> DataBrowser::GetAllClips() const
@@ -150,14 +143,14 @@ namespace IFCS
 
     void DataBrowser::MakeFrameSelectCombo()
     {
-        if (FramesData.empty())
+        if (AnnotationFramesData.empty())
         {
             ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "No frame extracted for this clip!");
             return;
         }
         if (ImGui::BeginCombo("##FrameSelect", std::to_string(SelectedFrame).c_str()))
         {
-            for (const auto& [F, S] : FramesData)
+            for (const auto& [F, S] : AnnotationFramesData)
             {
                 if (ImGui::Selectable(std::to_string(F).c_str()))
                 {
@@ -170,6 +163,11 @@ namespace IFCS
             }
             ImGui::EndCombo();
         }
+    }
+
+    void DataBrowser::LoadVideoFrame(int FrameNumber)
+    {
+        FrameToGL(VideoFrames[FrameNumber]);
     }
 
     void DataBrowser::RenderContent()
@@ -339,7 +337,7 @@ namespace IFCS
                 {
                     ImGui::Indent();
                     ImGui::Indent();
-                    for (const auto& [k, v] : FramesData)
+                    for (const auto& [k, v] : AnnotationFramesData)
                     {
                         const int FrameCount = k;
                         const int N_Annotations = int(v);
@@ -482,12 +480,12 @@ namespace IFCS
 
     void DataBrowser::UpdateData()
     {
-        FramesData.clear();
+        AnnotationFramesData.clear();
         YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"))[
             SelectedClipInfo.ClipPath];
         for (YAML::const_iterator it = Node.begin(); it != Node.end(); ++it)
         {
-            FramesData.insert({it->first.as<int>(), it->second.size()});
+            AnnotationFramesData.insert({it->first.as<int>(), it->second.size()});
         }
         IsSelectedFrameReviewed = false;
         ReviewTime = "";
@@ -501,6 +499,18 @@ namespace IFCS
             }
         }
         spdlog::info("Data is updated...");
+    }
+
+    void DataBrowser::FrameToGL(const cv::Mat& Frame)
+    {
+        glGenTextures(1, &LoadedFramePtr);
+        glBindTexture(GL_TEXTURE_2D, LoadedFramePtr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Frame.cols, Frame.rows, 0, GL_RGB,
+                     GL_UNSIGNED_BYTE, Frame.data);
     }
 
 

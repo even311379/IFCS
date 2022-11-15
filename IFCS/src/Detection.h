@@ -113,5 +113,8 @@ namespace IFCS
         void Analysis(const std::string& DName, const YAML::Node& DataNode);
         bool IsAnalyzing = false;
         std::future<void> AnalyzeFuture;
+        bool IsLoadingFrames = false;
+        // std::vector<cv::Mat> VideoFrames;
+        std::future<void> LoadFrameBufferFuture;
     };
 }

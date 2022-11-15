@@ -1,21 +1,27 @@
 ﻿#pragma once
+#include <future>
 #include <vector>
 #include "Panel.h"
 
 
 namespace IFCS
 {
+    /*
+     * Frame extraction workspace should be meaning less, just lable on video!!!!
+     *
+     * 
+     */
     
     class FrameExtractor : public IFCS::Panel
     {
     public:
         MAKE_SINGLETON(FrameExtractor)
-        void OnFrameLoaded();
         FClipInfo ClipInfo;
     protected:
         void RenderContent() override;
 
     private:
+        void OnClipSelected();
         // copied info
         bool ClipInfoIsLoaded = false;
         
@@ -48,6 +54,9 @@ namespace IFCS
         int CurrentFrameEnd;
         void UpdateCurrentFrameInfo(); // update above 4 param considering pan and zoom...
         float PlayProgress = 0.f; //0 ~ 100
+        bool IsLoadingVideo = false;
+        std::future<void> FutureLoadingVideo;
+        void PrepareVideo();
 
         // video actions:
         int NumFramesToExtract = 1;
@@ -56,5 +65,7 @@ namespace IFCS
         uint8_t ExtractionMode;
         // std::string ExtractionOptions;
         void PerformExtraction();
+
+        
     };
 }

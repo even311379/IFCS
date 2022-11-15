@@ -42,7 +42,7 @@ namespace IFCS
         ImGui::EndGroup();
         TitleComboWidth = ImGui::GetItemRectSize().x;
 
-        if (DataBrowser::Get().IsFramesEmpty()) return;
+        if (DataBrowser::Get().IsAnnotationFramesEmpty()) return;
         ImU32 BgColor = ImGui::ColorConvertFloat4ToU32(Style::GRAY(600, Setting::Get().Theme));
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - WorkArea.x) * 0.5f);
         ImGui::BeginChild("AnnotaitonWork", WorkArea, false);

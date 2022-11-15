@@ -3,10 +3,6 @@
 #include <fstream>
 #include <numeric>
 #include <random>
-// #include <GL/glew.h>
-
-
-// #include <GL/glew.h>
 
 #include "Log.h"
 #include "Setting.h"
@@ -17,17 +13,23 @@
 #include "imgui_internal.h"
 #include "backends/imgui_impl_glfw.h"
 #include <GLFW/glfw3.h>
+#include "Imspinner/imspinner.h"
 
 #include "yaml-cpp/yaml.h"
 #include "opencv2/opencv.hpp"
 #include <spdlog/spdlog.h>
 
+#include "Style.h"
+
 // TODO: Loaded Check... and add something when nothing is loaded...
 
 namespace IFCS
 {
-    void FrameExtractor::OnFrameLoaded()
+    // uint32_t FrameData;
+
+    void FrameExtractor::OnClipSelected()
     {
+        DataBrowser::Get().LoadFrame(0);
         YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
         ClipInfo = DataBrowser::Get().SelectedClipInfo;
         ClipInfoIsLoaded = true;
@@ -43,25 +45,15 @@ namespace IFCS
     // wow... clicks define here will get triggered even if its in behind... Need detaied test... will it triger thing in other docked?
     void FrameExtractor::RenderContent()
     {
-        /*if (!ClipInfoIsLoaded) return;
-
-        std::string Title = DataBrowser::Get().FrameTitle;
-        ImGui::PushFont(Setting::Get().TitleFont);
-        float TitleWidth = ImGui::CalcTextSize(Title.c_str()).x;
-        ImGui::SetCursorPosX((ImGui::GetWindowSize().x - TitleWidth) * 0.5f);
-        ImGui::Text(Title.c_str());
-        ImGui::PopFont();*/
-
-
         static float ClipComboWidth;
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - ClipComboWidth) * 0.5f);
         if (DataBrowser::Get().MakeClipSelectCombo())
         {
-            DataBrowser::Get().LoadFrame(0);
+            OnClipSelected();
+            PrepareVideo();
         }
         ClipComboWidth = ImGui::GetItemRectSize().x;
 
-        
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 1024) * 0.5f);
         ImGui::Image((void*)(intptr_t)DataBrowser::Get().LoadedFramePtr, ImVec2(1024, 576));
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 1024) * 0.5f);
@@ -101,6 +93,17 @@ namespace IFCS
         }
         EndTimeline();
         TimelineControlButtons();
+        if (IsLoadingVideo)
+        {
+            ImSpinner::SpinnerBarsScaleMiddle("Spinner_LoadingVideo_FrameExtractor", 6,
+                                              ImColor(Style::BLUE(400, Setting::Get().Theme)));
+            ImGui::SameLine();
+            ImGui::Text("Loading video...");
+            if (FutureLoadingVideo.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
+            {
+                IsLoadingVideo = false;
+            }
+        }
         ProcessingVideoPlay();
     }
 
@@ -323,14 +326,20 @@ namespace IFCS
             ImGui::SetTooltip("%d", HintClickFrame);
             if (ImGui::IsMouseClicked(0) || ImGui::IsMouseDragging(0))
             {
-                // TODO: after it, need to click play button twice to start play? why?
                 if (IsPlaying) JustPaused = true;
-                // PlayProgress = (ImGui::GetMousePos().x - Start.x) / (End.x - Start.x) * TimelineDisplayEnd;
                 PlayProgress = TempPlayProgress;
             }
             if (ImGui::IsMouseReleased(0))
             {
-                DataBrowser::Get().LoadFrame(CurrentFrame);
+                CurrentFrame = HintClickFrame;
+                if (IsLoadingVideo)
+                {
+                    DataBrowser::Get().LoadFrame(CurrentFrame);
+                }
+                else
+                {
+                    DataBrowser::Get().LoadVideoFrame(CurrentFrame);
+                }
             }
         }
 
@@ -354,6 +363,10 @@ namespace IFCS
                 if (TimelinePan >= MaxPan) TimelinePan = MaxPan;
                 if (TimelinePan <= 0) TimelinePan = 0;
                 UpdateCurrentFrameInfo();
+                if (!IsLoadingVideo)
+                {
+                    DataBrowser::Get().LoadVideoFrame(CurrentFrame);
+                }
             }
             CheckZoomInput();
         }
@@ -391,14 +404,25 @@ namespace IFCS
         ImGui::SameLine();
     }
 
+
     void FrameExtractor::TimelineControlButtons()
     {
-        float GapSize = (ImGui::GetWindowContentRegionWidth() - 1056 )/2;
+        float GapSize = (ImGui::GetWindowContentRegionWidth() - 1056) / 2;
         static char* PlayIcon;
-        PlayIcon = IsPlaying ? ICON_FA_PAUSE : ICON_FA_PLAY;
-        ImGui::Dummy({GapSize, 0}); ImGui::SameLine();
+            if (CurrentFrame == CurrentFrameEnd)
+                PlayIcon = ICON_FA_SYNC;
+            else if (IsPlaying)
+                PlayIcon = ICON_FA_PAUSE;
+            else
+                PlayIcon = ICON_FA_PLAY;
+        ImGui::Dummy({GapSize, 0});
+        ImGui::SameLine();
         if (ImGui::Button(PlayIcon, {96, 0}))
         {
+            if (CurrentFrame == CurrentFrameEnd)
+            {
+                CurrentFrame = CurrentFrameStart;
+            }
             if (!IsPlaying)
             {
                 IsPlaying = true;
@@ -412,14 +436,6 @@ namespace IFCS
         Utils::AddSimpleTooltip("Play / Pause clip");
 
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_SYNC, {96, 0}))
-        {
-            TimelinePan = 0.0f;
-            TimelineZoom = 1.0f;
-            UpdateCurrentFrameInfo();
-        }
-        Utils::AddSimpleTooltip("Reset zoom and pan for this clip");
-        ImGui::SameLine();
         if (ImGui::Button(ICON_FA_SEARCH_PLUS, {96, 0}))
         {
             TimelineZoom += 1.0f;
@@ -428,6 +444,10 @@ namespace IFCS
             float MaxPan = 1.f - (1.f / float(TimelineZoom));
             if (TimelinePan >= MaxPan) TimelinePan = MaxPan;
             UpdateCurrentFrameInfo();
+            if (!IsLoadingVideo)
+            {
+                DataBrowser::Get().LoadVideoFrame(CurrentFrame);
+            }
         }
         ImGui::SameLine();
         if (ImGui::Button(ICON_FA_SEARCH_MINUS, {96, 0}))
@@ -438,9 +458,22 @@ namespace IFCS
             float MaxPan = 1.f - (1.f / float(TimelineZoom));
             if (TimelinePan >= MaxPan) TimelinePan = MaxPan;
             UpdateCurrentFrameInfo();
+            if (!IsLoadingVideo)
+            {
+                DataBrowser::Get().LoadVideoFrame(CurrentFrame);
+            }
         }
         ImGui::SameLine();
-        ImGui::Dummy({GapSize, 0}); ImGui::SameLine();
+        if (ImGui::Button(ICON_FA_SYNC, {96, 0}))
+        {
+            TimelinePan = 0.0f;
+            TimelineZoom = 1.0f;
+            UpdateCurrentFrameInfo();
+        }
+        Utils::AddSimpleTooltip("Reset zoom and pan for this clip");
+        ImGui::SameLine();
+        ImGui::Dummy({GapSize, 0});
+        ImGui::SameLine();
         int MaxExtract = 0;
         for (size_t i = 0; i < Regions.size() / 2; i++)
         {
@@ -454,7 +487,7 @@ namespace IFCS
         ImGui::DragInt("##frames", &NumFramesToExtract, 1, 1, MaxExtract);
         ImGui::SameLine();
         static const char* ExtractionModeTitles[] = {
-            "Mode A","Mode B","Mode C"
+            "Mode A", "Mode B", "Mode C"
         };
         static const char* ExtractionModeTooltips[] = {
             "Remove frames without annotation, then extract to requested number",
@@ -464,7 +497,7 @@ namespace IFCS
         ImGui::SetNextItemWidth(144.f);
         if (ImGui::BeginCombo("##ExtractionOptionsCombo", ExtractionModeTitles[ExtractionMode]))
         {
-            for (uint8_t i = 0; i <  3; i++)
+            for (uint8_t i = 0; i < 3; i++)
             {
                 if (ImGui::Selectable(ExtractionModeTitles[i]))
                 {
@@ -489,20 +522,12 @@ namespace IFCS
     void FrameExtractor::ProcessingVideoPlay()
     {
         if (!IsPlaying) return;
-        // check if receive stop play
-
-        // open cap
-        static cv::VideoCapture Cap;
         if (JustPlayed)
         {
-            Cap.open(ClipInfo.ClipPath);
-
-            Cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
             JustPlayed = false;
         }
         if (JustPaused)
         {
-            Cap.release();
             JustPaused = false;
             IsPlaying = false;
             return;
@@ -513,33 +538,20 @@ namespace IFCS
         TimePassed += (1.0f / ImGui::GetIO().Framerate);
         if (TimePassed < (1 / ClipInfo.FPS)) return;
         TimePassed = 0.f;
-        // update frame
-        cv::Mat frame;
-        Cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
-        // Cap >> frame;
-        Cap.read(frame);
-        if (frame.empty()) return; // prevent crash?? will this trigger something more severe?
-        // DataBrowser::Get().LoadedFramePtr = Utils::MatToTexture(frame, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, GL_CLAMP);
-        
-        cv::resize(frame, frame, cv::Size(1280, 720)); // 16 : 9 // no need to resize?
-        cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
-        DataBrowser::Get().LoadedFramePtr = 0;
-        glGenTextures(1, &DataBrowser::Get().LoadedFramePtr);
-        glBindTexture(GL_TEXTURE_2D, DataBrowser::Get().LoadedFramePtr);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, frame.cols, frame.rows, 0, GL_RGB,
-                     GL_UNSIGNED_BYTE, frame.data);
-        
+        if (IsLoadingVideo)
+        {
+            DataBrowser::Get().LoadFrame(CurrentFrame);
+        }
+        else
+        {
+            DataBrowser::Get().LoadVideoFrame(CurrentFrame);
+        }
+
         CurrentFrame += 1;
         PlayProgress += (1.0f / (float)CurrentFrameRange) * 100.0f;
-        //check should release cap and stop play
         if (CurrentFrame == CurrentFrameEnd)
         {
             IsPlaying = false;
-            Cap.release();
         }
     }
 
@@ -562,8 +574,30 @@ namespace IFCS
     {
         CurrentFrameStart = int((float)ClipInfo.FrameCount * TimelinePan) + 1;
         CurrentFrameRange = int((float)ClipInfo.FrameCount / TimelineZoom);
-        CurrentFrame = int(CurrentFrameStart + PlayProgress / 100.0f * CurrentFrameRange);
+        // CurrentFrame = int(CurrentFrameStart + PlayProgress / 100.0f * CurrentFrameRange);
         CurrentFrameEnd = CurrentFrameStart + CurrentFrameRange - 1;
+        CurrentFrame = CurrentFrameStart;
+    }
+
+    void FrameExtractor::PrepareVideo()
+    {
+        IsLoadingVideo = true;
+        DataBrowser::Get().VideoFrames.clear();
+        auto func = [=]()
+        {
+            cv::VideoCapture Cap;
+            Cap.open(DataBrowser::Get().SelectedClipInfo.ClipPath);
+            cv::Mat Frame;
+            while (1)
+            {
+                Cap.read(Frame);
+                if (Frame.empty()) break;
+                cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y)); // 16 : 9 // no need to resize?
+                cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+                DataBrowser::Get().VideoFrames.push_back(Frame);
+            }
+        };
+        FutureLoadingVideo = std::async(std::launch::async, func);
     }
 
     void FrameExtractor::PerformExtraction()

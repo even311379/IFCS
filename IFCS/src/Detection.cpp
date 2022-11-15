@@ -5,10 +5,10 @@
 #include "Style.h"
 #include "Modals.h"
 
+#include "Imspinner/imspinner.h"
 #include "IconFontCppHeaders/IconsFontAwesome5.h"
 #include "Implot/implot.h"
 #include "misc/cpp/imgui_stdlib.h"
-#include "Imspinner/imspinner.h"
 
 #include <fstream>
 #include <variant>
@@ -59,7 +59,6 @@ namespace IFCS
                 }
                 ImGui::EndCombo();
             }
-            // ImGui::SetNextItemWidth(240.f);ImGui::SameLine();
             if (ImGui::BeginCombo("Choose Clip", SelectedClip))
             {
                 for (const std::string& Clip : DataBrowser::Get().GetAllClips())
@@ -73,7 +72,6 @@ namespace IFCS
                 }
                 ImGui::EndCombo();
             }
-            // ImGui::SetNextItemWidth(240.f);ImGui::SameLine();
 
             if (ImGui::InputInt("ImageSize", &ImageSize, 32, 128))
             {
@@ -186,6 +184,8 @@ namespace IFCS
             static const char* AnalysisType[] = {"Pass", "In Screen"};
             ImGui::SetNextItemWidth(240.f);
             ImGui::Combo("Choose Display Type", &SelectedAnalysisType, AnalysisType, IM_ARRAYSIZE(AnalysisType));
+            ImGui::SameLine();
+            ImGui::Checkbox("Display helper lines?", &DisplayHelperLines);
             if (IsAnalyzing)
             {
                 ImGui::Text("Wait for analyzing...");
@@ -198,15 +198,21 @@ namespace IFCS
                     IsAnalyzing = false;
                 }
             }
-            ImGui::SameLine();
-            ImGui::Checkbox("Display helper lines?", &DisplayHelperLines);
             // if not select... no need to render other stuff
             if (strlen(SelectedDetection) == 0 || IsAnalyzing)
             {
                 ImGui::TreePop();
                 return;
             }
-            // category colors...
+            if (IsLoadingFrames)
+            {
+                ImGui::Text("Wait for frames loading... (play speed will be very slow now)");
+                ImSpinner::SpinnerBarsScaleMiddle("Spinner3", 6, ImColor(Style::BLUE(400, Setting::Get().Theme)));
+                if (LoadFrameBufferFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
+                {
+                    IsLoadingFrames = false;
+                }
+            }
             int N = 0;
             for (const auto& [k, v] : Categories)
             {
@@ -397,46 +403,42 @@ namespace IFCS
 
     void Detection::UpdateFrame(int FrameNumber, bool UpdateClipInfo)
     {
-        cv::Mat frame;
+        if (UpdateClipInfo || IsLoadingFrames)
         {
+            cv::Mat Frame;
             cv::VideoCapture cap(DetectionClip);
-            if (UpdateClipInfo)
-            {
-                TotalClipFrameSize = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
-                EndFrame = TotalClipFrameSize;
-                ClipFPS = (float)cap.get(cv::CAP_PROP_FPS);
-                ClipWidth = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
-                FIndividualData::Width = ClipWidth;
-                ClipHeight = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
-                FIndividualData::Height = ClipHeight;
-            }
+            TotalClipFrameSize = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
+            EndFrame = TotalClipFrameSize;
+            ClipFPS = (float)cap.get(cv::CAP_PROP_FPS);
+            ClipWidth = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
+            FIndividualData::Width = ClipWidth;
+            ClipHeight = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+            FIndividualData::Height = ClipHeight;
             cap.set(cv::CAP_PROP_POS_FRAMES, FrameNumber);
-            cap >> frame;
-            // cv::resize(frame, frame, cv::Size(1280, 720)); // 16 : 9
+            cap >> Frame;
+            cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y)); // 16 : 9 // no need to resize?
+            cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
             cap.release();
+            UpdateFrameImpl(Frame);
         }
-        UpdateFrameImpl(frame);
+        else
+        {
+            if (DataBrowser::Get().VideoFrames.size() > FrameNumber)
+                UpdateFrameImpl(DataBrowser::Get().VideoFrames[FrameNumber]);
+        }
     }
 
-    // TODO: performance so bad!!, cpu usage goes to 5X%, because of its a 4k video? ...
-    // CUDA acceleration may help... with GPU version opencv...
-    // Create temp video with reduced resolution to save it?
     void Detection::ProcessingVideoPlay()
     {
         if (!IsPlaying) return;
         // check if receive stop play
-
         // open cap
-        static cv::VideoCapture Cap;
         if (JustPlayed)
         {
-            Cap.open(DetectionClip);
-            Cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
             JustPlayed = false;
         }
         if (JustPaused)
         {
-            Cap.release();
             JustPaused = false;
             IsPlaying = false;
             return;
@@ -447,18 +449,27 @@ namespace IFCS
         TimePassed += (1.0f / ImGui::GetIO().Framerate);
         if (TimePassed < (1 / ClipFPS)) return;
         TimePassed = 0.f;
-        // update frame
-        static cv::Mat frame;
-        Cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
-
-        Cap >> frame;
-        UpdateFrameImpl(frame);
+        if (IsLoadingFrames)
+        {
+            cv::VideoCapture Cap;
+            Cap.open(DetectionClip);
+            Cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
+            static cv::Mat Frame;
+            Cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
+            Cap >> Frame;
+            cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y)); // 16 : 9 // no need to resize?
+            cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+            UpdateFrameImpl(Frame);
+        }
+        else
+        {
+            UpdateFrameImpl(DataBrowser::Get().VideoFrames[CurrentFrame]);
+        }
         CurrentFrame += 1;
         //check should release cap and stop play
         if (CurrentFrame == EndFrame)
         {
             IsPlaying = false;
-            Cap.release();
         }
     }
 
@@ -466,10 +477,6 @@ namespace IFCS
     {
         UpdateCurrentCatCount();
         UpdateAccumulatedPasses();
-        // Resize will can save gpu utilization
-        cv::resize(Data, Data, cv::Size((int)WorkArea.x, (int)WorkArea.y));
-        cv::cvtColor(Data, Data, cv::COLOR_BGR2RGB); // test just rgb?
-
         glGenTextures(1, &LoadedFramePtr);
         glBindTexture(GL_TEXTURE_2D, LoadedFramePtr);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -711,7 +718,7 @@ namespace IFCS
                 // TODO: lots of miss count... when a lots of fish comes together...
 
                 // use Just enter??
-                
+
                 // check has already tracked any
                 if (IsInFishway)
                 {
@@ -773,8 +780,8 @@ namespace IFCS
                     [=](const FIndividualData& Data)
                     {
                         bool R = (std::prev(Data.Info.end())->first + DisappearTime < F || Data.IsCompleted);
-                        if (R)
-                            spdlog::info("Was removed? {}, {}", std::prev(Data.Info.end())->first + DisappearTime, F);
+                        // if (R)
+                        //     spdlog::info("Was removed? {}, {}", std::prev(Data.Info.end())->first + DisappearTime, F);
                         return (std::prev(Data.Info.end())->first + DisappearTime < F || Data.IsCompleted);
                     }),
                 TempTrackData.end());
@@ -983,7 +990,7 @@ namespace IFCS
     void Detection::Analysis(const std::string& DName, const YAML::Node& DataNode)
     {
         if (IsAnalyzing) return;
-        auto func = [=]()
+        auto LoadLabels = [=]()
         {
             DetectionClip = DataNode["TargetClip"].as<std::string>();
             LoadedLabels.clear();
@@ -1015,7 +1022,7 @@ namespace IFCS
                         std::stof(D[5])
                     ));
                 }
-                spdlog::info("label with size {} add to loaded labels ", Labels.size());
+                // spdlog::info("label with size {} add to loaded labels ", Labels.size());
                 LoadedLabels[FrameCount] = Labels;
             }
             Categories.clear();
@@ -1027,13 +1034,26 @@ namespace IFCS
                 CurrentCatCount[C] = 0;
                 FIndividualData::CategoryNames.push_back(C);
             }
-            // ClearCacheIndividuals();
-            // GenerateCachedIndividualImages();
-            // TrackIndividual();
-            // IsIndividualDataLatest = true;
         };
         IsAnalyzing = true;
+        AnalyzeFuture = std::async(std::launch::async, LoadLabels);
 
-        AnalyzeFuture = std::async(std::launch::async, func);
+        IsLoadingFrames = true;
+        DataBrowser::Get().VideoFrames.clear();
+        auto LoadFrameBuffer = [=]()
+        {
+            cv::VideoCapture Cap;
+            Cap.open(DetectionClip);
+            cv::Mat Frame;
+            while (1)
+            {
+                Cap.read(Frame);
+                if (Frame.empty()) break;
+                cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y)); // 16 : 9 // no need to resize?
+                cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+                DataBrowser::Get().VideoFrames.push_back(Frame);
+            }
+        };
+        LoadFrameBufferFuture = std::async(std::launch::async, LoadFrameBuffer);
     }
 }

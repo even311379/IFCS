@@ -21,13 +21,15 @@ namespace IFCS
 
         bool MakeClipSelectCombo();
         void MakeFrameSelectCombo();
-        bool IsFramesEmpty() const {return FramesData.empty(); }
+        bool IsAnnotationFramesEmpty() const {return AnnotationFramesData.empty(); }
         FClipInfo SelectedClipInfo;
         int SelectedFrame = -1;
         bool IsSelectedFrameReviewed;
         std::string ReviewTime;
         unsigned int LoadedFramePtr;
         bool ShouldUpdateData = false;
+        std::vector<cv::Mat> VideoFrames;
+        void LoadVideoFrame(int FrameNumber);
 
     protected:
         void RenderContent() override;
@@ -39,6 +41,7 @@ namespace IFCS
         void CreateSeletable_Detections();
         void RenderDetailWidget();
         void UpdateData();
+        void FrameToGL(const cv::Mat& Frame );
         // void MakeFrameTitle();
         bool HasAnyClip = false;
         bool HasAnyImage = false;
@@ -46,7 +49,7 @@ namespace IFCS
         bool NeedReviewedOnly;
         bool IsViewingSomeDetail() const;
         void DeselectAll(); // Make sure only one asset is selected...
-        std::map<int, size_t> FramesData;
+        std::map<int, size_t> AnnotationFramesData; // TODO: should also include cv::Mat?
         const std::array<std::string, 6> AcceptedClipsFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"};
         const std::array<std::string, 6> AcceptedImageFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"}; // TODO: ... 
         std::string SelectedTrainingSet;
