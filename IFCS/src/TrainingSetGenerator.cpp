@@ -12,7 +12,6 @@
 #include <GLFW/glfw3.h>
 #include <yaml-cpp/node/node.h>
 
-#include "Annotation.h"
 #include "CategoryManagement.h"
 #include "imgui_internal.h"
 #include "IconFontCppHeaders/IconsFontAwesome5.h"

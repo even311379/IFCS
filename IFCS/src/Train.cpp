@@ -8,7 +8,6 @@
 #include <iostream>
 #include <string>
 
-#include "Annotation.h"
 #include "yaml-cpp/yaml.h"
 #include "ImFileDialog/ImFileDialog.h"
 #include "IconFontCppHeaders/IconsFontAwesome5.h"

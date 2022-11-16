@@ -9,7 +9,6 @@
 #include "Implot/implot.h"
 #include <yaml-cpp/yaml.h>
 
-#include "Annotation.h"
 #include "TrainingSetGenerator.h"
 
 
@@ -278,19 +277,18 @@ namespace IFCS
     {
         for (auto [UID, Cat] : Data)
             Cat.TotalUsedCount = 0;
-        YAML::Node ClipNode = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
-        for (YAML::const_iterator it = ClipNode.begin(); it != ClipNode.end(); ++it)
+        YAML::Node AllNodes = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
+        for (YAML::const_iterator Clip = AllNodes.begin(); Clip != AllNodes.end(); ++Clip)
         {
-            auto FrameNode = it->second.as<YAML::Node>();
-            for (YAML::const_iterator it1 = FrameNode.begin(); it1 != FrameNode.end(); ++it1)
+            const YAML::Node& Frames = Clip->second;
+            for (YAML::const_iterator Fit = Frames.begin(); Fit != Frames.end(); ++Fit)
             {
-                uint64_t TT = it1->first.as<uint64_t>();
-                auto ANode = it1->second.as<YAML::Node>();
-                for (YAML::const_iterator it2 = ANode.begin(); it2 != ANode.end(); ++it2)
+                const YAML::Node& Frame = Fit->second;
+                for (YAML::const_iterator i = Frame.begin(); i!=Frame.end(); ++i)
                 {
-                    uint64_t TTT = it2->first.as<uint64_t>();
-                    uint64_t CID = it2->second.as<YAML::Node>()["CategoryID"].as<uint64_t>();
-                    Data[CID].TotalUsedCount += 1;
+                    if (i->first.as<std::string>() == "IsReady" || i->first.as<std::string>() == "UpdateTime" )
+                        continue;
+                    Data[i->second["CategoryID"].as<uint64_t>()].TotalUsedCount += 1;
                 }
             }
         }

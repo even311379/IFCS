@@ -1,10 +1,9 @@
 ﻿#include "MainMenu.h"
 
-#include "Annotation.h"
 #include "Application.h"
+#include "Annotation.h"
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
-#include "FrameExtractor.h"
 #include "imgui.h"
 #include "Log.h"
 #include "Train.h"
@@ -63,10 +62,6 @@ void IFCS::MainMenu::Render()
                 if (ImGui::MenuItem("Annotation", "", Annotation::Get().GetVisibility()))
                 {
                     Annotation::Get().ToggleVisibility();
-                }
-                if (ImGui::MenuItem("FrameExtractor", "", FrameExtractor::Get().GetVisibility()))
-                {
-                    FrameExtractor::Get().ToggleVisibility();
                 }
                 if (ImGui::MenuItem("CategoryManagement", "", CategoryManagement::Get().GetVisibility()))
                 {

@@ -15,7 +15,6 @@
 #include "Annotation.h"
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
-#include "FrameExtractor.h"
 #include "Panel.h"
 #include "Log.h"
 #include "MainMenu.h"
@@ -123,7 +122,7 @@ namespace IFCS
         Setting::Get().LoadEditorIni();
         LogPanel::Get().Setup("Log", false, 0);
         DataBrowser::Get().Setup("Data Browser", true, 0);
-        FrameExtractor::Get().Setup("Frame Extractor", true, 0);
+        // FrameExtractor::Get().Setup("Frame Extractor", true, 0);
         Annotation::Get().Setup("Annotation", true, 0);
         TrainingSetGenerator::Get().Setup("Training Set Generator", true, 0);
         Train::Get().Setup("Model Generator", true, 0);
@@ -167,7 +166,7 @@ namespace IFCS
             if (Setting::Get().ProjectIsLoaded)
             {
                 DataBrowser::Get().Render();
-                FrameExtractor::Get().Render();
+                // FrameExtractor::Get().Render();
                 Annotation::Get().Render();
                 TrainingSetGenerator::Get().Render();
                 CategoryManagement::Get().Render();

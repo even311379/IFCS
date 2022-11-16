@@ -81,6 +81,17 @@ namespace IFCS
             return GetLocText(LocID, s.PreferredLanguage);
         }
 
+        bool InsensitiveStringCompare(const std::string& InStr1, const std::string& InStr2)
+        {
+            return std::equal(InStr1.begin(), InStr1.end(),
+                              InStr2.begin(), InStr2.end(),
+                              [](char a, char b)
+                              {
+                                  return tolower(a) == tolower(b);
+                              });
+        }
+
+
         void AddSimpleTooltip(const char* Desc, float WrapSize, float Offset)
         {
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
@@ -241,63 +252,12 @@ namespace IFCS
             return (float)std::pow(std::pow(X1 - X2, 2) + std::pow(Y1 - Y2, 2), 0.5);
         }
 
-        // GLuint MatToTexture(const cv::Mat& Mat, GLenum minFilter, GLenum magFilter, GLenum wrapFilter)
-        // {
-        //     GLuint textureID;
-        //     glGenTextures(1, &textureID);
-        //
-        //     // Bind to our texture handle
-        //     glBindTexture(GL_TEXTURE_2D, textureID);
-        //
-        //     // Catch silly-mistake texture interpolation method for magnification
-        //     if (magFilter == GL_LINEAR_MIPMAP_LINEAR ||
-        //         magFilter == GL_LINEAR_MIPMAP_NEAREST ||
-        //         magFilter == GL_NEAREST_MIPMAP_LINEAR ||
-        //         magFilter == GL_NEAREST_MIPMAP_NEAREST)
-        //     {
-        //         magFilter = GL_LINEAR;
-        //     }
-        //
-        //     // Set texture interpolation methods for minification and magnification
-        //     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
-        //     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
-        //
-        //     // Set texture clamping method
-        //     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapFilter);
-        //     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapFilter);
-        //
-        //     // Set incoming texture format to:
-        //     // GL_BGR       for CV_CAP_OPENNI_BGR_IMAGE,
-        //     // GL_LUMINANCE for CV_CAP_OPENNI_DISPARITY_MAP,
-        //     // Work out other mappings as required ( there's a list in comments in main() )
-        //     GLenum inputColourFormat = GL_BGR;
-        //     if (Mat.channels() == 1)
-        //     {
-        //         inputColourFormat = GL_LUMINANCE;
-        //     }
-        //
-        //     // Create the texture
-        //     glTexImage2D(GL_TEXTURE_2D, // Type of texture
-        //                  0, // Pyramid level (for mip-mapping) - 0 is the top level
-        //                  GL_RGB, // Internal colour format to convert to
-        //                  Mat.cols, // Image width  i.e. 640 for Kinect in standard mode
-        //                  Mat.rows, // Image height i.e. 480 for Kinect in standard mode
-        //                  0, // Border width in pixels (can either be 1 or 0)
-        //                  inputColourFormat, // Input image format (i.e. GL_RGB, GL_RGBA, GL_BGR etc.)
-        //                  GL_UNSIGNED_BYTE, // Image data type
-        //                  Mat.ptr()); // The actual image data itself
-        //
-        //     // If we're using mipmaps then generate them. Note: This requires OpenGL 3.0 or higher
-        //     if (minFilter == GL_LINEAR_MIPMAP_LINEAR ||
-        //         minFilter == GL_LINEAR_MIPMAP_NEAREST ||
-        //         minFilter == GL_NEAREST_MIPMAP_LINEAR ||
-        //         minFilter == GL_NEAREST_MIPMAP_NEAREST)
-        //     {
-        //         glGenerateMipmap(GL_TEXTURE_2D);
-        //     }
-        //
-        //     return textureID;
-        // }
+        void GetAbsRectMinMax(ImVec2 p0, ImVec2 p1, ImVec2& OutMin, ImVec2& OutMax)
+        {
+            OutMin.x = std::min(p0.x, p1.x);
+            OutMin.y = std::min(p0.y, p1.y);
+            OutMax.x = std::max(p0.x, p1.x);
+            OutMax.y = std::max(p0.y, p1.y);
+        }
     }
-    
 }

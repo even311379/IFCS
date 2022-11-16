@@ -6,6 +6,14 @@
 
 namespace IFCS
 {
+    void FClipInfo::Update(const int& NewFrameCount, const float& NewFPS, const int& NewWidth, const int& NewHeight)
+    {
+        FrameCount = NewFrameCount;
+        FPS = NewFPS;
+        Width = NewWidth;
+        Height = NewHeight;
+    }
+
     std::string FClipInfo::GetClipFileName() const
     {
         std::vector<std::string> temp = Utils::Split(ClipPath, '/');
@@ -17,6 +25,47 @@ namespace IFCS
         if (!Setting::Get().ProjectIsLoaded) return ClipPath;
         if (ClipPath.empty()) return ClipPath;
         return ClipPath.substr(Setting::Get().ProjectPath.size() + 7);
+    }
+
+    void FClipInfo::MakeDetailWidget()
+    {
+        const float Offset = 140.f;
+        ImGui::Text("Frames:");
+        ImGui::SameLine(Offset);
+        ImGui::Text("%d", FrameCount);
+        ImGui::Text("FPS:");
+        ImGui::SameLine(Offset);
+        ImGui::Text("%.2f", FPS);
+        ImGui::Text("Size");
+        ImGui::SameLine(Offset);
+        ImGui::Text("%d x %d", Width, Height);
+    }
+
+    void FImageInfo::Update(const int& NewWidth, const int& NewHeight)
+    {
+        Width = NewWidth;
+        Height = NewHeight;
+    }
+
+    std::string FImageInfo::GetFileName() const
+    {
+        std::vector<std::string> temp = Utils::Split(ImagePath, '/');
+        return temp.back();
+    }
+
+    std::string FImageInfo::GetRelativePath() const
+    {
+        if (!Setting::Get().ProjectIsLoaded) return ImagePath;
+        if (ImagePath.empty()) return ImagePath;
+        return ImagePath.substr(Setting::Get().ProjectPath.size() + 8);
+    }
+
+    void FImageInfo::MakeDetailWidget()
+    {
+        const float Offset = 140.f;
+        ImGui::Text("Size");
+        ImGui::SameLine(Offset);
+        ImGui::Text("%d x %d", Width, Height);
     }
 
     FCategory::FCategory(std::string NewDisplayName)
@@ -290,27 +339,38 @@ namespace IFCS
         }
         const float Offset = 140.f;
         ImGui::TextWrapped("Categories:\n  [%s]", OutCatTxt.c_str());
-        ImGui::Text("Model Type:");ImGui::SameLine(Offset);
+        ImGui::Text("Model Type:");
+        ImGui::SameLine(Offset);
         ImGui::Text(ModelType.c_str());
-        ImGui::Text("Hyp:");ImGui::SameLine(Offset);
+        ImGui::Text("Hyp:");
+        ImGui::SameLine(Offset);
         ImGui::Text(HyperParameter.c_str());
-        ImGui::Text("Data Set:");ImGui::SameLine(Offset);
+        ImGui::Text("Data Set:");
+        ImGui::SameLine(Offset);
         ImGui::Text(SourceTrainingSet.c_str());
-        ImGui::Text("Train Time:");ImGui::SameLine(Offset);
+        ImGui::Text("Train Time:");
+        ImGui::SameLine(Offset);
         ImGui::Text("%.2f hours", TrainingTime);
-        ImGui::Text("Image Size:");ImGui::SameLine(Offset);
+        ImGui::Text("Image Size:");
+        ImGui::SameLine(Offset);
         ImGui::Text("%d x %d", ImageSize[0], ImageSize[1]);
-        ImGui::Text("Batch Size:");ImGui::SameLine(Offset);
+        ImGui::Text("Batch Size:");
+        ImGui::SameLine(Offset);
         ImGui::Text("%d", BatchSize);
-        ImGui::Text("Num Epochs:");ImGui::SameLine(Offset);
+        ImGui::Text("Num Epochs:");
+        ImGui::SameLine(Offset);
         ImGui::Text("%d", NumEpochs);
-        ImGui::Text("Precision:");ImGui::SameLine(Offset);
+        ImGui::Text("Precision:");
+        ImGui::SameLine(Offset);
         ImGui::Text("%.3f", Precision);
-        ImGui::Text("Recall:");ImGui::SameLine(Offset);
+        ImGui::Text("Recall:");
+        ImGui::SameLine(Offset);
         ImGui::Text("%.3f", Recall);
-        ImGui::Text("mAP@.5:");ImGui::SameLine(Offset);
+        ImGui::Text("mAP@.5:");
+        ImGui::SameLine(Offset);
         ImGui::Text("%.3f", mAP5);
-        ImGui::Text("mAP@.5:.95:");ImGui::SameLine(Offset);
+        ImGui::Text("mAP@.5:.95:");
+        ImGui::SameLine(Offset);
         ImGui::Text("%.3f", mAP5_95);
     }
 
@@ -359,15 +419,20 @@ namespace IFCS
         }
         ImGui::TextWrapped("Categories: \n  [%s]", OutCatTxt.c_str());
         const float Offset = 140.f;
-        ImGui::Text("Source Model:");ImGui::SameLine(Offset);
+        ImGui::Text("Source Model:");
+        ImGui::SameLine(Offset);
         ImGui::Text("%s", SourceModel.c_str());
-        ImGui::Text("Target Clip:");ImGui::SameLine(Offset);
+        ImGui::Text("Target Clip:");
+        ImGui::SameLine(Offset);
         ImGui::Text("%s", TargetClip.c_str());
-        ImGui::Text("Confidence:");ImGui::SameLine(Offset);
+        ImGui::Text("Confidence:");
+        ImGui::SameLine(Offset);
         ImGui::Text("%.2f", Confidence);
-        ImGui::Text("IOU:");ImGui::SameLine(Offset);
+        ImGui::Text("IOU:");
+        ImGui::SameLine(Offset);
         ImGui::Text("%.2f", IOU);
-        ImGui::Text("Image Size:");ImGui::SameLine(Offset);
+        ImGui::Text("Image Size:");
+        ImGui::SameLine(Offset);
         ImGui::Text("%d", ImageSize);
     }
 

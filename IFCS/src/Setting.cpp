@@ -9,7 +9,6 @@
 #include "Annotation.h"
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
-#include "FrameExtractor.h"
 #include "Train.h"
 #include "Panel.h"
 #include "Detection.h"
@@ -110,20 +109,17 @@ namespace IFCS
     void Setting::CreateStartup()
     {
         RecentProjects.insert(ProjectPath);
-        std::filesystem::create_directories(ProjectPath); // TODO: can not use chinese folder name
+        std::filesystem::create_directories(ProjectPath); // TODO: can not use chinese folder name??
         std::filesystem::create_directories(ProjectPath + std::string("/Clips"));
-        // lack of ..."i"...tra_ning ... waste me 2 hours...
         std::filesystem::create_directories(ProjectPath + std::string("/Images"));
         std::filesystem::create_directories(ProjectPath + std::string("/Models"));
         std::filesystem::create_directories(ProjectPath + std::string("/Detections"));
         std::filesystem::create_directories(ProjectPath + std::string("/Data"));
         std::ofstream output1(ProjectPath + std::string("/Data/Annotations.yaml"));
         std::ofstream output2(ProjectPath + std::string("/Data/Categories.yaml"));
-        std::ofstream output3(ProjectPath + std::string("/Data/ExtractionRegions.yaml"));
         std::ofstream output4(ProjectPath + std::string("/Data/TrainingSets.yaml"));
         std::ofstream output5(ProjectPath + std::string("/Models/Models.yaml"));
         std::ofstream output6(ProjectPath + std::string("/Detections/Detections.yaml"));
-        std::ofstream output7(ProjectPath + std::string("/Data/Reviews.yaml"));
         Save();
         JustSetup = true;
     }
@@ -137,7 +133,6 @@ namespace IFCS
     void Setting::SetWorkspace(EWorkspace NewWorkspace)
     {
         Annotation::Get().SetVisibility(false);
-        FrameExtractor::Get().SetVisibility(false);
         CategoryManagement::Get().SetVisibility(false);
         TrainingSetGenerator::Get().SetVisibility(false);
         Train::Get().SetVisibility(false);
@@ -148,7 +143,6 @@ namespace IFCS
         {
         case EWorkspace::Data:
             Annotation::Get().SetVisibility(true);
-            FrameExtractor::Get().SetVisibility(true);
             TrainingSetGenerator::Get().SetVisibility(true);
             CategoryManagement::Get().SetVisibility(true);
             BGPanel::Get().SetDataWksNow = true;

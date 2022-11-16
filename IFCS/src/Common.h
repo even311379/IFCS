@@ -22,16 +22,14 @@ namespace IFCS
 {
     // declare some global var here? or???
     static const ImVec2 WorkArea = {1280, 720};
-
-
+    
     enum class EWorkspace : uint8_t
     {
         Data = 0,
         Train = 1,
         Detect = 2,
     };
-
-
+    
     // the value is the column position in csv...
     enum class ESupportedLanguage : uint8_t
     {
@@ -59,6 +57,7 @@ namespace IFCS
         std::string Message;
         bool ShouldDisplay;
     };
+    
 
     struct FClipInfo
     {
@@ -67,8 +66,21 @@ namespace IFCS
         int Width;
         int Height;
         float FPS;
+        void Update(const int& NewFrameCount, const float& NewFPS, const int& NewWidth, const int& NewHeight);
         std::string GetClipFileName() const;
         std::string GetRelativePath() const;
+        void MakeDetailWidget();
+    };
+
+    struct FImageInfo 
+    {
+        std::string ImagePath;
+        int Width;
+        int Height;
+        void Update(const int& NewWidth, const int& NewHeight);
+        std::string GetFileName() const;
+        std::string GetRelativePath() const;
+        void MakeDetailWidget();
     };
 
     //TODO: when to serialize them to the yaml file?
@@ -119,6 +131,12 @@ namespace IFCS
         }
     };
 
+    struct FCheck
+    {
+        bool IsReady;
+        std::string UpdateTime;
+    };
+        
     struct FAnnotation
     {
         FAnnotation() = default;

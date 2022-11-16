@@ -29,6 +29,8 @@ namespace IFCS
 
         const std::string GetLocText(const char* LocID);
 
+        bool InsensitiveStringCompare(const std::string& InStr1, const std::string& InStr2);
+
         void AddSimpleTooltip(const char* Desc, float WrapSize = 35.0f, float Offset = 0.f);
 
         // copy from https://github.com/ocornut/imgui/issues/2718#issuecomment-591057202   NOT WORKING... flashed and return to uneditable format...
@@ -71,6 +73,8 @@ namespace IFCS
         }
 
         float Distance(float X1, float Y1, float X2, float Y2);
+
+        void GetAbsRectMinMax(ImVec2 p0, ImVec2 p1, ImVec2& OutMin, ImVec2& OutMax);
 
         // opencv to opengl helper
     }

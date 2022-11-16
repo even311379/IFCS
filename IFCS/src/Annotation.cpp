@@ -4,136 +4,319 @@
 
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
-#include "imgui_internal.h"
-#include "Log.h"
 #include "Setting.h"
 #include "Style.h"
-#include "IconFontCppHeaders/IconsFontAwesome5.h"
+#include "UUID.h"
+#include "Imspinner/imspinner.h"
+#include <IconFontCppHeaders/IconsFontAwesome5.h>
 #include "yaml-cpp/yaml.h"
-
-// TODO: Loaded Check... and add something when nothing is loaded...
 
 namespace IFCS
 {
+    void Annotation::DisplayFrame(int NewFrameNum)
+    {
+        CurrentFrame = NewFrameNum;
+        if (IsLoadingVideo)
+        {
+            cv::VideoCapture cap(DataBrowser::Get().SelectedClipInfo.ClipPath);
+            cv::Mat Frame;
+            cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
+            cap >> Frame;
+            cv::resize(Frame, Frame, cv::Size(1280, 720)); // 16 : 9
+            cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+            cap.release();
+            DataBrowser::Get().MatToGL(Frame);
+        }
+        else
+        {
+            DataBrowser::Get().LoadVideoFrame(NewFrameNum);
+        }
+    }
+
+    void Annotation::DisplayImage()
+    {
+        // imread and update info
+        cv::Mat Img = cv::imread(DataBrowser::Get().SelectedImageInfo.ImagePath);
+        DataBrowser::Get().SelectedImageInfo.Update(Img.cols, Img.rows);
+        cv::cvtColor(Img, Img, cv::COLOR_BGR2RGB);
+        cv::resize(Img, Img, cv::Size((int)WorkArea.x, (int)WorkArea.y));
+        DataBrowser::Get().MatToGL(Img);
+    }
+
+    int StartFrame;
+    int EndFrame;
+
+    void Annotation::PrepareVideo()
+    {
+        // show frame 1 and update info
+        CurrentFrame = 0;
+        StartFrame = 0;
+        LoadData();
+        cv::Mat Frame;
+        cv::VideoCapture cap(DataBrowser::Get().SelectedClipInfo.ClipPath);
+        int Width = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
+        int Height = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+        float FPS = (float)cap.get(cv::CAP_PROP_FPS);
+        int FrameCount = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
+        EndFrame = FrameCount - 1;
+        DataBrowser::Get().SelectedClipInfo.Update(FrameCount, FPS, Width, Height);
+        cap >> Frame;
+        cv::resize(Frame, Frame, cv::Size(1280, 720)); // 16 : 9
+        cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+        cap.release();
+        DataBrowser::Get().MatToGL(Frame);
+        if (IsLoadingVideo) return;
+        DataBrowser::Get().VideoFrames.clear();
+        // TODO: need wisely utilize memery...
+        IsLoadingVideo = true;
+        // async load frame with multi core?
+        auto LoadVideo = [this](int Ith)
+        {
+            cv::VideoCapture Cap;
+            Cap.open(DataBrowser::Get().SelectedClipInfo.ClipPath);
+            int FrameCount = DataBrowser::Get().SelectedClipInfo.FrameCount;
+            int i = int(float(Ith) * float(FrameCount) / 4.f);
+            int End = int(float(Ith + 1) / 4.f * float(FrameCount));
+            spdlog::info("{}:{}", i, End);
+            cv::Mat Frame;
+            Cap.set(cv::CAP_PROP_POS_FRAMES, i);
+            while (1)
+            {
+                if (i > End) break;
+                Cap.read(Frame);
+                if (Frame.empty()) break;
+                cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y));
+                // 16 : 9 // no need to resize?
+                cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+                DataBrowser::Get().VideoFrames[i] = Frame;
+                i++;
+            }
+            Cap.release();
+        };
+        for (int T = 0; T < 4; T++)
+        {
+            Tasks[T] = std::async(std::launch::async, LoadVideo, T);
+        }
+    }
+
+    bool NeedSave = false;
+
+    int Tick = 0;
+
+    std::map<int, FAnnotationToDisplay> Annotation::GetAnnotationToDisplay()
+    {
+        std::map<int, FAnnotationToDisplay> Out;
+        for (const auto& [F, M] : Data)
+        {
+            Out[F] = FAnnotationToDisplay(M.size(), CheckData[F].IsReady);
+        }
+        return Out;
+    }
+
     void Annotation::RenderContent()
     {
-        // if (!DataBrowser::Get().AnyFrameLoaded) return;
+        RenderSelectCombo();
 
-        // std::string Title = DataBrowser::Get().FrameTitle;
-        // ImGui::PushFont(Setting::Get().TitleFont);
-        // float TitleWidth = ImGui::CalcTextSize(Title.c_str()).x;
-        // ImGui::SetCursorPosX((ImGui::GetWindowSize().x - TitleWidth) * 0.5f);
-        // ImGui::Text(Title.c_str());
-        // ImGui::PopFont();
-        static float TitleComboWidth;
-        ImGui::SetCursorPosX((ImGui::GetWindowWidth() - TitleComboWidth) * 0.5f);
-        ImGui::BeginGroup();
+        RenderAnnotationWork();
+
+        ImGui::Dummy({0, ImGui::GetTextLineHeightWithSpacing()});
+        if (!DataBrowser::Get().SelectedClipInfo.ClipPath.empty())
         {
-            ImGui::SetNextItemWidth(360);
-            if (DataBrowser::Get().MakeClipSelectCombo())
+            RenderVideoControls();
+            ImGui::Dummy({0, ImGui::GetTextLineHeightWithSpacing()});
+        }
+        RenderAnnotationToolbar();
+
+        if (IsLoadingVideo)
+        {
+            ImSpinner::SpinnerBarsScaleMiddle("Spinner_LoadVideo_1", 6,
+                                              ImColor(Style::BLUE(400, Setting::Get().Theme)));
+            ImGui::Text("Video loading...");
+            int NumCoreFinished = 0;
+            for (size_t T = 0; T < 4; T++)
             {
-                spdlog::info("changed clip is triggered??");
-                DataBrowser::Get().LoadFrame(-1);
+                if (Tasks[T].wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
+                {
+                    NumCoreFinished++;
+                }
+            }
+            if (NumCoreFinished == 4) IsLoadingVideo = false;
+        }
+
+        if (Tick > 300)
+        {
+            Tick = 0;
+            if (NeedSave) // check need save every 300 frame?
+            {
+                SaveData();
+                NeedSave = false;
+            }
+        }
+        Tick++;
+    }
+
+
+    void Annotation::RenderSelectCombo()
+    {
+        ImGui::SetNextItemWidth(480);
+        if (IsImage)
+        {
+            const size_t RelOffset = Setting::Get().ProjectPath.size() + 8;
+            if (ImGui::BeginCombo("##ImageSelect", DataBrowser::Get().SelectedImageInfo.GetRelativePath().c_str()))
+            {
+                for (const std::string& Img : DataBrowser::Get().GetAllImages())
+                {
+                    if (ImGui::Selectable(Img.substr(RelOffset).c_str()))
+                    {
+                        DataBrowser::Get().SelectedClipInfo.ClipPath = ""; // Deselect Clip
+                        DataBrowser::Get().SelectedImageInfo.ImagePath = Img;
+                        DisplayImage();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+        }
+        else
+        {
+            const size_t RelOffset = Setting::Get().ProjectPath.size() + 7;
+            if (ImGui::BeginCombo("##ClipSelect", DataBrowser::Get().SelectedClipInfo.GetRelativePath().c_str()))
+            {
+                for (const std::string& C : DataBrowser::Get().GetAllClips())
+                {
+                    if (ImGui::Selectable(C.substr(RelOffset).c_str()))
+                    {
+                        DataBrowser::Get().SelectedImageInfo.ImagePath = ""; // Deselect image...
+                        DataBrowser::Get().SelectedClipInfo.ClipPath = C;
+                        PrepareVideo();
+                    }
+                }
+                ImGui::EndCombo();
             }
             ImGui::SameLine();
-            ImGui::SetNextItemWidth(360);
-            DataBrowser::Get().MakeFrameSelectCombo();
+            ImGui::SetNextItemWidth(120);
+            if (ImGui::BeginCombo("##ClipFrame", std::to_string(CurrentFrame).c_str()))
+            {
+                for (const auto& [F, Map] : Data)
+                {
+                    if (ImGui::Selectable(std::to_string(F).c_str(), F == CurrentFrame))
+                    {
+                        MoveFrame(F);
+                    }
+                }
+                ImGui::EndCombo();
+            }
         }
-        ImGui::EndGroup();
-        TitleComboWidth = ImGui::GetItemRectSize().x;
+        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 200);
+        ImGui::Checkbox("Annotate image?", &IsImage);
+    }
 
-        if (DataBrowser::Get().IsAnnotationFramesEmpty()) return;
+    ImVec2 WorkStartPos;
+    // TODO: update time and remove unrequired check data!
+    void Annotation::RenderAnnotationWork()
+    {
         ImU32 BgColor = ImGui::ColorConvertFloat4ToU32(Style::GRAY(600, Setting::Get().Theme));
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - WorkArea.x) * 0.5f);
         ImGui::BeginChild("AnnotaitonWork", WorkArea, false);
-        ImGuiWindow* Win = ImGui::GetCurrentWindow();
-        WorkStartPos = ImGui::GetItemRectMin();
-        Win->DrawList->AddRectFilled(WorkStartPos, WorkStartPos + WorkArea, BgColor); // draw bg
-        Win->DrawList->AddImage((void*)(intptr_t)DataBrowser::Get().LoadedFramePtr, WorkStartPos + PanAmount,
-                                WorkStartPos + PanAmount + GetZoom() * WorkArea); // image
+        ImGui::GetWindowDrawList()->AddRectFilled(WorkStartPos, WorkStartPos + WorkArea, BgColor); // draw bg
+        ImGui::GetWindowDrawList()->AddImage((void*)(intptr_t)DataBrowser::Get().LoadedFramePtr,
+                                             WorkStartPos + PanAmount,
+                                             WorkStartPos + PanAmount + GetZoom() * WorkArea); // image
+        static UUID ToDeleteAnnID = 0;
         // render things from data
-        for (const auto& [ID, A] : Data)
+        if (Data.count(CurrentFrame))
         {
-            FCategory Category = CategoryManagement::Get().Data[A.CategoryID];
-            if (!Category.Visibility) continue;
-            std::array<float, 4> TransformedXYWH = TransformXYWH(A.XYWH);
-            float X = TransformedXYWH[0];
-            float Y = TransformedXYWH[1];
-            float W = TransformedXYWH[2];
-            float H = TransformedXYWH[3];
-            ImVec2 TL, BL, BR, TR, C; // top-left, bottom-left, bottom-right, top-right, center
-            // TODO: zoom and pan?
-            TL = {X - 0.5f * W, Y - 0.5f * H};
-            BL = {X - 0.5f * W, Y + 0.5f * H};
-            BR = {X + 0.5f * W, Y + 0.5f * H};
-            TR = {X + 0.5f * W, Y - 0.5f * H};
-            C = {X, Y};
-
-            ImU32 Color = ImGui::ColorConvertFloat4ToU32(Category.Color);
-            Win->DrawList->AddRect(TL, BR, Color, 0, 0, 2);
-            // annotation box
-            Win->DrawList->AddText(ImGui::GetFont(), 24.f, TL - ImVec2(0, 30.f), Color,
-                                   Category.DisplayName.c_str()); // display name
-            float CircleRadius = 6.f;
-            float PanControlRadius = 12.f;
-            ImGui::PushID(int(ID));
-            const bool IsMouseDragging = ImGui::IsMouseDragging(0);
-            // TODO: maybe change color when hover control btn?
-            if (CurrentMode == EAnnotationEditMode::Edit)
+            for (auto& [ID, A] : Data[CurrentFrame])
             {
-                // pan controller Center
-                Win->DrawList->AddCircleFilled(C, PanControlRadius, Color);
-                ImGui::SetCursorScreenPos(C - ImVec2(PanControlRadius, PanControlRadius));
-                ImGui::InvisibleButton("Pan", ImVec2(PanControlRadius * 2, PanControlRadius * 2));
-                bool IsPanActive = ImGui::IsItemActive();
-                if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-                if (IsPanActive && IsMouseDragging)
-                {
-                    ImVec2 Delta = ImGui::GetIO().MouseDelta / GetZoom();
-                    Data[ID].Pan({Delta.x, Delta.y});
-                    IsCurrentFrameModified = true;
-                }
-                // resize top left
-                ResizeImpl(Win, EBoxCorner::TopLeft, TL, Color, IsMouseDragging, ID);
-                // resize bottom left
-                ResizeImpl(Win, EBoxCorner::BottomLeft, BL, Color, IsMouseDragging, ID);
-                // resize bottom right
-                ResizeImpl(Win, EBoxCorner::BottomRight, BR, Color, IsMouseDragging, ID);
-                // resize top right
-                ResizeImpl(Win, EBoxCorner::TopRight, TR, Color, IsMouseDragging, ID);
+                FCategory Category = CategoryManagement::Get().Data[A.CategoryID];
+                if (!Category.Visibility) continue;
+                std::array<float, 4> TransformedXYWH = TransformXYWH(A.XYWH);
+                float X = TransformedXYWH[0];
+                float Y = TransformedXYWH[1];
+                float W = TransformedXYWH[2];
+                float H = TransformedXYWH[3];
+                ImVec2 TL, BL, BR, TR, C; // top-left, bottom-left, bottom-right, top-right, center
+                TL = {X - 0.5f * W, Y - 0.5f * H};
+                BL = {X - 0.5f * W, Y + 0.5f * H};
+                BR = {X + 0.5f * W, Y + 0.5f * H};
+                TR = {X + 0.5f * W, Y - 0.5f * H};
+                C = {X, Y};
 
-                // trash
-                ImVec2 TrashPos = TR + ImVec2(24.f, -36);
-                Win->DrawList->AddText(ImGui::GetFont(), 36.f, TrashPos, Color,
-                                       ICON_FA_TRASH_ALT);
-                ImGui::SetCursorScreenPos(TrashPos);
-                if (ImGui::InvisibleButton("Trash", ImVec2(36, 36)))
+                ImU32 Color = ImGui::ColorConvertFloat4ToU32(Category.Color);
+                ImGui::GetWindowDrawList()->AddRect(TL, BR, Color, 0, 0, 2);
+                // annotation box
+                ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), 24.f, TL - ImVec2(0, 30.f), Color,
+                                                    Category.DisplayName.c_str()); // display name
+                static const float PanControlRadius = 12.f;
+                ImGui::PushID(int(ID));
+                const bool IsMouseDragging = ImGui::IsMouseDragging(0);
+                if (EditMode == EAnnotationEditMode::Edit)
                 {
-                    Trash(ID);
-                }
-                if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                    // pan controller Center
+                    ImGui::GetWindowDrawList()->AddCircleFilled(C, PanControlRadius, Color);
+                    ImGui::SetCursorScreenPos(C - ImVec2(PanControlRadius, PanControlRadius));
+                    ImGui::InvisibleButton("Pan", ImVec2(PanControlRadius * 2, PanControlRadius * 2));
+                    bool IsPanActive = ImGui::IsItemActive();
+                    if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                    if (IsPanActive && IsMouseDragging)
+                    {
+                        ImVec2 Delta = ImGui::GetIO().MouseDelta / GetZoom();
+                        A.Pan({Delta.x, Delta.y});
+                        CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                        NeedSave = true;
+                    }
+                    // resize top left
+                    ResizeImpl(EBoxCorner::TopLeft, TL, Color, IsMouseDragging, A);
+                    // resize bottom left
+                    ResizeImpl(EBoxCorner::BottomLeft, BL, Color, IsMouseDragging, A);
+                    // resize bottom right
+                    ResizeImpl(EBoxCorner::BottomRight, BR, Color, IsMouseDragging, A);
+                    // resize top right
+                    ResizeImpl(EBoxCorner::TopRight, TR, Color, IsMouseDragging, A);
 
-                // reassign
-                ImVec2 ReassignPos = TL - ImVec2(48, 36);
-                Win->DrawList->AddText(ImGui::GetFont(), 36.f, ReassignPos, Color,
-                                       ICON_FA_LONG_ARROW_ALT_RIGHT);
-                ImGui::SetCursorScreenPos(ReassignPos);
-                if (ImGui::InvisibleButton("Reassign", ImVec2(36, 36)))
-                {
-                    spdlog::info("Reassign is clicked");
-                    Reassign(ID);
+                    ImVec2 ComboPos = TL - ImVec2(36, 0);
+                    ImGui::SetCursorScreenPos(ComboPos);
+                    ImGui::PushStyleColor(ImGuiCol_Button, Category.Color);
+                    if (ImGui::BeginCombo("##EditCombo", "", ImGuiComboFlags_NoPreview))
+                    {
+                        for (const auto& [UID, Cat] : CategoryManagement::Get().Data)
+                        {
+                            if (Cat.DisplayName == Category.DisplayName) continue;
+                            if (ImGui::Selectable((std::string("Change to ") + Cat.DisplayName).c_str()))
+                            {
+                                A.CategoryID = UID;
+                                CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                                NeedSave = true;
+                            }
+                        }
+                        if (ImGui::Selectable("Delete"))
+                        {
+                            ToDeleteAnnID = ID;
+                            CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                            NeedSave = true;
+                        }
+                        ImGui::EndCombo();
+                    }
+                    ImGui::PopStyleColor();
                 }
-                if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                ImGui::PopID();
             }
-            ImGui::PopID();
+            
         }
+        if (ToDeleteAnnID != 0)
+        {
+            Data[CurrentFrame].erase(ToDeleteAnnID);
+            ToDeleteAnnID = 0;
+        }
+        static ImVec2 AddPointStart;
+        static bool IsAdding;
         // render working stuff
         if (IsAdding)
         {
             ImU32 NewColor = ImGui::ColorConvertFloat4ToU32(CategoryManagement::Get().GetSelectedCategory()->Color);
-            Win->DrawList->AddRect(AddPointStart, ImGui::GetMousePos(), NewColor, 0, 0, 3);
+            ImGui::GetWindowDrawList()->AddRect(AddPointStart, ImGui::GetMousePos(), NewColor, 0, 0, 3);
         }
         ImGui::EndChild();
+        WorkStartPos = ImGui::GetItemRectMin();
         if (ImGui::IsItemHovered())
         {
             if (ImGui::IsMouseDragging(ImGuiMouseButton_Right))
@@ -154,7 +337,7 @@ namespace IFCS
                 ImVec2 ImgPos = (ZoomPos - PanAmount) / GetZoom(OldZoomLevel);
                 PanAmount = ZoomPos - ImgPos * GetZoom();
             }
-            if (CurrentMode == EAnnotationEditMode::Add && ImGui::IsMouseClicked(0))
+            if (EditMode == EAnnotationEditMode::Add && ImGui::IsMouseClicked(0))
             {
                 if (CategoryManagement::Get().GetSelectedCategory())
                 {
@@ -166,42 +349,125 @@ namespace IFCS
             {
                 IsAdding = false;
                 ImVec2 AbsMin, AbsMax;
-                GetAbsRectMinMax(AddPointStart, ImGui::GetMousePos(), AbsMin, AbsMax);
+                Utils::GetAbsRectMinMax(AddPointStart, ImGui::GetMousePos(), AbsMin, AbsMax);
                 std::array<float, 4> NewXYWH = MouseRectToXYWH(AbsMin, AbsMax);
-                Data[UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
+                Data[CurrentFrame][UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
                 CategoryManagement::Get().AddCount();
-                IsCurrentFrameModified = true;
+                CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                NeedSave = true;
             }
             if (ImGui::IsKeyPressed(ImGuiKey_W))
             {
-                CurrentMode = EAnnotationEditMode::Add;
+                EditMode = EAnnotationEditMode::Add;
             }
             if (ImGui::IsKeyPressed(ImGuiKey_E))
             {
-                CurrentMode = EAnnotationEditMode::Edit;
+                EditMode = EAnnotationEditMode::Edit;
             }
         }
+    }
 
-        // TODO: leave review to next update...
-        if (ImGui::Checkbox("Is reviewed?", &DataBrowser::Get().IsSelectedFrameReviewed))
+    void Annotation::RenderVideoControls()
+    {
+        static bool IsPlaying;
+        static char* PlayIcon;
+        if (CurrentFrame == EndFrame)
+            PlayIcon = ICON_FA_SYNC;
+        else if (IsPlaying)
+            PlayIcon = ICON_FA_PAUSE;
+        else
+            PlayIcon = ICON_FA_PLAY;
+        if (ImGui::Button(PlayIcon, {120, 32}))
         {
-            if (DataBrowser::Get().IsSelectedFrameReviewed)
-            {
-                spdlog::info("now add review...");
-            }
-            else
-            {
-                spdlog::info("delete review...");
-            }
+            if (CurrentFrame == EndFrame)
+                CurrentFrame = StartFrame;
+            IsPlaying = !IsPlaying;
         }
         ImGui::SameLine();
-        ImGui::Text("(%s)", DataBrowser::Get().ReviewTime.c_str());
-        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 60);
-        if (CurrentMode == EAnnotationEditMode::Add)
-            ImGui::Text("(Add)");
-        else
-            ImGui::Text("(Edit)");
+        static ImVec2 NewFramePad(4, (32 - ImGui::GetFontSize()) / 2);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, NewFramePad);
+        ImGui::SetNextItemWidth(120.f);
+        if (ImGui::DragInt("##PlayStart", &StartFrame, 1, 0, EndFrame - 1))
+        {
+            if (CurrentFrame < StartFrame) CurrentFrame = StartFrame;
+            if (StartFrame > EndFrame)
+            {
+                StartFrame = EndFrame - 1;
+                CurrentFrame = StartFrame;
+            }
+        }
+        ImGui::PopStyleVar();
+        ImGui::SameLine();
+        ImVec2 CurrentPos = ImGui::GetCursorScreenPos();
+        ImU32 Color = ImGui::ColorConvertFloat4ToU32(Style::BLUE(600, Setting::Get().Theme));
+        ImU32 PlayColor = ImGui::ColorConvertFloat4ToU32(Style::YELLOW(400, Setting::Get().Theme));
+        const float Width = ImGui::GetContentRegionAvail().x - 130;
+        ImVec2 RectStart = CurrentPos + ImVec2(5, 22);
+        ImVec2 RectEnd = RectStart + ImVec2(Width, 5);
+        ImGui::GetWindowDrawList()->AddRectFilled(RectStart, RectEnd, Color, 20.f);
+        ImVec2 RectPlayStart = RectStart + ImVec2(0, -10);
+        ImVec2 RectPlayEnd = RectStart + ImVec2(float(CurrentFrame - StartFrame) / float(EndFrame - StartFrame) * Width,
+                                                10);
+        ImGui::GetWindowDrawList()->AddRectFilled(RectPlayStart, RectPlayEnd, PlayColor);
+        // draw current frame text?
+        if (RectPlayEnd.x > RectPlayStart.x + 30)
+        {
+            char FrameTxt[8];
+            sprintf(FrameTxt, "%d", CurrentFrame);
+            ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), 16,
+                                                RectPlayEnd + ImVec2(strlen(FrameTxt) * -16.f, -18.f), Color, FrameTxt);
+        }
+        ImGui::SetCursorScreenPos(RectPlayStart);
+        ImGui::InvisibleButton("PlayControl", ImVec2(Width, 15));
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+            const int FrameAtPosition = int(
+                (ImGui::GetMousePos().x - RectStart.x) / Width * (float)(EndFrame - StartFrame)) + StartFrame;
+            ImGui::SetTooltip("%d", FrameAtPosition);
+        }
+        if (ImGui::IsItemClicked(0))
+        {
+            int NewFramePos = int((ImGui::GetMousePos().x - RectStart.x) / Width * (float)(EndFrame - StartFrame)) +
+                StartFrame;
+            MoveFrame(NewFramePos);
+            IsPlaying = false;
+            DisplayFrame(CurrentFrame);
+        }
 
+        ImGui::SameLine();
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, NewFramePad);
+        ImGui::SetNextItemWidth(120.f);
+        if (ImGui::DragInt("##PlayEnd", &EndFrame, 1, StartFrame + 1,
+                           DataBrowser::Get().SelectedClipInfo.FrameCount - 1))
+        {
+            if (CurrentFrame > EndFrame) CurrentFrame = EndFrame;
+            if (EndFrame < StartFrame)
+            {
+                EndFrame = StartFrame + 1;
+                CurrentFrame = StartFrame;
+            }
+        }
+        ImGui::PopStyleVar();
+
+        // processing play...
+        if (!IsPlaying) return;
+        static float TimePassed = 0.f;
+        TimePassed += (1.0f / ImGui::GetIO().Framerate);
+        if (TimePassed < (1 / DataBrowser::Get().SelectedClipInfo.FPS)) return;
+        TimePassed = 0.f;
+        DisplayFrame(CurrentFrame);
+
+        CurrentFrame += 1;
+        //check should release cap and stop play
+        if (CurrentFrame == EndFrame)
+        {
+            IsPlaying = false;
+        }
+    }
+
+    void Annotation::RenderAnnotationToolbar()
+    {
         static float ButtonsOffset;
         ImGui::SetCursorPosX(ButtonsOffset);
         ImGui::BeginGroup();
@@ -210,13 +476,13 @@ namespace IFCS
             ImVec2 BtnSize(ImGui::GetFont()->FontSize * 5, ImGui::GetFont()->FontSize * 2.5f);
             if (ImGui::Button(ICON_FA_EDIT, BtnSize)) // add
             {
-                CurrentMode = EAnnotationEditMode::Add;
+                EditMode = EAnnotationEditMode::Add;
             }
             Utils::AddSimpleTooltip("Add annotation");
             ImGui::SameLine();
             if (ImGui::Button(ICON_FA_VECTOR_SQUARE, BtnSize)) // edit
             {
-                CurrentMode = EAnnotationEditMode::Edit;
+                EditMode = EAnnotationEditMode::Edit;
             }
             Utils::AddSimpleTooltip("Edit annotation");
             ImGui::SameLine();
@@ -229,122 +495,105 @@ namespace IFCS
             ImGui::SameLine();
             if (ImGui::Button(ICON_FA_CHEVRON_LEFT, BtnSize))
             {
-                DataBrowser::Get().LoadOtherFrame(false);
+                spdlog::info("???");
+                for (int i = CurrentFrame-1; i > -1; i--)
+                {
+                    if (Data.count(i))
+                    {
+                        MoveFrame(i);
+                        break;
+                    }
+                }
             }
-            Utils::AddSimpleTooltip("Previous frame");
+            Utils::AddSimpleTooltip("Previous annotated frame/image");
             ImGui::SameLine();
             if (ImGui::Button(ICON_FA_CHEVRON_RIGHT, BtnSize))
             {
-                DataBrowser::Get().LoadOtherFrame(true);
+                for (int i = CurrentFrame+1; i < DataBrowser::Get().SelectedClipInfo.FrameCount - 1; i++ )
+                {
+                    if (Data.count(i))
+                    {
+                        MoveFrame(i);
+                        break;
+                    }
+                }
             }
-            Utils::AddSimpleTooltip("Next frame");
+            Utils::AddSimpleTooltip("Next annotated frame/image");
             ImGui::SameLine();
             if (ImGui::Button(ICON_FA_TIMES, BtnSize))
             {
-                // TODO: delete this frame...
+                Data.erase(CurrentFrame);
             }
-            Utils::AddSimpleTooltip("Delete frame");
+            Utils::AddSimpleTooltip("Delete annotations in this frame/image");
             ImGui::PopFont();
         }
         ImGui::EndGroup();
         ButtonsOffset = (ImGui::GetContentRegionAvail().x - ImGui::GetItemRectSize().x) * 0.5f;
-
-    }
-
-    void Annotation::PostRender()
-    {
-        if (ToTrashID != 0)
+        if (Data.count(CurrentFrame))
         {
-            Data.erase(ToTrashID);
-            ToTrashID = 0;
+            ImGui::SameLine(ImGui::GetContentRegionAvail().x - 100);
+            if (ImGui::Checkbox("Is ready?", &CheckData[CurrentFrame].IsReady))
+            {
+                CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                NeedSave = true;
+            }
         }
     }
 
-    void Annotation::Save()
+    void Annotation::SaveData()
     {
-        if (!IsCurrentFrameModified) return;
-        YAML::Node DataNode;
-        for (const auto& [k,v] : Data)
-            DataNode[std::to_string(k)] = v.Serialize();
-
-        // TODO: this make out of order, but it shouldn't...
-        YAML::Node OutNode = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"));
-        OutNode[DataBrowser::Get().SelectedClipInfo.ClipPath][std::to_string(DataBrowser::Get().SelectedFrame)] =
-            DataNode;
-
+        YAML::Node Origin = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"));
+        YAML::Node ClipNode;
+        for (const auto& [F, Map] : Data)
+        {
+            for (const auto& [ID, Ann] : Map)
+            {
+                ClipNode[F][std::to_string(ID)] = Ann.Serialize();
+            }
+        }
+        for (const auto& [F, C] : CheckData)
+        {
+            ClipNode[F]["IsReady"] = C.IsReady;
+            ClipNode[F]["UpdateTime"] = C.UpdateTime;
+        }
+        Origin[DataBrowser::Get().SelectedClipInfo.ClipPath] = ClipNode;
         YAML::Emitter Out;
-        Out << OutNode;
+        Out << Origin;
         std::ofstream Fout(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"));
         Fout << Out.c_str();
-        IsCurrentFrameModified = true;
     }
 
-    void Annotation::Load()
+    void Annotation::LoadData()
     {
         Data.clear();
-        YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"))[
-            DataBrowser::Get().SelectedClipInfo.ClipPath][std::to_string(DataBrowser::Get().SelectedFrame)];
-        for (YAML::const_iterator it = Node.begin(); it != Node.end(); ++it)
+        CheckData.clear();
+        YAML::Node ClipData = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"))
+            [DataBrowser::Get().SelectedClipInfo.ClipPath];
+        for (YAML::const_iterator it = ClipData.begin(); it != ClipData.end(); ++it)
         {
-            Data[UUID(it->first.as<uint64_t>())] = FAnnotation(it->second);
+            CheckData[it->first.as<int>()] = FCheck();
+            for (YAML::const_iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2)
+            {
+                if (it2->first.as<std::string>() == "UpdateTime")
+                {
+                    CheckData[it->first.as<int>()].UpdateTime = it2->second.as<std::string>();
+                }
+                else if (it2->first.as<std::string>() == "IsReady")
+                {
+                    CheckData[it->first.as<int>()].IsReady = it2->second.as<bool>();
+                }
+                else
+                {
+                    Data[it->first.as<int>()][it2->first.as<uint64_t>()] = FAnnotation(it2->second);
+                }
+            }
         }
     }
 
-    void Annotation::ResizeImpl(ImGuiWindow* WinPtr, const EBoxCorner& WhichCorner, const ImVec2& InPos,
-                                const ImU32& InColor, const bool& IsDragging, const UUID& InID)
-    {
-        const float CircleRadius = 9.f;
-        WinPtr->DrawList->AddCircleFilled(InPos, CircleRadius, InColor);
-        ImGui::SetCursorScreenPos(InPos - ImVec2(CircleRadius, CircleRadius));
-        std::string ResizeID;
-        switch (WhichCorner)
-        {
-        case EBoxCorner::TopLeft: ResizeID = "TopLeft";
-            break;
-        case EBoxCorner::BottomLeft: ResizeID = "BottomLeft";
-            break;
-        case EBoxCorner::BottomRight: ResizeID = "BottomRight";
-            break;
-        case EBoxCorner::TopRight: ResizeID = "TopRight";
-            break;
-        }
-        ImGui::InvisibleButton(ResizeID.c_str(), ImVec2(CircleRadius * 2, CircleRadius * 2));
-        bool IsResizeActive = ImGui::IsItemActive();
-        if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-        if (IsResizeActive && IsDragging)
-        {
-            ImVec2 Delta = ImGui::GetIO().MouseDelta / GetZoom();
-            Data[InID].Resize(WhichCorner, {Delta.x, Delta.y});
-            IsCurrentFrameModified = true;
-        }
-    }
 
-    void Annotation::Reassign(UUID ID)
+    float Annotation::GetZoom(int InZoomLevel)
     {
-        UUID NewCat = CategoryManagement::Get().SelectedCatID;
-        if (NewCat != 0)
-        {
-            UUID OldCat = Data[ID].CategoryID;
-            CategoryManagement::Get().Data[OldCat].TotalUsedCount -= 1;
-            Data[ID].CategoryID = NewCat;
-            CategoryManagement::Get().AddCount();
-        }
-    }
-
-    void Annotation::Trash(UUID ID)
-    {
-        ToTrashID = ID;
-        IsCurrentFrameModified = true;
-    }
-
-    float Annotation::GetZoom()
-    {
-        return GetZoom(ZoomLevel);
-    }
-
-    float Annotation::GetZoom(int InZoom)
-    {
-        switch (InZoom)
+        switch (InZoomLevel)
         {
         case -3: return 0.125f;
         case -2: return 0.25f;
@@ -357,21 +606,13 @@ namespace IFCS
         }
     }
 
-    void Annotation::GetAbsRectMinMax(ImVec2 p0, ImVec2 p1, ImVec2& OutMin, ImVec2& OutMax)
+    float Annotation::GetZoom()
     {
-        OutMin.x = std::min(p0.x, p1.x);
-        OutMin.y = std::min(p0.y, p1.y);
-        OutMax.x = std::max(p0.x, p1.x);
-        OutMax.y = std::max(p0.y, p1.y);
+        return GetZoom(ZoomLevel);
     }
 
     std::array<float, 4> Annotation::MouseRectToXYWH(ImVec2 RectMin, ImVec2 RectMax)
     {
-        // ImVec2 ModRectMax;
-        // ImVec2 WorkAreaMax = WorkStartPos + WorkArea;
-        // // TODO: fix more clamp response...
-        // ModRectMax.x = RectMax.x >= WorkAreaMax.x ? WorkAreaMax.x : RectMax.x;
-        // ModRectMax.y = RectMax.y >= WorkAreaMax.y ? WorkAreaMax.y : RectMax.y;
         ImVec2 RawRectDiff = RectMax - RectMin;
         RectMin = (RectMin - WorkStartPos - PanAmount) / GetZoom();
         RectMax = RectMin + RawRectDiff / GetZoom();
@@ -387,7 +628,7 @@ namespace IFCS
         };
     }
 
-    std::array<float, 4> Annotation::TransformXYWH(const std::array<float, 4>& InXYWH)
+    std::array<float, 4> Annotation::TransformXYWH(const std::array<float, 4> InXYWH)
     {
         ImVec2 RectMin = {InXYWH[0] - 0.5f * InXYWH[2], InXYWH[1] - 0.5f * InXYWH[3]};
         ImVec2 TMin = RectMin * GetZoom() + WorkStartPos + PanAmount;
@@ -399,6 +640,43 @@ namespace IFCS
             TMax.y - TMin.y
         };
     }
-}
 
-//TODO: implemnet frame discard?
+    void Annotation::ResizeImpl(EBoxCorner WhichCorner, const ImVec2& InPos, ImU32 InColor, bool IsDragging,
+                                FAnnotation& Ann)
+    {
+        const float CircleRadius = 9.f;
+        ImGui::GetWindowDrawList()->AddCircleFilled(InPos, CircleRadius, InColor);
+        ImGui::SetCursorScreenPos(InPos - ImVec2(CircleRadius, CircleRadius));
+        std::string ResizeID;
+        switch (WhichCorner)
+        {
+        case EBoxCorner::TopLeft: ResizeID = "TopLeft";
+            break;
+        case EBoxCorner::BottomLeft: ResizeID = "BottomLeft";
+            break;
+        case EBoxCorner::BottomRight: ResizeID = "BottomRight";
+            break;
+        case EBoxCorner::TopRight: ResizeID = "TopRight";
+            break;
+        }
+        ImGui::InvisibleButton(ResizeID.c_str(), ImVec2(CircleRadius * 2, CircleRadius * 2));
+        if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+        if (ImGui::IsItemActive() && IsDragging)
+        {
+            const ImVec2 Delta = ImGui::GetIO().MouseDelta / GetZoom();
+            Ann.Resize(WhichCorner, {Delta.x, Delta.y});
+            CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+            NeedSave = true;
+        }
+    }
+
+
+
+    void Annotation::MoveFrame(int NewFrame)
+    {
+        CurrentFrame = NewFrame;
+        if (CurrentFrame < StartFrame) StartFrame = CurrentFrame;
+        if (CurrentFrame > EndFrame) EndFrame = CurrentFrame;
+        DisplayFrame(CurrentFrame);
+    }
+}

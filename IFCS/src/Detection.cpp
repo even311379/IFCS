@@ -1045,13 +1045,15 @@ namespace IFCS
             cv::VideoCapture Cap;
             Cap.open(DetectionClip);
             cv::Mat Frame;
+            int F = 0;
             while (1)
             {
                 Cap.read(Frame);
                 if (Frame.empty()) break;
                 cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y)); // 16 : 9 // no need to resize?
                 cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
-                DataBrowser::Get().VideoFrames.push_back(Frame);
+                DataBrowser::Get().VideoFrames[F] = Frame;
+                F++;
             }
         };
         LoadFrameBufferFuture = std::async(std::launch::async, LoadFrameBuffer);

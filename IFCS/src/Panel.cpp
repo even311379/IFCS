@@ -102,7 +102,6 @@ namespace IFCS
             ImGui::DockBuilderSplitNode(Center, ImGuiDir_Right, 0.175f, &Right, nullptr);
             ImGui::DockBuilderDockWindow("Data Browser", Left);
             ImGui::DockBuilderDockWindow("Annotation", Center);
-            ImGui::DockBuilderDockWindow("Frame Extractor", Center);
             ImGui::DockBuilderDockWindow("Training Set Generator", Center);
             ImGui::DockBuilderDockWindow("Category Management", Right);
             ImGui::DockBuilderFinish(DockspaceID);

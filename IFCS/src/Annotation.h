@@ -1,44 +1,60 @@
 ﻿#pragma once
 #include "Panel.h"
+#include <future>
+#include "Common.h"
 
-
-struct ImGuiWindow;
-namespace IFCS 
+namespace IFCS
 {
+    struct FAnnotationToDisplay
+    {
+        FAnnotationToDisplay()=default;
+        FAnnotationToDisplay(const int& InCount, const bool& InReady)
+            :Count(InCount), IsReady(InReady) {}
+        int Count;
+        bool IsReady;
+    };
     
     class Annotation : public Panel
     {
     public:
         MAKE_SINGLETON(Annotation)
-        void Save();
-        void Load();
+        int CurrentFrame;
+        void DisplayFrame(int NewFrameNum);
+        void DisplayImage();
+        void PrepareVideo();
+        bool IsImage = false;
+        std::map<int, FAnnotationToDisplay> GetAnnotationToDisplay();
+        void MoveFrame(int NewFrame);
     protected:
         void RenderContent() override;
-        void PostRender() override;
-        
     private:
-        // TODO: make save when quit app
-        bool IsCurrentFrameModified = false; // use this to notify user?
-        // TODO: I can implement undo system with array of data...
-        std::unordered_map<UUID, FAnnotation> Data;
+        void RenderSelectCombo();
+        void RenderAnnotationWork();
+        void RenderVideoControls();
+        void RenderAnnotationToolbar();
+        void SaveData();
+        void LoadData();
         
-        EAnnotationEditMode CurrentMode = EAnnotationEditMode::Add;
-        void ResizeImpl(ImGuiWindow* WinPtr,const EBoxCorner& WhichCorner,const ImVec2& InPos, const ImU32& InColor,
-            const bool& IsDragging, const UUID& InID);
-        void Reassign(UUID ID);
-        void Trash(UUID ID);
-        UUID ToTrashID = 0;
+        // data for for whole clip, also supports for image
+        std::map<int, std::unordered_map<UUID, FAnnotation>> Data;
+        std::map<int, FCheck> CheckData;
+
+        
+        // annotation controls
+        EAnnotationEditMode EditMode = EAnnotationEditMode::Add;
         ImVec2 PanAmount;
         int ZoomLevel = 0;
+        float GetZoom(int InZoomLevel);
         float GetZoom();
-        static float GetZoom(int InZoom);
-        bool IsAdding = false;
-        ImVec2 AddPointStart;
-        ImVec2 WorkStartPos;
-
-        void GetAbsRectMinMax(ImVec2 p0, ImVec2 p1, ImVec2& OutMin, ImVec2& OutMax);
         std::array<float, 4> MouseRectToXYWH(ImVec2 RectMin, ImVec2 RectMax);
-        std::array<float, 4> TransformXYWH(const std::array<float, 4>& InXYWH);
+        std::array<float, 4> TransformXYWH(const std::array<float, 4> InXYWH);
+        void ResizeImpl(EBoxCorner WhichCorner, const ImVec2& InPos, ImU32 InColor, bool IsDragging, FAnnotation& Ann);
+
+        // video play controls
+        bool IsLoadingVideo;
+        std::array<std::future<void>, 4> Tasks;
+        
+        
         
     };
     
