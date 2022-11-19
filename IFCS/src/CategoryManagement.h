@@ -14,7 +14,7 @@ namespace IFCS
         void UpdateCategoryStatics();
         // ImVec4 GetColorFrameDisplayName(const std::string& InName);
         std::unordered_map<UUID, FCategory> Data;
-        std::unordered_map<UUID, bool> GeneratorData;
+        std::unordered_map<UUID, bool> GeneratorCheckData;
         FCategory* GetSelectedCategory();
         UUID SelectedCatID = 0;
         void AddCount();

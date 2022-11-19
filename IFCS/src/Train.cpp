@@ -4,8 +4,9 @@
 #include <fstream>
 #include <future>
 #include <chrono>
+#include <numeric>
+#include <random>
 #include <thread>
-#include <iostream>
 #include <string>
 
 #include "CategoryManagement.h"
@@ -140,7 +141,8 @@ namespace IFCS
         }
         for (const std::string& ImageFolder : IncludedImageFolders)
         {
-            // TODO: folder name + num of image?
+            std::string s = ImageFolder.substr(RelativeClipNameOffset);
+            ImGui::Text("%s (Image folder)", s.c_str());
         }
         ImGui::EndChildFrame();
         if (ImGui::BeginDragDropTarget()) // for the previous item? 
@@ -166,8 +168,7 @@ namespace IFCS
             std::vector<std::string> AvailClips = DataBrowser::Get().GetAllClips();
             auto NewEnd = std::remove_if(AvailClips.begin(), AvailClips.end(), [this](const std::string& C)
             {
-                return std::find(IncludedClips.begin(), IncludedClips.end(), C) != IncludedClips.
-                    end();
+                return std::find(IncludedClips.begin(), IncludedClips.end(), C) != IncludedClips.end();
             });
             AvailClips.erase(NewEnd, AvailClips.end());
             for (auto& AvailClip : AvailClips)
@@ -187,26 +188,19 @@ namespace IFCS
         if (ImGui::BeginCombo("##AddFolder", AddFolderPreviewTitle))
         {
             std::vector<std::string> AvailImageFolders = DataBrowser::Get().GetImageFolders();
-            auto NewEnd = std::remove_if(AvailImageFolders.begin(), AvailImageFolders.end(),
-                                         [this](const std::string& C)
-                                         {
-                                             return std::find(IncludedImageFolders.begin(), IncludedImageFolders.end(),
-                                                              C) != IncludedImageFolders.end();
-                                         });
-            AvailImageFolders.erase(NewEnd, AvailImageFolders.end());
-            if (std::find(IncludedImageFolders.begin(), IncludedImageFolders.end(), std::string("/")) !=
-                IncludedImageFolders.end())
-            {
-                if (ImGui::Selectable("/"))
+            auto NewEnd =
+                std::remove_if(AvailImageFolders.begin(), AvailImageFolders.end(), [this](const std::string& C)
                 {
-                    IncludedImageFolders.emplace_back("/");
-                    UpdateGenerartorInfo();
-                }
-            }
+                    return std::find(IncludedImageFolders.begin(), IncludedImageFolders.end(), C) !=
+                        IncludedImageFolders.end();
+                });
+            AvailImageFolders.erase(NewEnd, AvailImageFolders.end());
             for (auto& AvailImageFolder : AvailImageFolders)
             {
-                if (ImGui::Selectable(AvailImageFolder.substr(RelativeImageFolderNameOffset).c_str(), false))
-                // no need to show selected
+                std::string Label = AvailImageFolder.size() == RelativeImageFolderNameOffset
+                                        ? "/"
+                                        : AvailImageFolder.substr(RelativeImageFolderNameOffset);
+                if (ImGui::Selectable(Label.c_str(), false))
                 {
                     IncludedImageFolders.push_back(AvailImageFolder);
                     UpdateGenerartorInfo();
@@ -239,7 +233,7 @@ namespace IFCS
     void Train::RenderCategoryWidget()
     {
         auto CatData = CategoryManagement::Get().Data;
-        for (auto& [UID, Should] : CategoryManagement::Get().GeneratorData)
+        for (auto& [UID, Should] : CategoryManagement::Get().GeneratorCheckData)
         {
             if (ImGui::Checkbox(CatData[UID].DisplayName.c_str(), &Should))
             {
@@ -249,7 +243,7 @@ namespace IFCS
 
         if (ImGui::Button("Add all catogories"))
         {
-            for (auto& [UID, Should] : CategoryManagement::Get().GeneratorData)
+            for (auto& [UID, Should] : CategoryManagement::Get().GeneratorCheckData)
             {
                 Should = true;
             }
@@ -578,10 +572,11 @@ namespace IFCS
     {
         YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
         auto CatData = CategoryManagement::Get().Data;
-        auto CatChecker = CategoryManagement::Get().GeneratorData;
+        auto CatChecker = CategoryManagement::Get().GeneratorCheckData;
         CategoriesExportCounts.clear();
         NumIncludedFrames = 0;
         NumIncludedAnnotations = 0;
+        NumIncludedImages = 0;
         for (const auto& C : IncludedClips)
         {
             for (YAML::const_iterator Frame = Data[C].begin(); Frame != Data[C].end(); ++Frame)
@@ -607,6 +602,44 @@ namespace IFCS
                 if (ContainsExportedCategory) NumIncludedFrames += 1;
             }
         }
+        // handle images
+        std::vector<std::string> IncludedImgs;
+        for (const auto& IF : IncludedImageFolders)
+        {
+            for (const auto& p : std::filesystem::directory_iterator(IF))
+            {
+                if (p.is_directory()) continue;
+                std::string FullPath = p.path().u8string();
+                std::replace(FullPath.begin(), FullPath.end(), '\\', '/');
+                IncludedImgs.push_back(FullPath);
+            }
+        }
+
+        for (const auto& Img : IncludedImgs)
+        {
+            if (!Data[Img]) continue;
+            YAML::Node ANode = Data[Img][0];
+            bool ContainsExportedCategory = false;
+            for (YAML::const_iterator A = ANode.begin(); A != ANode.end(); ++A)
+            {
+                if (A->first.as<std::string>() == "UpdateTime" || A->first.as<std::string>() == "IsReady")
+                    continue;
+
+                UUID CID = A->second["CategoryID"].as<uint64_t>();
+                if (CatChecker[CID])
+                {
+                    if (!CategoriesExportCounts.count(CID))
+                        CategoriesExportCounts[CID] = 1;
+                    else
+                        CategoriesExportCounts[CID] += 1;
+                    NumIncludedAnnotations++;
+                    ContainsExportedCategory = true;
+                }
+            }
+            if (ContainsExportedCategory) NumIncludedImages += 1;
+        }
+
+
         TotalExportImages = NumIncludedFrames + NumIncludedImages;
         SplitImgs[0] = int(SplitPercent[0] * 0.01f * TotalExportImages);
         SplitImgs[1] = int(SplitPercent[1] * 0.01f * TotalExportImages);
@@ -616,158 +649,188 @@ namespace IFCS
         for (const auto& [CID, Count] : CategoriesExportCounts)
         {
             char buf[64];
-            sprintf(buf, "%s(%.2f %%) ", CatData[CID].DisplayName.c_str(), (float)Count / (float)NumIncludedAnnotations * 100.f);
+            sprintf(buf, "%s(%.2f %%) ", CatData[CID].DisplayName.c_str(),
+                    (float)Count / (float)NumIncludedAnnotations * 100.f);
             CatExportSummary += buf;
         }
-            
-        
     }
 
+    std::unordered_map<UUID, size_t> CategoryExportedID;
+    
     void Train::GenerateTrainingSet()
     {
-        // if (std::strlen(NewTrainingSetName) == 0) return;
-        // // create folders and description files
-        // const std::string ProjectPath = Setting::Get().ProjectPath;
-        // std::filesystem::create_directories(ProjectPath + "/Data/" + NewTrainingSetName);
-        // std::string SplitName[3] = {"train", "valid", "test"};
-        // std::string TypeName[2] = {"images", "labels"};
-        // for (const auto& s : SplitName)
-        // {
-        //     std::filesystem::create_directories(ProjectPath + "/Data/" + NewTrainingSetName + "/" + s);
-        //     for (const auto& t : TypeName)
-        //     {
-        //         std::filesystem::create_directories(ProjectPath + "/Data/" + NewTrainingSetName + "/" + s + "/" + t);
-        //     }
-        // }
-        // // write readme.txt (export time, where it is from, some export settings?)
-        // std::ofstream ofs;
-        // ofs.open(ProjectPath + "/Data/" + NewTrainingSetName + "/IFCS.README.txt");
-        // if (ofs.is_open())
-        // {
-        //     ofs << "Generated from IFCS" << std::endl;
-        //     ofs << Utils::GetCurrentTimeString() << std::endl;
-        // }
-        // ofs.close();
-        // // write file to /Data/TrainingSets.yaml
-        // ofs.open(ProjectPath + "/Data/TrainingSets.yaml");
-        // if (ofs.is_open())
-        // {
-        //     YAML::Node Data = YAML::LoadFile(ProjectPath + "/Data/TrainingSets.yaml");
-        //     FTrainingSetDescription Desc;
-        //     Desc.Name = NewTrainingSetName;
-        //     Desc.CreationTime = Utils::GetCurrentTimeString();
-        //     std::vector<std::string> IC;
-        //     IC.assign(IncludedGenClips.begin(), IncludedGenClips.end());
-        //     Desc.IncludeClips = IC;
-        //     std::vector<std::string> II;
-        //     II.assign(IncludedImageFolders.begin(), IncludedImageFolders.end());
-        //     Desc.IncludeImageFolders = II;
-        //     Desc.Size[0] = NewSize[0];
-        //     Desc.Size[1] = NewSize[1];
-        //     Desc.Split[0] = SplitPercent[0] / 100;
-        //     Desc.Split[1] = SplitPercent[1] / 100;
-        //     Desc.Split[2] = SplitPercent[2] / 100;
-        //     // Desc.NumDuplicates = AugmentationDuplicates;
-        //     Desc.TotalImagesExported = TotalExportImages;
-        //     // Desc.AppliedAugmentationDescription = MakeAugmentationDescription();
-        //     Data.push_back(Desc.Serialize());
-        //     YAML::Emitter Out;
-        //     Out << Data;
-        //     ofs << Out.c_str();
-        // }
-        // ofs.close();
-        //
-        // //write data file for yolo
-        // ofs.open(ProjectPath + "/Data/" + NewTrainingSetName + "/" + NewTrainingSetName + ".yaml");
-        // if (ofs.is_open())
-        // {
-        //     ofs << "train: " << ProjectPath + "/Data/" + NewTrainingSetName + "/train/images" << std::endl;
-        //     ofs << "val: " << ProjectPath + "/Data/" + NewTrainingSetName + "/valid/images" << std::endl;
-        //     ofs << "test: " << ProjectPath + "/Data/" + NewTrainingSetName + "/test/images" << std::endl << std::endl;
-        //     size_t S = CategoriesToExport.size();
-        //     ofs << "nc: " << S << std::endl;
-        //     ofs << "names: [";
-        //     size_t i = 0;
-        //     for (const auto& [Cat, N] : CategoriesToExport)
-        //     {
-        //         ofs << "'" << Cat << "'";
-        //         if (i < S - 1)
-        //             ofs << ", ";
-        //         i++;
-        //     }
-        //     ofs << "]" << std::endl;
-        // }
-        // ofs.close();
-        // // save export setting
-        //
-        // // random choose train, valid, test based on options
-        // std::vector<int> RemainIdx(TotalExportImages);
-        // std::vector<int> TrainingIdx, ValidIdx;
-        // auto rnd = std::mt19937_64{std::random_device{}()};
-        // std::iota(std::begin(RemainIdx), std::end(RemainIdx), 0);
-        // std::sample(RemainIdx.begin(), RemainIdx.end(), std::back_inserter(TrainingIdx), SplitImgs[0], rnd);
-        // std::sort(TrainingIdx.begin(), TrainingIdx.end());
-        // auto NewEnd = std::remove_if(RemainIdx.begin(), RemainIdx.end(), [=](const int& i)
-        // {
-        //     return std::find(TrainingIdx.begin(), TrainingIdx.end(), i) != TrainingIdx.end();
-        // });
-        // RemainIdx.erase(NewEnd, RemainIdx.end());
-        // std::sample(RemainIdx.begin(), RemainIdx.end(), std::back_inserter(ValidIdx), SplitImgs[1], rnd);
-        // std::sort(ValidIdx.begin(), ValidIdx.end());
-        // NewEnd = std::remove_if(RemainIdx.begin(), RemainIdx.end(), [=](const int& i)
-        // {
-        //     return std::find(ValidIdx.begin(), ValidIdx.end(), i) != ValidIdx.end();
-        // });
-        // RemainIdx.erase(NewEnd, RemainIdx.end());
-        // std::vector<int> TestIdx = RemainIdx;
-        //
-        // // distribute train / valid / test and generate .jpg .txt to folders
-        // // only include frames with at least 1 annotation...
-        // int N = 0;
-        // YAML::Node Data = YAML::LoadFile(ProjectPath + "/Data/Annotations.yaml");
-        // for (const std::string& Clip : IncludedGenClips)
-        // {
-        //     cv::VideoCapture Cap(Clip);
-        //     for (YAML::const_iterator it = Data[Clip].begin(); it != Data[Clip].end(); ++it)
-        //     {
-        //         if (it->second.size() == 0) continue;
-        //         int FrameNum = it->first.as<int>();
-        //         std::string GenName = Clip.substr(ProjectPath.size() + 1) + "_" + std::to_string(FrameNum);
-        //         std::replace(GenName.begin(), GenName.end(), '/', '-');
-        //         std::vector<FAnnotation> Annotations;
-        //         auto Node = it->second.as<YAML::Node>();
-        //         // should check category in each frame
-        //         for (YAML::const_iterator A = Node.begin(); A != Node.end(); ++A)
-        //         {
-        //             if (CategoriesChecker[A->second["CategoryID"].as<uint64_t>()])
-        //                 Annotations.emplace_back(A->second);
-        //         }
-        //         if (Annotations.empty()) continue;
-        //
-        //         if (std::find(TrainingIdx.begin(), TrainingIdx.end(), N) != TrainingIdx.end())
-        //         {
-        //             // gen original version
-        //             GenerateImgTxt(Cap, FrameNum, Annotations, GenName.c_str(), true, "Train");
-        //
-        //             // gen augment version
-        //             for (int i = 0; i < AugmentationDuplicates - 1; i++)
-        //             {
-        //                 GenerateImgTxt(Cap, FrameNum, Annotations, (GenName + "_aug_" + std::to_string(i)).c_str(),
-        //                                false, "Train");
-        //             }
-        //         }
-        //         else if (std::find(ValidIdx.begin(), ValidIdx.end(), N) != ValidIdx.end())
-        //         {
-        //             GenerateImgTxt(Cap, FrameNum, Annotations, GenName.c_str(), true, "Valid");
-        //         }
-        //         else
-        //         {
-        //             GenerateImgTxt(Cap, FrameNum, Annotations, GenName.c_str(), true, "Test");
-        //         }
-        //         N++;
-        //     }
-        //     Cap.release();
-        // }
+        // TODO: gen image folders is still missing...
+        // TODO: is category info generated???
+        
+        if (std::strlen(NewTrainingSetName) == 0) return;
+        // create folders and description files
+        const std::string ProjectPath = Setting::Get().ProjectPath;
+        std::filesystem::create_directories(ProjectPath + "/Data/" + NewTrainingSetName);
+        std::string SplitName[3] = {"train", "valid", "test"};
+        std::string TypeName[2] = {"images", "labels"};
+        CategoryExportedID.clear();
+        size_t i = 0;
+        for (const auto& [CID, V] : CategoriesExportCounts )
+        {
+            CategoryExportedID[CID] = i;
+            i++;
+        }
+        for (const auto& s : SplitName)
+        {
+            std::filesystem::create_directories(ProjectPath + "/Data/" + NewTrainingSetName + "/" + s);
+            for (const auto& t : TypeName)
+            {
+                std::filesystem::create_directories(ProjectPath + "/Data/" + NewTrainingSetName + "/" + s + "/" + t);
+            }
+        }
+        // write readme.txt (export time, where it is from, some export settings?)
+        std::ofstream ofs;
+        ofs.open(ProjectPath + "/Data/" + NewTrainingSetName + "/IFCS.README.txt");
+        if (ofs.is_open())
+        {
+            ofs << "Generated from IFCS" << std::endl;
+            ofs << Utils::GetCurrentTimeString() << std::endl;
+        }
+        ofs.close();
+        // write file to /Data/TrainingSets.yaml
+        ofs.open(ProjectPath + "/Data/TrainingSets.yaml");
+        if (ofs.is_open())
+        {
+            YAML::Node Data = YAML::LoadFile(ProjectPath + "/Data/TrainingSets.yaml");
+            FTrainingSetDescription Desc;
+            Desc.Name = NewTrainingSetName;
+            Desc.CreationTime = Utils::GetCurrentTimeString();
+            std::vector<std::string> IC;
+            IC.assign(IncludedClips.begin(), IncludedClips.end());
+            Desc.IncludeClips = IC;
+            std::vector<std::string> II;
+            II.assign(IncludedImageFolders.begin(), IncludedImageFolders.end());
+            Desc.IncludeImageFolders = II;
+            Desc.Size[0] = ExportedImageSize[0];
+            Desc.Size[1] = ExportedImageSize[1];
+            Desc.Split[0] = SplitPercent[0] / 100;
+            Desc.Split[1] = SplitPercent[1] / 100;
+            Desc.Split[2] = SplitPercent[2] / 100;
+            Desc.TotalImagesExported = TotalExportImages;
+            Data.push_back(Desc.Serialize());
+            YAML::Emitter Out;
+            Out << Data;
+            ofs << Out.c_str();
+        }
+        ofs.close();
+
+        std::unordered_map<UUID, FCategory> CatData = CategoryManagement::Get().Data;
+        std::unordered_map<UUID, bool> CatCheckData = CategoryManagement::Get().GeneratorCheckData;
+        
+
+        //write data file for yolo
+        ofs.open(ProjectPath + "/Data/" + NewTrainingSetName + "/" + NewTrainingSetName + ".yaml");
+        if (ofs.is_open())
+        {
+            ofs << "train: " << ProjectPath + "/Data/" + NewTrainingSetName + "/train/images" << std::endl;
+            ofs << "val: " << ProjectPath + "/Data/" + NewTrainingSetName + "/valid/images" << std::endl;
+            ofs << "test: " << ProjectPath + "/Data/" + NewTrainingSetName + "/test/images" << std::endl << std::endl;
+            size_t S = CategoriesExportCounts.size();
+            ofs << "nc: " << S << std::endl;
+            ofs << "names: [";
+            size_t i = 0;
+            for (const auto& [CID, N] : CategoriesExportCounts)
+            {
+                ofs << "'" << CatData[CID].DisplayName << "'";
+                if (i < S - 1)
+                    ofs << ", ";
+                i++;
+            }
+            ofs << "]" << std::endl;
+        }
+        ofs.close();
+        // save export setting
+
+        // random choose train, valid, test based on options
+        std::vector<int> RemainIdx(TotalExportImages);
+        std::vector<int> TrainingIdx, ValidIdx;
+        auto rnd = std::mt19937_64{std::random_device{}()};
+        std::iota(std::begin(RemainIdx), std::end(RemainIdx), 0);
+        std::sample(RemainIdx.begin(), RemainIdx.end(), std::back_inserter(TrainingIdx), SplitImgs[0], rnd);
+        std::sort(TrainingIdx.begin(), TrainingIdx.end());
+        auto NewEnd = std::remove_if(RemainIdx.begin(), RemainIdx.end(), [=](const int& i)
+        {
+            return std::find(TrainingIdx.begin(), TrainingIdx.end(), i) != TrainingIdx.end();
+        });
+        RemainIdx.erase(NewEnd, RemainIdx.end());
+        std::sample(RemainIdx.begin(), RemainIdx.end(), std::back_inserter(ValidIdx), SplitImgs[1], rnd);
+        std::sort(ValidIdx.begin(), ValidIdx.end());
+        NewEnd = std::remove_if(RemainIdx.begin(), RemainIdx.end(), [=](const int& i)
+        {
+            return std::find(ValidIdx.begin(), ValidIdx.end(), i) != ValidIdx.end();
+        });
+        RemainIdx.erase(NewEnd, RemainIdx.end());
+        std::vector<int> TestIdx = RemainIdx;
+
+        // distribute train / valid / test and generate .jpg .txt to folders
+        // only include frames with at least 1 annotation...
+        int N = 0;
+        YAML::Node Data = YAML::LoadFile(ProjectPath + "/Data/Annotations.yaml");
+        for (const std::string& Clip : IncludedClips)
+        {
+            cv::VideoCapture Cap(Clip);
+            for (YAML::const_iterator it = Data[Clip].begin(); it != Data[Clip].end(); ++it)
+            {
+                if (it->second.size() == 0) continue;
+                int FrameNum = it->first.as<int>();
+                std::string GenName = Clip.substr(ProjectPath.size() + 1) + "_" + std::to_string(FrameNum);
+                std::replace(GenName.begin(), GenName.end(), '/', '-');
+                std::vector<FAnnotation> Annotations;
+                auto Node = it->second.as<YAML::Node>();
+                // should check category in each image
+                for (YAML::const_iterator A = Node.begin(); A != Node.end(); ++A)
+                {
+                    if (CatCheckData[A->second["CategoryID"].as<uint64_t>()])
+                        Annotations.emplace_back(A->second);
+                }
+                if (Annotations.empty()) continue;
+
+                if (std::find(TrainingIdx.begin(), TrainingIdx.end(), N) != TrainingIdx.end())
+                {
+                    GenerateImgTxt(Cap, FrameNum, Annotations, GenName.c_str(), true, "Train");
+                }
+                else if (std::find(ValidIdx.begin(), ValidIdx.end(), N) != ValidIdx.end())
+                {
+                    GenerateImgTxt(Cap, FrameNum, Annotations, GenName.c_str(), true, "Valid");
+                }
+                else
+                {
+                    GenerateImgTxt(Cap, FrameNum, Annotations, GenName.c_str(), true, "Test");
+                }
+                N++;
+            }
+            Cap.release();
+        }
+    }
+
+    void Train::GenerateImgTxt(cv::VideoCapture& Cap, int FrameNum, const std::vector<FAnnotation>& InAnnotations,
+                               const char* GenName, bool IsOriginal, const char* SplitName)
+    {
+        const std::string OutImgName = Setting::Get().ProjectPath + "/Data/" + NewTrainingSetName + "/" + SplitName +
+            "/images/" + GenName + ".jpg";
+        const std::string OutTxtName = Setting::Get().ProjectPath + "/Data/" + NewTrainingSetName + "/" + SplitName +
+            "/labels/" + GenName + ".txt";
+        cv::Mat Frame;
+        Cap.set(cv::CAP_PROP_POS_FRAMES, FrameNum);
+        Cap >> Frame;
+        cv::resize(Frame, Frame, cv::Size(ExportedImageSize[0], ExportedImageSize[1]));
+        cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+        cv::imwrite(OutImgName, Frame);
+        std::ofstream ofs;
+        ofs.open(OutTxtName);
+        if (ofs.is_open())
+        {
+            for (auto& A : InAnnotations)
+            {
+                ofs << A.GetExportTxt(CategoryExportedID[A.CategoryID]).c_str() << std::endl;
+            }
+        }
+        ofs.close();
     }
 
     void Train::RenderTrainingOptions()

@@ -117,26 +117,21 @@ namespace IFCS
         TopRight = 3
     };
 
-    struct FAnnotationShiftData
-    {
-        int RotationDegree = 0;
-        bool IsFlipX = false;
-        bool IsFlipY = false;
-
-        FAnnotationShiftData() = default;
-
-        FAnnotationShiftData(const int& InRD, const bool& InFx, const bool& InFy)
-            : RotationDegree(InRD), IsFlipX(InFx), IsFlipY(InFy)
-        {
-        }
-    };
-
     struct FCheck
     {
         bool IsReady;
         std::string UpdateTime;
     };
         
+    struct FAnnotationToDisplay
+    {
+        FAnnotationToDisplay()=default;
+        FAnnotationToDisplay(const int& InCount, const bool& InReady)
+            :Count(InCount), IsReady(InReady) {}
+        int Count;
+        bool IsReady;
+    };
+    
     struct FAnnotation
     {
         FAnnotation() = default;
@@ -148,7 +143,7 @@ namespace IFCS
         void Deserialize(YAML::Node InputNode);
         void Pan(std::array<float, 2> Changed);
         void Resize(EBoxCorner WhichCorner, std::array<float, 2> Changed);
-        std::string GetExportTxt(int CID, const FAnnotationShiftData& InShiftData) const;
+        std::string GetExportTxt(int CID) const;
     };
 
     struct FTrainingSetDescription

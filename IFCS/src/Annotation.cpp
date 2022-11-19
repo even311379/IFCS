@@ -13,10 +13,17 @@
 
 namespace IFCS
 {
+    static bool NeedSave = false;
+    static bool NeedUpdateCategoryStatics = false;
+    static int Tick = 0;
+    static int StartFrame;
+    static int EndFrame;
+    static int BlockSize = 500;
+
     void Annotation::DisplayFrame(int NewFrameNum)
     {
         CurrentFrame = NewFrameNum;
-        if (IsLoadingVideo)
+        if (!DataBrowser::Get().VideoFrames.count(CurrentFrame))
         {
             cv::VideoCapture cap(DataBrowser::Get().SelectedClipInfo.ClipPath);
             cv::Mat Frame;
@@ -35,22 +42,25 @@ namespace IFCS
 
     void Annotation::DisplayImage()
     {
+        IsImage = true;
         // imread and update info
         cv::Mat Img = cv::imread(DataBrowser::Get().SelectedImageInfo.ImagePath);
         DataBrowser::Get().SelectedImageInfo.Update(Img.cols, Img.rows);
         cv::cvtColor(Img, Img, cv::COLOR_BGR2RGB);
         cv::resize(Img, Img, cv::Size((int)WorkArea.x, (int)WorkArea.y));
         DataBrowser::Get().MatToGL(Img);
+        // SaveData();
+        LoadData();
     }
 
-    int StartFrame;
-    int EndFrame;
 
     void Annotation::PrepareVideo()
     {
+        IsImage = false;
         // show frame 1 and update info
         CurrentFrame = 0;
         StartFrame = 0;
+        // SaveData();
         LoadData();
         cv::Mat Frame;
         cv::VideoCapture cap(DataBrowser::Get().SelectedClipInfo.ClipPath);
@@ -65,38 +75,34 @@ namespace IFCS
         cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
         cap.release();
         DataBrowser::Get().MatToGL(Frame);
+
         if (IsLoadingVideo) return;
         DataBrowser::Get().VideoFrames.clear();
-        // TODO: need wisely utilize memery...
         IsLoadingVideo = true;
         // async load frame with multi core?
 
-        // TODO: read long long video?
+        // TODO: sometimes it will still hand there... but it's pretty robust now?
         auto LoadVideo = [this](int Ith)
         {
             cv::VideoCapture Cap;
             Cap.open(DataBrowser::Get().SelectedClipInfo.ClipPath);
-            int FrameCount = DataBrowser::Get().SelectedClipInfo.FrameCount;
-            int i = int(float(Ith) * float(FrameCount) / 4.f);
-            int End = int(float(Ith + 1) / 4.f * float(FrameCount));
-            spdlog::info("{}:{}", i, End);
-            cv::Mat Frame;
+            const int FramesToLoad = std::min(DataBrowser::Get().SelectedClipInfo.FrameCount, BlockSize * 3);
+            int i = int(float(Ith) * float(FramesToLoad) / 4.f);
+            int End = int(float(Ith + 1) / 4.f * float(FramesToLoad));
             Cap.set(cv::CAP_PROP_POS_FRAMES, i);
             while (1)
             {
                 if (i > End)
                 {
-                    spdlog::info("End?");
                     break;
                 }
-                Cap.read(Frame);
+                cv::Mat Frame;
+                Cap >> Frame;
                 if (Frame.empty())
                 {
-                    spdlog::info("no more frame?");
                     break;
                 }
                 cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y));
-                // 16 : 9 // no need to resize?
                 cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
                 DataBrowser::Get().VideoFrames[i] = Frame;
                 i++;
@@ -109,10 +115,53 @@ namespace IFCS
         }
     }
 
-    bool NeedSave = false;
-    bool NeedUpdateCategoryStatics = false;
+    void Annotation::LoadingVideoBlock()
+    {
+        // check which block to load and which to erase
+        if (IsLoadingVideo) return;
+        if (CurrentFrame + BlockSize * 2 > DataBrowser::Get().SelectedClipInfo.FrameCount) return;
+        if (DataBrowser::Get().VideoFrames.count(CurrentFrame + BlockSize * 2)) return;
+        IsLoadingVideo = true;
+        const int OldBlockStart = (CurrentFrame / BlockSize - 1) * BlockSize;
+        for (int i = OldBlockStart; i < OldBlockStart + BlockSize; i++)
+        {
+            DataBrowser::Get().VideoFrames.erase(i);
+        }
+        int NewBlockStart = ((CurrentFrame / BlockSize) + 2) * BlockSize;
+        // async load frame with multi core?
+        auto LoadVideo = [=](int Ith)
+        {
+            cv::VideoCapture Cap;
+            Cap.open(DataBrowser::Get().SelectedClipInfo.ClipPath);
+            int i = NewBlockStart + int(float(Ith) * float(BlockSize) / 4.f);
+            int End = NewBlockStart + int(float(Ith + 1) / 4.f * float(BlockSize));
+            spdlog::info("{}:{}", i, End);
+            Cap.set(cv::CAP_PROP_POS_FRAMES, i);
+            while (1)
+            {
+                if (i > End)
+                {
+                    break;
+                }
+                cv::Mat Frame;
+                Cap.read(Frame);
+                if (Frame.empty())
+                {
+                    break;
+                }
+                cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y));
+                cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+                DataBrowser::Get().VideoFrames[i] = Frame;
+                i++;
+            }
+            Cap.release();
+        };
+        for (int T = 0; T < 4; T++)
+        {
+            Tasks[T] = std::async(std::launch::async, LoadVideo, T);
+        }
+    }
 
-    int Tick = 0;
 
     std::map<int, FAnnotationToDisplay> Annotation::GetAnnotationToDisplay()
     {
@@ -124,6 +173,7 @@ namespace IFCS
         return Out;
     }
 
+
     void Annotation::RenderContent()
     {
         RenderSelectCombo();
@@ -134,7 +184,7 @@ namespace IFCS
         if (!DataBrowser::Get().SelectedClipInfo.ClipPath.empty())
         {
             RenderVideoControls();
-            ImGui::Dummy({0, ImGui::GetTextLineHeightWithSpacing()});
+            ImGui::Dummy({0, ImGui::GetTextLineHeightWithSpacing() * 0.5f});
         }
         RenderAnnotationToolbar();
 
@@ -154,7 +204,7 @@ namespace IFCS
             if (NumCoreFinished == 4) IsLoadingVideo = false;
         }
 
-        if (Tick > 300)
+        if (Tick > 60)
         {
             Tick = 0;
             if (NeedSave) // check need save every 300 frame?
@@ -222,12 +272,20 @@ namespace IFCS
                 ImGui::EndCombo();
             }
         }
-        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 200);
-        ImGui::Checkbox("Annotate image?", &IsImage);
+        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 60);
+        if (IsImage)
+        {
+            ImGui::Text(ICON_FA_IMAGE);
+        }
+        else
+        {
+            ImGui::Text(ICON_FA_VIDEO);
+        }
     }
 
     ImVec2 WorkStartPos;
-    // TODO: update time and remove unrequired check data!
+    bool IsPreviousTickDragging;
+
     void Annotation::RenderAnnotationWork()
     {
         ImU32 BgColor = ImGui::ColorConvertFloat4ToU32(Style::GRAY(600, Setting::Get().Theme));
@@ -238,10 +296,20 @@ namespace IFCS
                                              WorkStartPos + PanAmount,
                                              WorkStartPos + PanAmount + GetZoom() * WorkArea); // image
         static UUID ToDeleteAnnID = 0;
-        // render things from data
-        if (Data.count(CurrentFrame))
+        std::unordered_map<UUID, FAnnotation>* DataToDisplay = nullptr;
+        if (IsImage)
         {
-            for (auto& [ID, A] : Data[CurrentFrame])
+            DataToDisplay = &Data_Img;
+        }
+        else
+        {
+            if (Data.count(CurrentFrame))
+                DataToDisplay = &Data[CurrentFrame];
+        }
+        // render things from data
+        if (DataToDisplay)
+        {
+            for (auto& [ID, A] : *DataToDisplay)
             {
                 FCategory Category = CategoryManagement::Get().Data[A.CategoryID];
                 if (!Category.Visibility) continue;
@@ -277,7 +345,10 @@ namespace IFCS
                     {
                         ImVec2 Delta = ImGui::GetIO().MouseDelta / GetZoom();
                         A.Pan({Delta.x, Delta.y});
-                        CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                        if (IsImage)
+                            UpdateTime_Img = Utils::GetCurrentTimeString();
+                        else
+                            CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
                         NeedSave = true;
                     }
                     // resize top left
@@ -300,7 +371,10 @@ namespace IFCS
                             if (ImGui::Selectable((std::string("Change to ") + Cat.DisplayName).c_str()))
                             {
                                 A.CategoryID = UID;
-                                CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                                if (IsImage)
+                                    UpdateTime_Img = Utils::GetCurrentTimeString();
+                                else
+                                    CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
                                 NeedUpdateCategoryStatics = true;
                                 NeedSave = true;
                             }
@@ -308,7 +382,10 @@ namespace IFCS
                         if (ImGui::Selectable("Delete"))
                         {
                             ToDeleteAnnID = ID;
-                            CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                            if (IsImage)
+                                UpdateTime_Img = Utils::GetCurrentTimeString();
+                            else
+                                CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
                             NeedSave = true;
                         }
                         ImGui::EndCombo();
@@ -317,11 +394,13 @@ namespace IFCS
                 }
                 ImGui::PopID();
             }
-            
         }
         if (ToDeleteAnnID != 0)
         {
-            Data[CurrentFrame].erase(ToDeleteAnnID);
+            if (IsImage)
+                Data_Img.erase(ToDeleteAnnID);
+            else
+                Data[CurrentFrame].erase(ToDeleteAnnID);
             ToDeleteAnnID = 0;
         }
         static ImVec2 AddPointStart;
@@ -338,7 +417,6 @@ namespace IFCS
         {
             if (ImGui::IsMouseDragging(ImGuiMouseButton_Right))
             {
-                // PanAmount += ImGui::GetIO().MouseDelta; // weird... this make it 0...
                 PanAmount.x = PanAmount.x + ImGui::GetIO().MouseDelta.x;
                 PanAmount.y = PanAmount.y + ImGui::GetIO().MouseDelta.y;
             }
@@ -362,17 +440,7 @@ namespace IFCS
                     AddPointStart = ImGui::GetMousePos();
                 }
             }
-            if (ImGui::IsMouseReleased(0) && IsAdding)
-            {
-                IsAdding = false;
-                ImVec2 AbsMin, AbsMax;
-                Utils::GetAbsRectMinMax(AddPointStart, ImGui::GetMousePos(), AbsMin, AbsMax);
-                std::array<float, 4> NewXYWH = MouseRectToXYWH(AbsMin, AbsMax);
-                Data[CurrentFrame][UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
-                CategoryManagement::Get().AddCount();
-                CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
-                NeedSave = true;
-            }
+
             if (ImGui::IsKeyPressed(ImGuiKey_W))
             {
                 EditMode = EAnnotationEditMode::Add;
@@ -381,6 +449,25 @@ namespace IFCS
             {
                 EditMode = EAnnotationEditMode::Edit;
             }
+        }
+        if (ImGui::IsMouseReleased(0) && IsAdding)
+        {
+            IsAdding = false;
+            ImVec2 AbsMin, AbsMax;
+            Utils::GetAbsRectMinMax(AddPointStart, ImGui::GetMousePos(), AbsMin, AbsMax);
+            std::array<float, 4> NewXYWH = MouseRectToXYWH(AbsMin, AbsMax);
+            if (IsImage)
+            {
+                Data_Img[UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
+                UpdateTime_Img = Utils::GetCurrentTimeString();
+            }
+            else
+            {
+                Data[CurrentFrame][UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
+                CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+            }
+            CategoryManagement::Get().AddCount();
+            NeedSave = true;
         }
     }
 
@@ -455,8 +542,8 @@ namespace IFCS
         ImGui::SameLine();
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, NewFramePad);
         ImGui::SetNextItemWidth(120.f);
-        if (ImGui::DragInt("##PlayEnd", &EndFrame, 1, StartFrame + 1,
-                           DataBrowser::Get().SelectedClipInfo.FrameCount - 1))
+        int MaxFrame = DataBrowser::Get().SelectedClipInfo.FrameCount - 1;
+        if (ImGui::DragInt("##PlayEnd", &EndFrame, 1, StartFrame + 1, MaxFrame))
         {
             if (CurrentFrame > EndFrame) CurrentFrame = EndFrame;
             if (EndFrame < StartFrame)
@@ -464,8 +551,50 @@ namespace IFCS
                 EndFrame = StartFrame + 1;
                 CurrentFrame = StartFrame;
             }
+            if (EndFrame > MaxFrame) EndFrame = MaxFrame;
         }
         ImGui::PopStyleVar();
+
+        // more frame controls
+        ImGui::Dummy({0, ImGui::GetTextLineHeightWithSpacing() * 0.5f});
+        static float ButtonsOffset;
+        static ImVec2 BtnSize(ImGui::GetFont()->FontSize * 3, ImGui::GetFont()->FontSize * 1.5f);
+        static int FrameJumpSize = 1;
+        ImGui::SetCursorPosX(ButtonsOffset);
+        ImGui::BeginGroup();
+        {
+            char buf[32];
+            sprintf(buf, "%s %d", ICON_FA_MINUS, FrameJumpSize);
+            if (ImGui::Button(buf, BtnSize))
+            {
+                MoveFrame(CurrentFrame - FrameJumpSize);
+            }
+            Utils::AddSimpleTooltip("Jump backward frames");
+            ImGui::SameLine();
+            char buf1[32];
+            sprintf(buf1, "%s %d", ICON_FA_PLUS, FrameJumpSize);
+            if (ImGui::Button(buf1, BtnSize))
+            {
+                MoveFrame(CurrentFrame + FrameJumpSize);
+            }
+            Utils::AddSimpleTooltip("Jump forward frames");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(BtnSize.x);
+            static ImVec2 BtnFramePad(4, (BtnSize.y - ImGui::GetFontSize()) / 2);
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, BtnFramePad);
+            ImGui::DragInt("##JustSize", &FrameJumpSize, 1, 1, 60);
+            ImGui::PopStyleVar();
+            Utils::AddSimpleTooltip("Set jump size");
+            ImGui::SameLine();
+            if (ImGui::Button(ICON_FA_EXPAND, BtnSize))
+            {
+                StartFrame = 0;
+                EndFrame = MaxFrame;
+            }
+            Utils::AddSimpleTooltip("Reset play start and end");
+        }
+        ImGui::EndGroup();
+        ButtonsOffset = (ImGui::GetContentRegionAvail().x - ImGui::GetItemRectSize().x) * 0.5f;
 
         // processing play...
         if (!IsPlaying) return;
@@ -474,8 +603,8 @@ namespace IFCS
         if (TimePassed < (1 / DataBrowser::Get().SelectedClipInfo.FPS)) return;
         TimePassed = 0.f;
         DisplayFrame(CurrentFrame);
-
         CurrentFrame += 1;
+        LoadingVideoBlock();
         //check should release cap and stop play
         if (CurrentFrame == EndFrame)
         {
@@ -486,24 +615,37 @@ namespace IFCS
     void Annotation::RenderAnnotationToolbar()
     {
         static float ButtonsOffset;
+        static ImVec2 BtnSize(ImGui::GetFont()->FontSize * 5, ImGui::GetFont()->FontSize * 2.5f);
+        static bool ShouldChangeEditMode = false;
+        static EAnnotationEditMode EditModeToChange;
         ImGui::SetCursorPosX(ButtonsOffset);
         ImGui::BeginGroup();
         {
             ImGui::PushFont(Setting::Get().TitleFont);
-            ImVec2 BtnSize(ImGui::GetFont()->FontSize * 5, ImGui::GetFont()->FontSize * 2.5f);
+            if (EditMode == EAnnotationEditMode::Add)
+                ImGui::PushStyleColor(ImGuiCol_Button, GImGui->Style.Colors[ImGuiCol_CheckMark]);
             if (ImGui::Button(ICON_FA_EDIT, BtnSize)) // add
             {
-                EditMode = EAnnotationEditMode::Add;
+                ShouldChangeEditMode = true;
+                EditModeToChange = EAnnotationEditMode::Add;
             }
             Utils::AddSimpleTooltip("Add annotation");
+            if (EditMode == EAnnotationEditMode::Add)
+                ImGui::PopStyleColor();
             ImGui::SameLine();
+            if (EditMode == EAnnotationEditMode::Edit)
+                ImGui::PushStyleColor(ImGuiCol_Button, GImGui->Style.Colors[ImGuiCol_CheckMark]);
             if (ImGui::Button(ICON_FA_VECTOR_SQUARE, BtnSize)) // edit
             {
-                EditMode = EAnnotationEditMode::Edit;
+                ShouldChangeEditMode = true;
+                EditModeToChange = EAnnotationEditMode::Edit;
             }
             Utils::AddSimpleTooltip("Edit annotation");
+            if (EditMode == EAnnotationEditMode::Edit)
+                ImGui::PopStyleColor();
             ImGui::SameLine();
-            if (ImGui::Button(ICON_FA_SYNC, BtnSize)) // reset pan zoom
+
+            if (ImGui::Button(ICON_FA_SYNC_ALT, BtnSize)) // reset pan zoom
             {
                 PanAmount = ImVec2(0, 0);
                 ZoomLevel = 0;
@@ -512,13 +654,34 @@ namespace IFCS
             ImGui::SameLine();
             if (ImGui::Button(ICON_FA_CHEVRON_LEFT, BtnSize))
             {
-                spdlog::info("???");
-                for (int i = CurrentFrame-1; i > -1; i--)
+                if (IsImage)
                 {
-                    if (Data.count(i))
+                    std::vector<std::string> AllImgs = DataBrowser::Get().GetAllImages();
+                    YAML::Node AnnData = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
+                    std::string LastFoundImg;
+                    for (const auto& ImgPath : AllImgs)
                     {
-                        MoveFrame(i);
-                        break;
+                        if (DataBrowser::Get().SelectedImageInfo.ImagePath == ImgPath)
+                        {
+                            break;
+                        }
+                        if (AnnData[ImgPath]) LastFoundImg = ImgPath;
+                    }
+                    if (!LastFoundImg.empty())
+                    {
+                        DataBrowser::Get().SelectedImageInfo.ImagePath = LastFoundImg;
+                        DisplayImage();
+                    }
+                }
+                else
+                {
+                    for (int i = CurrentFrame - 1; i > -1; i--)
+                    {
+                        if (Data.count(i))
+                        {
+                            MoveFrame(i);
+                            break;
+                        }
                     }
                 }
             }
@@ -526,12 +689,38 @@ namespace IFCS
             ImGui::SameLine();
             if (ImGui::Button(ICON_FA_CHEVRON_RIGHT, BtnSize))
             {
-                for (int i = CurrentFrame+1; i < DataBrowser::Get().SelectedClipInfo.FrameCount - 1; i++ )
+                if (IsImage)
                 {
-                    if (Data.count(i))
+                    std::vector<std::string> AllImgs = DataBrowser::Get().GetAllImages();
+                    YAML::Node AnnData = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
+                    std::string NextFoundImg;
+                    bool ReachedCurrent = false;
+                    for (const auto& ImgPath : AllImgs)
                     {
-                        MoveFrame(i);
-                        break;
+                        if (AnnData[ImgPath] && ReachedCurrent)
+                        {
+                            NextFoundImg = ImgPath;
+                            break;
+                        }
+                        if (!ReachedCurrent)
+                            if (DataBrowser::Get().SelectedImageInfo.ImagePath == ImgPath)
+                                ReachedCurrent = true;
+                    }
+                    if (!NextFoundImg.empty())
+                    {
+                        DataBrowser::Get().SelectedImageInfo.ImagePath = NextFoundImg;
+                        DisplayImage();
+                    }
+                }
+                else
+                {
+                    for (int i = CurrentFrame + 1; i < DataBrowser::Get().SelectedClipInfo.FrameCount - 1; i++)
+                    {
+                        if (Data.count(i))
+                        {
+                            MoveFrame(i);
+                            break;
+                        }
                     }
                 }
             }
@@ -539,20 +728,46 @@ namespace IFCS
             ImGui::SameLine();
             if (ImGui::Button(ICON_FA_TIMES, BtnSize))
             {
-                Data.erase(CurrentFrame);
+                if (IsImage)
+                    Data_Img.clear();
+                else
+                    Data.erase(CurrentFrame);
+                NeedSave = true;
             }
             Utils::AddSimpleTooltip("Delete annotations in this frame/image");
             ImGui::PopFont();
         }
         ImGui::EndGroup();
         ButtonsOffset = (ImGui::GetContentRegionAvail().x - ImGui::GetItemRectSize().x) * 0.5f;
-        if (Data.count(CurrentFrame))
+
+        if (ShouldChangeEditMode)
         {
-            ImGui::SameLine(ImGui::GetContentRegionAvail().x - 100);
-            if (ImGui::Checkbox("Is ready?", &CheckData[CurrentFrame].IsReady))
+            EditMode = EditModeToChange;
+            ShouldChangeEditMode = false;
+        }
+        
+        if (IsImage)
+        {
+            if (!Data_Img.empty())
             {
-                CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
-                NeedSave = true;
+                ImGui::SameLine(ImGui::GetContentRegionAvail().x - 100);
+                if (ImGui::Checkbox("Is ready?", &IsReady_Img))
+                {
+                    UpdateTime_Img = Utils::GetCurrentTimeString();
+                    NeedSave = true;
+                }
+            }
+        }
+        else
+        {
+            if (Data.count(CurrentFrame))
+            {
+                ImGui::SameLine(ImGui::GetContentRegionAvail().x - 100);
+                if (ImGui::Checkbox("Is ready?", &CheckData[CurrentFrame].IsReady))
+                {
+                    CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                    NeedSave = true;
+                }
             }
         }
     }
@@ -560,20 +775,42 @@ namespace IFCS
     void Annotation::SaveData()
     {
         YAML::Node Origin = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"));
-        YAML::Node ClipNode;
-        for (const auto& [F, Map] : Data)
+        if (IsImage)
         {
-            for (const auto& [ID, Ann] : Map)
+            if (Data_Img.empty())
             {
-                ClipNode[F][std::to_string(ID)] = Ann.Serialize();
+                Origin.remove(DataBrowser::Get().SelectedImageInfo.ImagePath);
+            }
+            else
+            {
+                YAML::Node ImgNode;
+                ImgNode["IsReady"] = IsReady_Img;
+                ImgNode["UpdateTime"] = UpdateTime_Img;
+                for (const auto& [ID, Ann] : Data_Img)
+                {
+                    ImgNode[std::to_string(ID)] = Ann.Serialize();
+                }
+                Origin[DataBrowser::Get().SelectedImageInfo.ImagePath][0] = ImgNode;
             }
         }
-        for (const auto& [F, C] : CheckData)
+        else
         {
-            ClipNode[F]["IsReady"] = C.IsReady;
-            ClipNode[F]["UpdateTime"] = C.UpdateTime;
+            YAML::Node ClipNode;
+            for (const auto& [F, Map] : Data)
+            {
+                for (const auto& [ID, Ann] : Map)
+                {
+                    ClipNode[F][std::to_string(ID)] = Ann.Serialize();
+                }
+            }
+            for (const auto& [F, C] : CheckData)
+            {
+                ClipNode[F]["IsReady"] = C.IsReady;
+                ClipNode[F]["UpdateTime"] = C.UpdateTime;
+            }
+            Origin[DataBrowser::Get().SelectedClipInfo.ClipPath] = ClipNode;
         }
-        Origin[DataBrowser::Get().SelectedClipInfo.ClipPath] = ClipNode;
+
         YAML::Emitter Out;
         Out << Origin;
         std::ofstream Fout(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"));
@@ -582,26 +819,45 @@ namespace IFCS
 
     void Annotation::LoadData()
     {
-        Data.clear();
-        CheckData.clear();
-        YAML::Node ClipData = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"))
-            [DataBrowser::Get().SelectedClipInfo.ClipPath];
-        for (YAML::const_iterator it = ClipData.begin(); it != ClipData.end(); ++it)
+        YAML::Node AllAnnData = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"));
+        if (IsImage)
         {
-            CheckData[it->first.as<int>()] = FCheck();
-            for (YAML::const_iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2)
+            Data_Img.clear();
+            IsReady_Img = false;
+            if (!AllAnnData[DataBrowser::Get().SelectedImageInfo.ImagePath]) return;
+            YAML::Node ImgNode = AllAnnData[DataBrowser::Get().SelectedImageInfo.ImagePath][0];
+            for (YAML::const_iterator it = ImgNode.begin(); it != ImgNode.end(); ++it)
             {
-                if (it2->first.as<std::string>() == "UpdateTime")
-                {
-                    CheckData[it->first.as<int>()].UpdateTime = it2->second.as<std::string>();
-                }
-                else if (it2->first.as<std::string>() == "IsReady")
-                {
-                    CheckData[it->first.as<int>()].IsReady = it2->second.as<bool>();
-                }
+                if (it->first.as<std::string>() == "UpdateTime")
+                    UpdateTime_Img = it->second.as<std::string>();
+                else if (it->first.as<std::string>() == "IsReady")
+                    IsReady_Img = it->second.as<bool>();
                 else
+                    Data_Img[it->first.as<uint64_t>()] = FAnnotation(it->second);
+            }
+        }
+        else
+        {
+            Data.clear();
+            CheckData.clear();
+            YAML::Node ClipData = AllAnnData[DataBrowser::Get().SelectedClipInfo.ClipPath];
+            for (YAML::const_iterator it = ClipData.begin(); it != ClipData.end(); ++it)
+            {
+                CheckData[it->first.as<int>()] = FCheck();
+                for (YAML::const_iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2)
                 {
-                    Data[it->first.as<int>()][it2->first.as<uint64_t>()] = FAnnotation(it2->second);
+                    if (it2->first.as<std::string>() == "UpdateTime")
+                    {
+                        CheckData[it->first.as<int>()].UpdateTime = it2->second.as<std::string>();
+                    }
+                    else if (it2->first.as<std::string>() == "IsReady")
+                    {
+                        CheckData[it->first.as<int>()].IsReady = it2->second.as<bool>();
+                    }
+                    else
+                    {
+                        Data[it->first.as<int>()][it2->first.as<uint64_t>()] = FAnnotation(it2->second);
+                    }
                 }
             }
         }
@@ -682,11 +938,13 @@ namespace IFCS
         {
             const ImVec2 Delta = ImGui::GetIO().MouseDelta / GetZoom();
             Ann.Resize(WhichCorner, {Delta.x, Delta.y});
-            CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+            if (IsImage)
+                UpdateTime_Img = Utils::GetCurrentTimeString();
+            else
+                CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
             NeedSave = true;
         }
     }
-
 
 
     void Annotation::MoveFrame(int NewFrame)

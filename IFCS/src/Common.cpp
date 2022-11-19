@@ -188,19 +188,18 @@ namespace IFCS
     }
 
 
-    std::string FAnnotation::GetExportTxt(int CID, const FAnnotationShiftData& InShiftData) const
+    std::string FAnnotation::GetExportTxt(int CID) const
     {
-        // TODO: ignore shift data for now... MUST add later...
-        std::array<float, 4> ToShift = XYWH;
-        ToShift[0] /= WorkArea.x;
-        ToShift[1] /= WorkArea.y;
-        ToShift[2] /= WorkArea.x;
-        ToShift[3] /= WorkArea.y;
+        std::array<float, 4> Out = XYWH;
+        Out[0] /= WorkArea.x;
+        Out[1] /= WorkArea.y;
+        Out[2] /= WorkArea.x;
+        Out[3] /= WorkArea.y;
 
         std::string OutString = std::to_string(CID);
         for (int i = 0; i < 4; i++)
         {
-            OutString += " " + std::to_string(ToShift[i]);
+            OutString += " " + std::to_string(Out[i]);
         }
         return OutString;
     }

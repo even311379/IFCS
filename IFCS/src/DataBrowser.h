@@ -2,9 +2,7 @@
 #include <array>
 #include <filesystem>
 #include <map>
-
 #include "Panel.h"
-
 
 namespace IFCS
 {
@@ -20,13 +18,9 @@ namespace IFCS
         std::vector<std::string> GetAllImages() const;
         std::vector<std::string> GetImageFolders() const;
 
-        bool IsAnnotationFramesEmpty() const {return AnnotationFramesData.empty(); }
         FClipInfo SelectedClipInfo;
         FImageInfo SelectedImageInfo;
-        bool IsSelectedFrameReviewed;
-        std::string ReviewTime;
         unsigned int LoadedFramePtr;
-        bool ShouldUpdateData = false;
         std::map<int, cv::Mat> VideoFrames;
         void LoadVideoFrame(int FrameNumber);
         void MatToGL(const cv::Mat& Frame );
@@ -43,11 +37,9 @@ namespace IFCS
         void RenderDetailWidget();
         bool HasAnyClip = false;
         bool HasAnyImage = false;
-        ImVec2 GetBtnSize();
+        std::unordered_map<std::string, FAnnotationToDisplay> ImgAnnotaionsToDisplay;
         bool NeedReviewedOnly;
-        bool IsViewingSomeDetail() const;
-        void DeselectAll(); // Make sure only one asset is selected...
-        std::map<int, size_t> AnnotationFramesData; // TODO: should also include cv::Mat?
+        
         const std::array<std::string, 6> AcceptedClipsFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"};
         const std::array<std::string, 3> AcceptedImageFormat = {".jpg", ".jpeg", ".png"}; 
         std::string SelectedTrainingSet;

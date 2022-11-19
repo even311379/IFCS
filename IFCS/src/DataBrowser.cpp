@@ -15,17 +15,26 @@
 #include "Annotation.h"
 
 
-// TODO: opencv may crash sometimes when double click frame number? resize issue?
-
 namespace IFCS
 {
+    enum class EAssetType : uint8_t
+    {
+        Clip = 0,
+        Image = 1,
+        TrainingSet = 2,
+        Model = 3,
+        Detection = 4
+    };
+
+    EAssetType LastSelectedAssetType = EAssetType::Clip;
+    bool ShouldViewDetail = false;
+
     void DataBrowser::Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose)
     {
         Panel::Setup(InName, InShouldOpen, InFlags, InCanClose);
         SelectedTrainingSet = "";
         SelectedModel = "";
         SelectedDetection = "";
-        ShouldUpdateData = true;
     }
 
     std::vector<std::string> DataBrowser::GetAllClips() const
@@ -87,13 +96,15 @@ namespace IFCS
     std::vector<std::string> DataBrowser::GetImageFolders() const
     {
         std::vector<std::string> AllImageFolders;
-        AllImageFolders.emplace_back("/");
+        AllImageFolders.emplace_back(Setting::Get().ProjectPath + "/Images/");
         for (const auto& p : std::filesystem::recursive_directory_iterator(
                  Setting::Get().ProjectPath + std::string("/Images")))
         {
             if (std::filesystem::is_directory(p))
             {
-                AllImageFolders.push_back(p.path().u8string());
+                std::string full_path = p.path().u8string();
+                std::replace(full_path.begin(), full_path.end(), '\\', '/');
+                AllImageFolders.push_back(full_path);
             }
         }
         return AllImageFolders;
@@ -103,6 +114,8 @@ namespace IFCS
     {
         MatToGL(VideoFrames[FrameNumber]);
     }
+
+    static int Tick = 0;
 
     void DataBrowser::RenderContent()
     {
@@ -114,8 +127,8 @@ namespace IFCS
         ImGui::Text("Data Browser");
         ImGui::PopFont();
         ImVec2 ChildWindowSize = ImGui::GetContentRegionAvail();
-        if (IsViewingSomeDetail())
-            ChildWindowSize.y *= 0.60f;
+        if (ShouldViewDetail)
+            ChildWindowSize.y *= 0.70f;
         else
             ChildWindowSize.y *= 0.97f;
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_HorizontalScrollbar;
@@ -133,9 +146,7 @@ namespace IFCS
                                       SW_SHOWDEFAULT);
                     }
                 }
-                // TODO: add some hint to add things in content browser if nothing here...
                 ImGui::Checkbox("Show not ready only?", &NeedReviewedOnly);
-
                 ImGui::TreePop();
             }
 
@@ -150,6 +161,7 @@ namespace IFCS
                                       SW_SHOWDEFAULT);
                     }
                 }
+                ImGui::Checkbox("Show not ready only?", &NeedReviewedOnly);
                 ImGui::TreePop();
             }
             if (ImGui::TreeNode((std::string(ICON_FA_TH) + " Training Sets").c_str()))
@@ -169,7 +181,7 @@ namespace IFCS
             }
         }
         ImGui::EndChild();
-        if (IsViewingSomeDetail())
+        if (ShouldViewDetail)
         {
             RenderDetailWidget();
         }
@@ -181,6 +193,29 @@ namespace IFCS
                               SW_SHOWDEFAULT);
             }
         }
+
+        if (Tick > 120)
+        {
+            Tick = 0;
+            // Update img ann to display...
+            ImgAnnotaionsToDisplay.clear();
+            YAML::Node AnnData = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
+            for (YAML::const_iterator it = AnnData.begin(); it != AnnData.end(); ++it)
+            {
+                for (const std::string& Format : AcceptedImageFormat)
+                {
+                    std::string FilePath = it->first.as<std::string>();
+                    if (FilePath.empty()) continue;
+                    if (Utils::InsensitiveStringCompare(FilePath.substr(FilePath.size() - 4), Format))
+                    {
+                        ImgAnnotaionsToDisplay[FilePath] =
+                            FAnnotationToDisplay((int)it->second[0].size() - 2, it->second[0]["IsReady"].as<bool>());
+                        break;
+                    }
+                }
+            }
+        }
+        Tick++;
     }
 
 
@@ -226,6 +261,9 @@ namespace IFCS
                 {
                     SelectedImageInfo.ImagePath = ""; // Deselect image...
                     SelectedClipInfo.ClipPath = FullClipPath;
+
+                    ShouldViewDetail = true;
+                    LastSelectedAssetType = EAssetType::Clip;
                     if (Setting::Get().ActiveWorkspace == EWorkspace::Data)
                     {
                         Annotation::Get().PrepareVideo();
@@ -259,7 +297,7 @@ namespace IFCS
                         if (NeedReviewedOnly && v.IsReady) continue;
                         char buff[128];
                         const char* Icon = v.IsReady ? ICON_FA_CHECK : "";
-                        snprintf(buff, sizeof(buff), "%d ...... (%d) %s", k, v.Count, Icon);
+                        sprintf(buff, "%d ...... (%d) %s", k, v.Count, Icon);
                         if (ImGui::Selectable(buff, k == Annotation::Get().CurrentFrame))
                         {
                             Annotation::Get().MoveFrame(k);
@@ -312,20 +350,35 @@ namespace IFCS
                     }
                 }
                 if (!pass) return;
+                std::string FullImagePath = entry.path().u8string();
+                if (NeedReviewedOnly && !ImgAnnotaionsToDisplay.count(FullImagePath)) return;
                 HasAnyImage = true;
                 if (Depth > 0)
                 {
                     ImGui::Indent();
                 }
                 std::string ImageName = entry.path().filename().u8string();
-                std::string FullImagePath = entry.path().u8string();
                 std::replace(FullImagePath.begin(), FullImagePath.end(), '\\', '/');
-                // TODO:: display how many annos in this image?
-                if (ImGui::Selectable(ImageName.c_str(), SelectedImageInfo.ImagePath == FullImagePath,
+                std::string LabelName;
+                if (ImgAnnotaionsToDisplay.count(FullImagePath))
+                {
+                    char buff[128];
+                    const FAnnotationToDisplay AD = ImgAnnotaionsToDisplay[FullImagePath];
+                    const char* Icon = AD.IsReady ? ICON_FA_CHECK : "";
+                    sprintf(buff, "%s ...... (%d) %s", ImageName.c_str(), AD.Count, Icon);
+                    LabelName = buff;
+                }
+                else
+                {
+                    LabelName = ImageName;
+                }
+                if (ImGui::Selectable(LabelName.c_str(), SelectedImageInfo.ImagePath == FullImagePath,
                                       ImGuiSelectableFlags_AllowDoubleClick))
                 {
                     SelectedClipInfo.ClipPath = "";
                     SelectedImageInfo.ImagePath = FullImagePath;
+                    ShouldViewDetail = true;
+                    LastSelectedAssetType = EAssetType::Image;
                     if (Setting::Get().ActiveWorkspace == EWorkspace::Data)
                     {
                         Annotation::Get().DisplayImage();
@@ -355,8 +408,8 @@ namespace IFCS
             {
                 SelectedTrainingSet = Name;
                 TrainingSetDescription = FTrainingSetDescription(Name, it->second);
-                SelectedModel = "";
-                SelectedDetection = "";
+                ShouldViewDetail = true;
+                LastSelectedAssetType = EAssetType::TrainingSet;
             }
             // TODO: block the drag source for now...
             // if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
@@ -378,10 +431,10 @@ namespace IFCS
             std::string Name = it->first.as<std::string>();
             if (ImGui::Selectable(Name.c_str(), Name == SelectedModel))
             {
-                SelectedTrainingSet = "";
                 SelectedModel = Name;
                 ModelDescription = FModelDescription(Name, it->second);
-                SelectedDetection = "";
+                ShouldViewDetail = true;
+                LastSelectedAssetType = EAssetType::Model;
             }
             // TODO: drag source??
         }
@@ -395,10 +448,10 @@ namespace IFCS
             std::string Name = it->first.as<std::string>();
             if (ImGui::Selectable(Name.c_str(), Name == SelectedDetection))
             {
-                SelectedTrainingSet = "";
-                SelectedModel = "";
                 SelectedDetection = Name;
                 DetectionDescription = FDetectionDescription(Name, it->second);
+                ShouldViewDetail = true;
+                LastSelectedAssetType = EAssetType::Detection;
             }
             // TODO: drag source??
         }
@@ -414,41 +467,49 @@ namespace IFCS
                                                       ImGui::ColorConvertFloat4ToU32(
                                                           Style::BLUE(400, Setting::Get().Theme)), 12.f);
             ImGui::Dummy(ImVec2(0, 2.f));
-            if (!SelectedTrainingSet.empty())
+            ImGui::PushFont(Setting::Get().TitleFont);
+            switch (LastSelectedAssetType)
             {
-                ImGui::PushFont(Setting::Get().TitleFont);
+            case EAssetType::Clip:
+                ImGui::Text("%s", SelectedClipInfo.GetClipFileName().c_str());
+                break;
+            case EAssetType::Image:
+                ImGui::Text("%s", SelectedImageInfo.GetFileName().c_str());
+                break;
+            case EAssetType::TrainingSet:
                 ImGui::Text("%s", TrainingSetDescription.Name.c_str());
-                ImGui::PopFont();
-            }
-            else if (!SelectedModel.empty())
-            {
-                ImGui::PushFont(Setting::Get().TitleFont);
+                break;
+            case EAssetType::Model:
                 ImGui::Text("%s", ModelDescription.Name.c_str());
-                ImGui::PopFont();
-            }
-            else if (!SelectedDetection.empty())
-            {
-                ImGui::PushFont(Setting::Get().TitleFont);
+                break;
+            case EAssetType::Detection:
                 ImGui::Text("%s", DetectionDescription.Name.c_str());
-                ImGui::PopFont();
+                break;
             }
+            ImGui::PopFont();
             ImGui::SameLine(ContentWidth - 32);
             if (ImGui::Button(ICON_FA_TIMES, ImVec2(32, 0)))
             {
-                DeselectAll();
+                ShouldViewDetail = false;
             }
             // content
-            if (!SelectedTrainingSet.empty())
+            switch (LastSelectedAssetType)
             {
+            case EAssetType::Clip:
+                SelectedClipInfo.MakeDetailWidget();
+                break;
+            case EAssetType::Image:
+                SelectedImageInfo.MakeDetailWidget();
+                break;
+            case EAssetType::TrainingSet:
                 TrainingSetDescription.MakeDetailWidget();
-            }
-            if (!SelectedModel.empty())
-            {
+                break;
+            case EAssetType::Model:
                 ModelDescription.MakeDetailWidget();
-            }
-            if (!SelectedDetection.empty())
-            {
+                break;
+            case EAssetType::Detection:
                 DetectionDescription.MakeDetailWidget();
+                break;
             }
         }
         ImGui::EndChild();
@@ -464,27 +525,5 @@ namespace IFCS
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Frame.cols, Frame.rows, 0, GL_RGB,
                      GL_UNSIGNED_BYTE, Frame.data);
-    }
-
-
-    ImVec2 DataBrowser::GetBtnSize()
-    {
-        return {ImGui::GetFont()->FontSize * 3, ImGui::GetFont()->FontSize * 1.5f};
-    }
-
-    bool DataBrowser::IsViewingSomeDetail() const
-    {
-        if (!SelectedTrainingSet.empty()) return true;
-        if (!SelectedModel.empty()) return true;
-        if (!SelectedDetection.empty()) return true;
-        return false;
-    }
-
-    void DataBrowser::DeselectAll()
-    {
-        // SelectedFrame = -1;
-        SelectedTrainingSet = "";
-        SelectedModel = "";
-        SelectedDetection = "";
     }
 }

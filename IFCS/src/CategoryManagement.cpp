@@ -71,6 +71,9 @@ namespace IFCS
         ImPlot::PopColormap();
     }
 
+    static int Tick = 0;
+    static bool NeedSave = false;
+
     void CategoryManagement::RenderContent()
     {
         const float LineHeight = ImGui::GetTextLineHeightWithSpacing();
@@ -94,10 +97,12 @@ namespace IFCS
                 }
                 ImGui::PopStyleColor(2);
                 ImGui::SameLine();
-                ImGui::ColorEdit3("##cat_color_picker", (float*)&Cat.Color, ImGuiColorEditFlags_NoInputs);
+                if (ImGui::ColorEdit3("##cat_color_picker", (float*)&Cat.Color, ImGuiColorEditFlags_NoInputs))
+                {
+                    NeedSave = true;
+                }
                 ImGui::SameLine();
 
-                //TODO: replace it with SelectableInput()
                 if (ImGui::Selectable(Cat.DisplayName.c_str(), ID == SelectedCatID,
                                       ImGuiSelectableFlags_AllowDoubleClick, {120, LineHeight}))
                 {
@@ -122,12 +127,12 @@ namespace IFCS
             ImGui::SameLine();
             if (ImGui::Button("Add", ImVec2(65, 0)))
             {
-                // TODO: check name duplicated...
+                if (std::string(NewCatName).empty()) return;
                 const UUID NewID = UUID();
                 Data[NewID] = FCategory(NewCatName);
                 NewCatName[0] = 0;
-                GeneratorData[NewID] = true;
-                Save();
+                GeneratorCheckData[NewID] = true;
+                NeedSave = true;
             }
             if (Data.size() > 1)
             {
@@ -137,9 +142,9 @@ namespace IFCS
                     if (Data[SelectedCatID].TotalUsedCount == 0)
                     {
                         Data.erase(SelectedCatID);
-                        GeneratorData.erase(SelectedCatID);
+                        GeneratorCheckData.erase(SelectedCatID);
                         SelectedCatID = Data.begin()->first;
-                        Save();
+                        NeedSave = true;
                     }
                     else
                     {
@@ -148,7 +153,7 @@ namespace IFCS
                 }
             }
             ImGui::Dummy(ImVec2(0, LineHeight));
-            if (Data.size()>1)
+            if (Data.size() > 1)
             {
                 ImGui::Separator();
                 ImGui::Checkbox("Show Bar?", &ShowBar);
@@ -177,7 +182,7 @@ namespace IFCS
                 Data[SelectedCatID].DisplayName = Temp;
                 Temp[0] = 0;
                 OpenChangeName = false;
-                Save();
+                NeedSave = true;
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SetItemDefaultFocus();
@@ -201,15 +206,15 @@ namespace IFCS
                 // Can never "delete" element!! only rebuild it!!!
                 YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
                 YAML::Node NewNode;
-                for (YAML::const_iterator it=Node.begin(); it!=Node.end();++it)
+                for (YAML::const_iterator it = Node.begin(); it != Node.end(); ++it)
                 {
                     auto Clip = it->first.as<std::string>();
                     auto CNode = it->second.as<YAML::Node>();
-                    for (YAML::const_iterator f=CNode.begin();f!=CNode.end();++f)
+                    for (YAML::const_iterator f = CNode.begin(); f != CNode.end(); ++f)
                     {
                         auto Frame = f->first.as<std::string>();
                         auto FNode = f->second.as<YAML::Node>();
-                        for (YAML::const_iterator ANN=FNode.begin();ANN!=FNode.end();++ANN)
+                        for (YAML::const_iterator ANN = FNode.begin(); ANN != FNode.end(); ++ANN)
                         {
                             if (ANN->second["CategoryID"].as<uint64_t>() != SelectedCatID)
                             {
@@ -237,12 +242,21 @@ namespace IFCS
             ImGui::EndPopup();
         }
 
-        if (NeedUpdate)
+        if (Tick > 60)
         {
-            UpdateCategoryStatics();
-            NeedUpdate = false;
+            if (NeedUpdate)
+            {
+                UpdateCategoryStatics();
+                NeedUpdate = false;
+            }
+            if (NeedSave)
+            {
+                Save();
+                NeedSave = false;
+            }
+            Tick = 0;
         }
-        
+        Tick++;
     }
 
     void CategoryManagement::LoadCategoriesFromFile()
@@ -256,10 +270,10 @@ namespace IFCS
             if (it == Node.begin())
                 SelectedCatID = UUID(it->first.as<uint64_t>());
         }
-        GeneratorData.clear();
-        for (const auto& [ID, Cat]: Data)
+        GeneratorCheckData.clear();
+        for (const auto& [ID, Cat] : Data)
         {
-            GeneratorData[ID] = true;
+            GeneratorCheckData[ID] = true;
         }
     }
 
@@ -274,7 +288,6 @@ namespace IFCS
         Out << Node;
         std::ofstream Fout(Setting::Get().ProjectPath + std::string("/Data/Categories.yaml"));
         Fout << Out.c_str();
-        // TrainingSetGenerator::Get().SyncCategoyData(GetRegisteredCIDs());
     }
 
     void CategoryManagement::UpdateCategoryStatics()
@@ -295,22 +308,13 @@ namespace IFCS
             for (YAML::const_iterator Fit = Frames.begin(); Fit != Frames.end(); ++Fit)
             {
                 const YAML::Node& Frame = Fit->second;
-                for (YAML::const_iterator i = Frame.begin(); i!=Frame.end(); ++i)
+                for (YAML::const_iterator i = Frame.begin(); i != Frame.end(); ++i)
                 {
-                    if (i->first.as<std::string>() == "IsReady" || i->first.as<std::string>() == "UpdateTime" )
+                    if (i->first.as<std::string>() == "IsReady" || i->first.as<std::string>() == "UpdateTime")
                         continue;
                     Data[i->second["CategoryID"].as<uint64_t>()].TotalUsedCount += 1;
                 }
             }
         }
     }
-
-    // ImVec4 CategoryManagement::GetColorFrameDisplayName(const std::string& InName)
-    // {
-    //     for (const auto& [UID, Cat] : Data)
-    //     {
-    //         if (Cat.DisplayName == InName) return Cat.Color;
-    //     }
-    //     return {};
-    // }
 }

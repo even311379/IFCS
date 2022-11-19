@@ -5,14 +5,7 @@
 
 namespace IFCS
 {
-    struct FAnnotationToDisplay
-    {
-        FAnnotationToDisplay()=default;
-        FAnnotationToDisplay(const int& InCount, const bool& InReady)
-            :Count(InCount), IsReady(InReady) {}
-        int Count;
-        bool IsReady;
-    };
+
     
     class Annotation : public Panel
     {
@@ -25,9 +18,11 @@ namespace IFCS
         bool IsImage = false;
         std::map<int, FAnnotationToDisplay> GetAnnotationToDisplay();
         void MoveFrame(int NewFrame);
+        
     protected:
         void RenderContent() override;
     private:
+        void LoadingVideoBlock();
         void RenderSelectCombo();
         void RenderAnnotationWork();
         void RenderVideoControls();
@@ -35,9 +30,15 @@ namespace IFCS
         void SaveData();
         void LoadData();
         
-        // data for for whole clip, also supports for image
+        // data for for whole clip
         std::map<int, std::unordered_map<UUID, FAnnotation>> Data;
         std::map<int, FCheck> CheckData;
+
+        // data for single image
+        std::unordered_map<UUID, FAnnotation> Data_Img;
+        std::string UpdateTime_Img;
+        bool IsReady_Img;
+        
 
         
         // annotation controls

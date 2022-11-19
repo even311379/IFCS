@@ -30,10 +30,12 @@ namespace IFCS
         int NumIncludedImages;
         int NumIncludedAnnotations;
         int TotalExportImages = 0;
-        std::map<UUID, int> CategoriesExportCounts;
+        std::unordered_map<UUID, int> CategoriesExportCounts;
         int SelectedResizeAspectRatio;
         int ExportedImageSize[2] = {748, 432};
         void GenerateTrainingSet();
+        void GenerateImgTxt(cv::VideoCapture& Cap, int FrameNum,const std::vector<FAnnotation>& InAnnotations,
+            const char* GenName, bool IsOriginal, const char* SplitName);
 
 
         // training
