@@ -84,11 +84,19 @@ namespace IFCS
         return Out;
     }
 
-    // TODO: finish this...
-    std::vector<std::string> DataBrowser::GetAllFolders() const
+    std::vector<std::string> DataBrowser::GetImageFolders() const
     {
-        std::vector<std::string> Out;
-        return Out;
+        std::vector<std::string> AllImageFolders;
+        AllImageFolders.emplace_back("/");
+        for (const auto& p : std::filesystem::recursive_directory_iterator(
+                 Setting::Get().ProjectPath + std::string("/Images")))
+        {
+            if (std::filesystem::is_directory(p))
+            {
+                AllImageFolders.push_back(p.path().u8string());
+            }
+        }
+        return AllImageFolders;
     }
 
     void DataBrowser::LoadVideoFrame(int FrameNumber)
@@ -173,7 +181,6 @@ namespace IFCS
                               SW_SHOWDEFAULT);
             }
         }
-
     }
 
 
@@ -238,7 +245,7 @@ namespace IFCS
                 {
                     char Send[128];
                     strcpy(Send, FullClipPath.c_str());
-                    ImGui::SetDragDropPayload("FolderOrClip", &Send, sizeof(Send));
+                    ImGui::SetDragDropPayload("Clip", &Send, sizeof(Send));
                     // for test now
                     ImGui::Text(Send);
                     ImGui::EndDragDropSource();
@@ -251,7 +258,7 @@ namespace IFCS
                     {
                         if (NeedReviewedOnly && v.IsReady) continue;
                         char buff[128];
-                        const char* Icon = v.IsReady? ICON_FA_CHECK : "";
+                        const char* Icon = v.IsReady ? ICON_FA_CHECK : "";
                         snprintf(buff, sizeof(buff), "%d ...... (%d) %s", k, v.Count, Icon);
                         if (ImGui::Selectable(buff, k == Annotation::Get().CurrentFrame))
                         {
@@ -282,6 +289,15 @@ namespace IFCS
                 {
                     RecursiveImageTreeNodeGenerator(entry, Depth + 1);
                     ImGui::TreePop();
+                }
+                if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+                {
+                    char Send[128];
+                    strcpy(Send, entry.path().filename().u8string().c_str());
+                    ImGui::SetDragDropPayload("ImageFolder", &Send, sizeof(Send));
+                    // for test now
+                    ImGui::Text(Send);
+                    ImGui::EndDragDropSource();
                 }
             }
             else
@@ -320,15 +336,7 @@ namespace IFCS
                         SelectedImageInfo.Update(Img.cols, Img.rows);
                     }
                 }
-                if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
-                {
-                    char Send[128];
-                    strcpy(Send, FullImagePath.c_str());
-                    ImGui::SetDragDropPayload("FolderOrClip", &Send, sizeof(Send));
-                    // for test now
-                    ImGui::Text(Send);
-                    ImGui::EndDragDropSource();
-                }
+
                 if (Depth > 0)
                 {
                     ImGui::Unindent();

@@ -41,248 +41,251 @@ namespace IFCS
             }
             return;
         }
-        if (ImGui::TreeNodeEx("Make Detection", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::BeginTabBar("DetectionBar"))
         {
-            const float AvailWidth = ImGui::GetContentRegionAvail().x;
-            // ImGui::SetNextItemWidth(240.f);
-            if (ImGui::BeginCombo("Choose Model", SelectedModel))
+            if (ImGui::BeginTabItem("Make Detection"))
             {
-                YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
-                for (YAML::const_iterator it = Data.begin(); it != Data.end(); ++it)
+                const float AvailWidth = ImGui::GetContentRegionAvail().x;
+                // ImGui::SetNextItemWidth(240.f);
+                if (ImGui::BeginCombo("Choose Model", SelectedModel))
                 {
-                    auto Name = it->first.as<std::string>();
-                    if (ImGui::Selectable(Name.c_str(), Name == SelectedModel))
+                    YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
+                    for (YAML::const_iterator it = Data.begin(); it != Data.end(); ++it)
                     {
-                        strcpy(SelectedModel, Name.c_str());
-                        UpdateDetectionScript();
+                        auto Name = it->first.as<std::string>();
+                        if (ImGui::Selectable(Name.c_str(), Name == SelectedModel))
+                        {
+                            strcpy(SelectedModel, Name.c_str());
+                            UpdateDetectionScript();
+                        }
                     }
+                    ImGui::EndCombo();
                 }
-                ImGui::EndCombo();
-            }
-            if (ImGui::BeginCombo("Choose Clip", SelectedClip))
-            {
-                for (const std::string& Clip : DataBrowser::Get().GetAllClips())
+                if (ImGui::BeginCombo("Choose Clip", SelectedClip))
                 {
-                    std::string ClipNoPath = Clip.substr(Setting::Get().ProjectPath.size() + 7);
-                    if (ImGui::Selectable(ClipNoPath.c_str(), ClipNoPath == SelectedClip))
+                    for (const std::string& Clip : DataBrowser::Get().GetAllClips())
                     {
-                        strcpy(SelectedClip, ClipNoPath.c_str());
-                        UpdateDetectionScript();
+                        std::string ClipNoPath = Clip.substr(Setting::Get().ProjectPath.size() + 7);
+                        if (ImGui::Selectable(ClipNoPath.c_str(), ClipNoPath == SelectedClip))
+                        {
+                            strcpy(SelectedClip, ClipNoPath.c_str());
+                            UpdateDetectionScript();
+                        }
                     }
+                    ImGui::EndCombo();
                 }
-                ImGui::EndCombo();
-            }
 
-            if (ImGui::InputInt("ImageSize", &ImageSize, 32, 128))
-            {
-                if (ImageSize < 64) ImageSize = 64;
-                if (ImageSize > 1280) ImageSize = 1280;
-                UpdateDetectionScript();
-            }
-            if (ImGui::InputFloat("Confidence", &Confidence, 0.01f, 0.1f, "%.2f"))
-            {
-                if (Confidence < 0.01f) Confidence = 0.01f;
-                if (Confidence > 0.95f) Confidence = 0.95f;
-                UpdateDetectionScript();
-            }
-            if (ImGui::InputFloat("IOU", &IOU, 0.01f, 0.1f, "%.2f"))
-            {
-                if (IOU < 0.01f) IOU = 0.01f;
-                if (IOU > 0.95f) IOU = 0.95f;
-                UpdateDetectionScript();
-            }
-            if (ImGui::InputText("Prediction name", &DetectionName))
-            {
-                UpdateDetectionScript();
-                YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Detections/Detections.yaml");
-                IsDetectionNameUsed = false;
-                for (YAML::const_iterator it = Data.begin(); it != Data.end(); ++it)
+                if (ImGui::InputInt("ImageSize", &ImageSize, 32, 128))
                 {
-                    if (it->first.as<std::string>() == DetectionName)
+                    if (ImageSize < 64) ImageSize = 64;
+                    if (ImageSize > 1280) ImageSize = 1280;
+                    UpdateDetectionScript();
+                }
+                if (ImGui::InputFloat("Confidence", &Confidence, 0.01f, 0.1f, "%.2f"))
+                {
+                    if (Confidence < 0.01f) Confidence = 0.01f;
+                    if (Confidence > 0.95f) Confidence = 0.95f;
+                    UpdateDetectionScript();
+                }
+                if (ImGui::InputFloat("IOU", &IOU, 0.01f, 0.1f, "%.2f"))
+                {
+                    if (IOU < 0.01f) IOU = 0.01f;
+                    if (IOU > 0.95f) IOU = 0.95f;
+                    UpdateDetectionScript();
+                }
+                if (ImGui::InputText("Prediction name", &DetectionName))
+                {
+                    UpdateDetectionScript();
+                    YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Detections/Detections.yaml");
+                    IsDetectionNameUsed = false;
+                    for (YAML::const_iterator it = Data.begin(); it != Data.end(); ++it)
                     {
-                        IsDetectionNameUsed = true;
-                        break;
+                        if (it->first.as<std::string>() == DetectionName)
+                        {
+                            IsDetectionNameUsed = true;
+                            break;
+                        }
                     }
                 }
-            }
-            if (IsDetectionNameUsed)
-                ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "s% has already is use... Try another name!",
-                                   DetectionName.c_str());
-            if (ReadyToDetect())
-            {
-                ImGui::Text("About to run:");
-                ImGui::SameLine(ImGui::GetContentRegionAvail().x - 30);
-                if (ImGui::Button(ICON_FA_COPY))
+                if (IsDetectionNameUsed)
+                    ImGui::TextColored(Style::RED(400, Setting::Get().Theme),
+                                       "s% has already is use... Try another name!",
+                                       DetectionName.c_str());
+                if (ReadyToDetect())
                 {
-                    ImGui::SetClipboardText((SetPathScript + "\n" + DetectScript).c_str());
+                    ImGui::Text("About to run:");
+                    ImGui::SameLine(ImGui::GetContentRegionAvail().x - 30);
+                    if (ImGui::Button(ICON_FA_COPY))
+                    {
+                        ImGui::SetClipboardText((SetPathScript + "\n" + DetectScript).c_str());
+                    }
+                    ImGui::BeginChildFrame(ImGui::GetID("DetectScript"), ImVec2(0, ImGui::GetTextLineHeight() * 6));
+                    ImGui::TextWrapped((SetPathScript + "\n" + DetectScript).c_str());
+                    ImGui::EndChildFrame();
+
+                    if (ImGui::Button("Detect", ImVec2(0, 0)))
+                    {
+                        MakeDetection();
+                    }
                 }
-                ImGui::BeginChildFrame(ImGui::GetID("DetectScript"), ImVec2(0, ImGui::GetTextLineHeight() * 6));
-                ImGui::TextWrapped((SetPathScript + "\n" + DetectScript).c_str());
+                ImGui::Text("Detection Log");
+                ImGui::BeginChildFrame(ImGui::GetID("DetectLog"), ImVec2(AvailWidth, ImGui::GetTextLineHeight() * 4));
+                ImGui::TextWrapped("%s", DetectionLog.c_str());
                 ImGui::EndChildFrame();
-
-                if (ImGui::Button("Detect", ImVec2(0, 0)))
+                if (IsDetecting)
                 {
-                    MakeDetection();
-                }
-            }
-            ImGui::Text("Detection Log");
-            ImGui::BeginChildFrame(ImGui::GetID("DetectLog"), ImVec2(AvailWidth, ImGui::GetTextLineHeight() * 4));
-            ImGui::TextWrapped("%s", DetectionLog.c_str());
-            ImGui::EndChildFrame();
-            ImGui::TreePop();
-        }
-
-        if (IsDetecting)
-        {
-            ImGui::Text("Wait for detection...");
-            ImSpinner::SpinnerBarsScaleMiddle("Spinner1", 6, ImColor(Style::BLUE(400, Setting::Get().Theme)));
-            if (DetectFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
-            {
-                DetectionLog += Utils::GetCurrentTimeString(true) + " Done!\n";
-                // append to project data
-                FDetectionDescription Desc;
-                Desc.Name = DetectionName;
-                Desc.Categories = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml")[
-                    std::string(SelectedModel)]["Categories"].as<std::vector<std::string>>();
-                Desc.CreationTime = Utils::GetCurrentTimeString();
-                Desc.SourceModel = SelectedModel;
-                Desc.TargetClip = Setting::Get().ProjectPath + "/Clips/" + SelectedClip;
-                Desc.Confidence = Confidence;
-                Desc.IOU = IOU;
-                Desc.ImageSize = ImageSize;
-                YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Detections/Detections.yaml");
-                Data[DetectionName] = Desc.Serialize();
-                YAML::Emitter Out;
-                Out << Data;
-                std::ofstream ofs(Setting::Get().ProjectPath + "/Detections/Detections.yaml");
-                ofs << Out.c_str();
-                ofs.close();
-                IsDetecting = false;
-                DetectionName = ""; // force prevent same name
-            }
-            return;
-        }
-
-        if (ImGui::TreeNodeEx("Analysis", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            ImGui::SetNextItemWidth(240.f);
-            if (ImGui::BeginCombo("Choose Detection", SelectedDetection))
-            {
-                YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Detections/Detections.yaml");
-                for (YAML::const_iterator it = Data.begin(); it != Data.end(); ++it)
-                {
-                    std::string Name = it->first.as<std::string>();
-                    if (ImGui::Selectable(Name.c_str(), Name == SelectedDetection))
+                    ImGui::Text("Wait for detection...");
+                    ImSpinner::SpinnerBarsScaleMiddle("Spinner1", 6, ImColor(Style::BLUE(400, Setting::Get().Theme)));
+                    if (DetectFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
                     {
-                        strcpy(SelectedDetection, Name.c_str());
-                        Analysis(Name, it->second);
+                        DetectionLog += Utils::GetCurrentTimeString(true) + " Done!\n";
+                        // append to project data
+                        FDetectionDescription Desc;
+                        Desc.Name = DetectionName;
+                        Desc.Categories = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml")[
+                            std::string(SelectedModel)]["Categories"].as<std::vector<std::string>>();
+                        Desc.CreationTime = Utils::GetCurrentTimeString();
+                        Desc.SourceModel = SelectedModel;
+                        Desc.TargetClip = Setting::Get().ProjectPath + "/Clips/" + SelectedClip;
+                        Desc.Confidence = Confidence;
+                        Desc.IOU = IOU;
+                        Desc.ImageSize = ImageSize;
+                        YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Detections/Detections.yaml");
+                        Data[DetectionName] = Desc.Serialize();
+                        YAML::Emitter Out;
+                        Out << Data;
+                        std::ofstream ofs(Setting::Get().ProjectPath + "/Detections/Detections.yaml");
+                        ofs << Out.c_str();
+                        ofs.close();
+                        IsDetecting = false;
+                        DetectionName = ""; // force prevent same name
                     }
                 }
-                ImGui::EndCombo();
+                ImGui::EndTabItem();
             }
-            ImGui::SameLine();
-            static const char* AnalysisType[] = {"Pass", "In Screen"};
-            ImGui::SetNextItemWidth(240.f);
-            ImGui::Combo("Choose Display Type", &SelectedAnalysisType, AnalysisType, IM_ARRAYSIZE(AnalysisType));
-            ImGui::SameLine();
-            ImGui::Checkbox("Display helper lines?", &DisplayHelperLines);
-            if (IsAnalyzing)
+
+            if (ImGui::BeginTabItem("Analysis"))
             {
-                ImGui::Text("Wait for analyzing...");
-                ImSpinner::SpinnerBarsScaleMiddle("Spinner2", 6, ImColor(Style::BLUE(400, Setting::Get().Theme)));
-                if (AnalyzeFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
+                ImGui::SetNextItemWidth(240.f);
+                if (ImGui::BeginCombo("Choose Detection", SelectedDetection))
                 {
-                    CurrentFrame = 0;
-                    UpdateFrame(CurrentFrame, true);
-                    UpdateRoiScreenData();
-                    IsAnalyzing = false;
+                    YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Detections/Detections.yaml");
+                    for (YAML::const_iterator it = Data.begin(); it != Data.end(); ++it)
+                    {
+                        std::string Name = it->first.as<std::string>();
+                        if (ImGui::Selectable(Name.c_str(), Name == SelectedDetection))
+                        {
+                            strcpy(SelectedDetection, Name.c_str());
+                            Analysis(Name, it->second);
+                        }
+                    }
+                    ImGui::EndCombo();
                 }
-            }
-            // if not select... no need to render other stuff
-            if (strlen(SelectedDetection) == 0 || IsAnalyzing)
-            {
-                ImGui::TreePop();
-                return;
-            }
-            if (IsLoadingFrames)
-            {
-                ImGui::Text("Wait for frames loading... (play speed will be very slow now)");
-                ImSpinner::SpinnerBarsScaleMiddle("Spinner3", 6, ImColor(Style::BLUE(400, Setting::Get().Theme)));
-                if (LoadFrameBufferFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
+                ImGui::SameLine();
+                static const char* AnalysisType[] = {"Pass", "In Screen"};
+                ImGui::SetNextItemWidth(240.f);
+                ImGui::Combo("Choose Display Type", &SelectedAnalysisType, AnalysisType, IM_ARRAYSIZE(AnalysisType));
+                ImGui::SameLine();
+                ImGui::Checkbox("Display helper lines?", &DisplayHelperLines);
+                if (IsAnalyzing)
                 {
-                    IsLoadingFrames = false;
+                    ImGui::Text("Wait for analyzing...");
+                    ImSpinner::SpinnerBarsScaleMiddle("Spinner2", 6, ImColor(Style::BLUE(400, Setting::Get().Theme)));
+                    if (AnalyzeFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
+                    {
+                        CurrentFrame = 0;
+                        UpdateFrame(CurrentFrame, true);
+                        UpdateRoiScreenData();
+                        IsAnalyzing = false;
+                    }
                 }
-            }
-            int N = 0;
-            for (const auto& [k, v] : Categories)
-            {
-                ImGui::ColorEdit3(k.c_str(), (float*)&v, ImGuiColorEditFlags_NoInputs);
-                N++;
-                if (N < Categories.size() && N % 6 == 0)
+                // if not select... no need to render other stuff
+                if (strlen(SelectedDetection) == 0 || IsAnalyzing)
                 {
-                    ImGui::SameLine(120.f * N);
+                    ImGui::EndTabItem();
+                    ImGui::EndTabBar();
+                    return;
                 }
-            }
-            ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 1280) * 0.5f);
-            ImVec2 StartPos = ImGui::GetCursorScreenPos();
-            ImGui::Image((void*)(intptr_t)LoadedFramePtr, ImVec2(1280, 720));
-            RenderDetectionBox(StartPos);
-            static char* PlayIcon;
-            if (CurrentFrame == EndFrame)
-                PlayIcon = ICON_FA_SYNC;
-            else if (IsPlaying)
-                PlayIcon = ICON_FA_PAUSE;
-            else
-                PlayIcon = ICON_FA_PLAY;
-            if (ImGui::Button(PlayIcon, {120, 32}))
-            {
+                if (IsLoadingFrames)
+                {
+                    ImGui::Text("Wait for frames loading... (play speed will be very slow now)");
+                    ImSpinner::SpinnerBarsScaleMiddle("Spinner3", 6, ImColor(Style::BLUE(400, Setting::Get().Theme)));
+                    if (LoadFrameBufferFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
+                    {
+                        IsLoadingFrames = false;
+                    }
+                }
+                int N = 0;
+                for (const auto& [k, v] : Categories)
+                {
+                    ImGui::ColorEdit3(k.c_str(), (float*)&v, ImGuiColorEditFlags_NoInputs);
+                    N++;
+                    if (N < Categories.size() && N % 6 == 0)
+                    {
+                        ImGui::SameLine(120.f * N);
+                    }
+                }
+                ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 1280) * 0.5f);
+                ImVec2 StartPos = ImGui::GetCursorScreenPos();
+                ImGui::Image((void*)(intptr_t)LoadedFramePtr, ImVec2(1280, 720));
+                RenderDetectionBox(StartPos);
+                static char* PlayIcon;
                 if (CurrentFrame == EndFrame)
-                    CurrentFrame = StartFrame;
-                if (!IsPlaying)
+                    PlayIcon = ICON_FA_SYNC;
+                else if (IsPlaying)
+                    PlayIcon = ICON_FA_PAUSE;
+                else
+                    PlayIcon = ICON_FA_PLAY;
+                if (ImGui::Button(PlayIcon, {120, 32}))
                 {
-                    IsPlaying = true;
-                    JustPlayed = true;
+                    if (CurrentFrame == EndFrame)
+                        CurrentFrame = StartFrame;
+                    if (!IsPlaying)
+                    {
+                        IsPlaying = true;
+                        JustPlayed = true;
+                    }
+                    else
+                    {
+                        JustPaused = true;
+                    }
+                }
+                ImGui::SameLine();
+                static ImVec2 NewFramePad(4, (32 - ImGui::GetFontSize()) / 2);
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, NewFramePad);
+                ImGui::SetNextItemWidth(120.f);
+                if (ImGui::DragInt("##PlayStart", &StartFrame, 1, 0, EndFrame - 1))
+                {
+                    if (CurrentFrame < StartFrame) CurrentFrame = StartFrame;
+                    if (StartFrame > EndFrame) StartFrame = EndFrame - 1;
+                }
+                ImGui::PopStyleVar();
+                ImGui::SameLine();
+                DrawPlayRange();
+                ImGui::SameLine();
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, NewFramePad);
+                ImGui::SetNextItemWidth(120.f);
+                if (ImGui::DragInt("##PlayEnd", &EndFrame, 1, StartFrame + 1, TotalClipFrameSize))
+                {
+                    if (CurrentFrame > EndFrame) CurrentFrame = EndFrame;
+                    if (EndFrame < StartFrame) EndFrame = StartFrame + 1;
+                }
+                ImGui::PopStyleVar();
+                // TODO: add export video?
+                if (SelectedAnalysisType == 0)
+                {
+                    RenderAnaylysisWidgets_Pass();
                 }
                 else
                 {
-                    JustPaused = true;
+                    RenderAnaylysisWidgets_InScreen();
                 }
-            }
-            ImGui::SameLine();
-            static ImVec2 NewFramePad(4, (32 - ImGui::GetFontSize()) / 2);
-            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, NewFramePad);
-            ImGui::SetNextItemWidth(120.f);
-            if (ImGui::DragInt("##PlayStart", &StartFrame, 1, 0, EndFrame - 1))
-            {
-                if (CurrentFrame < StartFrame) CurrentFrame = StartFrame;
-                if (StartFrame > EndFrame) StartFrame = EndFrame - 1;
-            }
-            ImGui::PopStyleVar();
-            ImGui::SameLine();
-            DrawPlayRange();
-            ImGui::SameLine();
-            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, NewFramePad);
-            ImGui::SetNextItemWidth(120.f);
-            if (ImGui::DragInt("##PlayEnd", &EndFrame, 1, StartFrame + 1, TotalClipFrameSize))
-            {
-                if (CurrentFrame > EndFrame) CurrentFrame = EndFrame;
-                if (EndFrame < StartFrame) EndFrame = StartFrame + 1;
-            }
-            ImGui::PopStyleVar();
-            // TODO: add export video?
-            if (SelectedAnalysisType == 0)
-            {
-                RenderAnaylysisWidgets_Pass();
-            }
-            else
-            {
-                RenderAnaylysisWidgets_InScreen();
-            }
 
-            ImGui::TreePop();
+                ProcessingVideoPlay();
+                ImGui::EndTabItem();
+            }
+            ImGui::EndTabBar();
         }
-
-        ProcessingVideoPlay();
     }
 
     bool Detection::ReadyToDetect()
@@ -431,8 +434,6 @@ namespace IFCS
     void Detection::ProcessingVideoPlay()
     {
         if (!IsPlaying) return;
-        // check if receive stop play
-        // open cap
         if (JustPlayed)
         {
             JustPlayed = false;
@@ -604,7 +605,7 @@ namespace IFCS
         {
             ImGui::TableSetupColumn("Category", CF, 0.f, IndividualColumnID_Category);
             ImGui::TableSetupColumn("Is Passed", CF, 0.f, IndividualColumnID_IsPassed);
-            ImGui::TableSetupColumn("ApproxSpeed (pixel^2 / frame)", CF, 0.f, IndividualColumnID_ApproxSpeed);
+            ImGui::TableSetupColumn("ApproxSpeed (pixel / frame)", CF, 0.f, IndividualColumnID_ApproxSpeed);
             ImGui::TableSetupColumn("ApproxBodySize (pixel^2)", CF, 0.f, IndividualColumnID_ApproxBodySize);
             ImGui::TableSetupColumn("Enter Frame", CF, 0.f, IndividualColumnID_EnterFrame);
             ImGui::TableSetupColumn("Leave Frame", CF, 0.f, IndividualColumnID_LeaveFrame);

@@ -162,9 +162,9 @@ namespace IFCS
         std::vector<std::string> IncludeImageFolders;
         std::array<int, 2> Size = {640, 640};
         std::array<float, 3> Split = {0.80f, 0.10f, 0.10f};
-        int NumDuplicates = 0;
+        // int NumDuplicates = 0;
         int TotalImagesExported = 1000; // Not include duplicated ones...
-        std::string AppliedAugmentationDescription;
+        // std::string AppliedAugmentationDescription;
         YAML::Node Serialize();
         void Deserialize(const std::string& InName, const YAML::Node& InputNode);
         void MakeDetailWidget();

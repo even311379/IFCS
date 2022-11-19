@@ -1,15 +1,13 @@
 ﻿#include "CategoryManagement.h"
 #include "Setting.h"
 #include "Style.h"
-
 #include <fstream>
-
 #include "imgui_internal.h"
 #include "IconFontCppHeaders/IconsFontAwesome5.h"
 #include "Implot/implot.h"
 #include <yaml-cpp/yaml.h>
 
-#include "TrainingSetGenerator.h"
+// #include "TrainingSetGenerator.h"
 
 
 namespace IFCS
@@ -17,15 +15,6 @@ namespace IFCS
     void CategoryManagement::Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose)
     {
         Panel::Setup(InName, InShouldOpen, InFlags, InCanClose);
-        LoadCategoriesFromFile();
-        TrainingSetGenerator::Get().SyncCategoyData(GetRegisteredCIDs());
-        // make sure their are always at least one category...
-        if (Data.empty())
-        {
-            const UUID NewUID;
-            Data[NewUID] = FCategory("Default");
-            SelectedCatID = NewUID;
-        }
         UpdateCategoryStatics();
     }
 
@@ -134,8 +123,10 @@ namespace IFCS
             if (ImGui::Button("Add", ImVec2(65, 0)))
             {
                 // TODO: check name duplicated...
-                Data[UUID()] = FCategory(NewCatName);
+                const UUID NewID = UUID();
+                Data[NewID] = FCategory(NewCatName);
                 NewCatName[0] = 0;
+                GeneratorData[NewID] = true;
                 Save();
             }
             if (Data.size() > 1)
@@ -146,6 +137,7 @@ namespace IFCS
                     if (Data[SelectedCatID].TotalUsedCount == 0)
                     {
                         Data.erase(SelectedCatID);
+                        GeneratorData.erase(SelectedCatID);
                         SelectedCatID = Data.begin()->first;
                         Save();
                     }
@@ -244,6 +236,13 @@ namespace IFCS
             }
             ImGui::EndPopup();
         }
+
+        if (NeedUpdate)
+        {
+            UpdateCategoryStatics();
+            NeedUpdate = false;
+        }
+        
     }
 
     void CategoryManagement::LoadCategoriesFromFile()
@@ -256,6 +255,11 @@ namespace IFCS
             Data[UUID(it->first.as<uint64_t>())] = FCategory(it->second.as<YAML::Node>());
             if (it == Node.begin())
                 SelectedCatID = UUID(it->first.as<uint64_t>());
+        }
+        GeneratorData.clear();
+        for (const auto& [ID, Cat]: Data)
+        {
+            GeneratorData[ID] = true;
         }
     }
 
@@ -270,11 +274,18 @@ namespace IFCS
         Out << Node;
         std::ofstream Fout(Setting::Get().ProjectPath + std::string("/Data/Categories.yaml"));
         Fout << Out.c_str();
-        TrainingSetGenerator::Get().SyncCategoyData(GetRegisteredCIDs());
+        // TrainingSetGenerator::Get().SyncCategoyData(GetRegisteredCIDs());
     }
 
     void CategoryManagement::UpdateCategoryStatics()
     {
+        LoadCategoriesFromFile();
+        if (Data.empty())
+        {
+            const UUID NewUID;
+            Data[NewUID] = FCategory("Default");
+            SelectedCatID = NewUID;
+        }
         for (auto [UID, Cat] : Data)
             Cat.TotalUsedCount = 0;
         YAML::Node AllNodes = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
@@ -294,12 +305,12 @@ namespace IFCS
         }
     }
 
-    ImVec4 CategoryManagement::GetColorFrameDisplayName(const std::string& InName)
-    {
-        for (const auto& [UID, Cat] : Data)
-        {
-            if (Cat.DisplayName == InName) return Cat.Color;
-        }
-        return {};
-    }
+    // ImVec4 CategoryManagement::GetColorFrameDisplayName(const std::string& InName)
+    // {
+    //     for (const auto& [UID, Cat] : Data)
+    //     {
+    //         if (Cat.DisplayName == InName) return Cat.Color;
+    //     }
+    //     return {};
+    // }
 }

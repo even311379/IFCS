@@ -49,6 +49,7 @@ namespace IFCS
         int SelectedResizeAspectRatio = 0;
         int NewSize[2] = {720, 405};
 
+        // augmentation setup... but it should be useless!!!
         bool bApplyImageAugmentation;
         bool bApplyBlur;
         int MaxBlurAmount = 1;

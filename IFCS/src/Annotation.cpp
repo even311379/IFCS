@@ -70,6 +70,8 @@ namespace IFCS
         // TODO: need wisely utilize memery...
         IsLoadingVideo = true;
         // async load frame with multi core?
+
+        // TODO: read long long video?
         auto LoadVideo = [this](int Ith)
         {
             cv::VideoCapture Cap;
@@ -82,9 +84,17 @@ namespace IFCS
             Cap.set(cv::CAP_PROP_POS_FRAMES, i);
             while (1)
             {
-                if (i > End) break;
+                if (i > End)
+                {
+                    spdlog::info("End?");
+                    break;
+                }
                 Cap.read(Frame);
-                if (Frame.empty()) break;
+                if (Frame.empty())
+                {
+                    spdlog::info("no more frame?");
+                    break;
+                }
                 cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y));
                 // 16 : 9 // no need to resize?
                 cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
@@ -100,6 +110,7 @@ namespace IFCS
     }
 
     bool NeedSave = false;
+    bool NeedUpdateCategoryStatics = false;
 
     int Tick = 0;
 
@@ -108,7 +119,7 @@ namespace IFCS
         std::map<int, FAnnotationToDisplay> Out;
         for (const auto& [F, M] : Data)
         {
-            Out[F] = FAnnotationToDisplay(M.size(), CheckData[F].IsReady);
+            Out[F] = FAnnotationToDisplay((int)M.size(), CheckData[F].IsReady);
         }
         return Out;
     }
@@ -150,6 +161,11 @@ namespace IFCS
             {
                 SaveData();
                 NeedSave = false;
+                if (NeedUpdateCategoryStatics)
+                {
+                    CategoryManagement::Get().NeedUpdate = true;
+                    NeedUpdateCategoryStatics = false;
+                }
             }
         }
         Tick++;
@@ -285,6 +301,7 @@ namespace IFCS
                             {
                                 A.CategoryID = UID;
                                 CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                                NeedUpdateCategoryStatics = true;
                                 NeedSave = true;
                             }
                         }

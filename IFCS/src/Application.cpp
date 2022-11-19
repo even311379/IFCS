@@ -8,8 +8,6 @@
 
 #include <cstdio>
 #include <spdlog/spdlog.h>
-#include <yaml-cpp/yaml.h>
-#include <iostream>
 
 #include "Setting.h"
 #include "Annotation.h"
@@ -21,7 +19,6 @@
 #include "Train.h"
 #include "Detection.h"
 #include "Modals.h"
-#include "TrainingSetGenerator.h"
 
 
 #include "ImFileDialog/ImFileDialog.h"
@@ -122,9 +119,7 @@ namespace IFCS
         Setting::Get().LoadEditorIni();
         LogPanel::Get().Setup("Log", false, 0);
         DataBrowser::Get().Setup("Data Browser", true, 0);
-        // FrameExtractor::Get().Setup("Frame Extractor", true, 0);
         Annotation::Get().Setup("Annotation", true, 0);
-        TrainingSetGenerator::Get().Setup("Training Set Generator", true, 0);
         Train::Get().Setup("Model Generator", true, 0);
         Detection::Get().Setup("Prediction", true, 0);
         if (Setting::Get().ProjectIsLoaded)
@@ -168,7 +163,6 @@ namespace IFCS
                 DataBrowser::Get().Render();
                 // FrameExtractor::Get().Render();
                 Annotation::Get().Render();
-                TrainingSetGenerator::Get().Render();
                 CategoryManagement::Get().Render();
                 Train::Get().Render();
                 Detection::Get().Render();

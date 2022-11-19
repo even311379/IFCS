@@ -5,7 +5,6 @@
 
 namespace IFCS
 {
-    
     class Train : public Panel
     {
     public:
@@ -14,7 +13,32 @@ namespace IFCS
 
     protected:
         void RenderContent() override;
+
     private:
+        // training set
+        void RenderDataSelectWidget();
+        void RenderCategoryWidget();
+        void RenderSplitWidget();
+        void RenderResizeWidget();
+        void RenderSummary();
+        void RenderTrainingSetExportWidget();
+        void UpdateGenerartorInfo();
+        std::vector<std::string> IncludedClips;
+        std::vector<std::string> IncludedImageFolders;
+        std::string CatExportSummary;
+        int NumIncludedFrames;
+        int NumIncludedImages;
+        int NumIncludedAnnotations;
+        int TotalExportImages = 0;
+        std::map<UUID, int> CategoriesExportCounts;
+        int SelectedResizeAspectRatio;
+        int ExportedImageSize[2] = {748, 432};
+        void GenerateTrainingSet();
+
+
+        // training
+        void RenderTrainingOptions();
+        void RenderTrainingScript();
         int SelectedModelIdx = 0;
         FTrainingSetDescription SelectedTrainingSet;
         bool IsTraining;

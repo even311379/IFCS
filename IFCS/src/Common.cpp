@@ -220,9 +220,9 @@ namespace IFCS
         OutNode["IncludeImageFolders"] = IncludeImageFolders;
         OutNode["Size"] = Size;
         OutNode["Split"] = Split;
-        OutNode["NumDuplicates"] = NumDuplicates;
+        // OutNode["NumDuplicates"] = NumDuplicates;
         OutNode["TotalImagesExported"] = TotalImagesExported;
-        OutNode["AppliedAugmentationDescription"] = AppliedAugmentationDescription;
+        // OutNode["AppliedAugmentationDescription"] = AppliedAugmentationDescription;
         return OutNode;
     }
 
@@ -235,9 +235,9 @@ namespace IFCS
         IncludeImageFolders = InputNode["IncludeImageFolders"].as<std::vector<std::string>>();
         Size = InputNode["Size"].as<std::array<int, 2>>();
         Split = InputNode["Split"].as<std::array<float, 3>>();
-        NumDuplicates = InputNode["NumDuplicates"].as<int>();
+        // NumDuplicates = InputNode["NumDuplicates"].as<int>();
         TotalImagesExported = InputNode["TotalImagesExported"].as<int>();
-        AppliedAugmentationDescription = InputNode["AppliedAugmentationDescription"].as<std::string>();
+        // AppliedAugmentationDescription = InputNode["AppliedAugmentationDescription"].as<std::string>();
     }
 
     void FTrainingSetDescription::MakeDetailWidget()
@@ -275,13 +275,13 @@ namespace IFCS
         // Split and total export
         ImGui::TextWrapped("Train: %d, Valid: %d, Test: %d", int(Split[0] * TotalImagesExported),
                            int(Split[1] * TotalImagesExported), int(Split[2] * TotalImagesExported));
-        if (NumDuplicates == 0) return;
-        ImGui::Separator();
-        ImGui::Text("Aug duplicates: %d", NumDuplicates);
-        ImGui::Text("Applied Augmentation:");
-        ImGui::BeginChildFrame(ImGui::GetID("AAs"), ImVec2(Width, ImGui::GetTextLineHeight() * 3));
-        ImGui::Text(AppliedAugmentationDescription.c_str());
-        ImGui::EndChildFrame();
+        // if (NumDuplicates == 0) return;
+        // ImGui::Separator();
+        // ImGui::Text("Aug duplicates: %d", NumDuplicates);
+        // ImGui::Text("Applied Augmentation:");
+        // ImGui::BeginChildFrame(ImGui::GetID("AAs"), ImVec2(Width, ImGui::GetTextLineHeight() * 3));
+        // ImGui::Text(AppliedAugmentationDescription.c_str());
+        // ImGui::EndChildFrame();
     }
 
     FModelDescription::FModelDescription(const std::string& InName, const YAML::Node& InputNode)

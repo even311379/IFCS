@@ -86,7 +86,7 @@ namespace IFCS
 
     void BGPanel::RenderContent()
     {
-        ImGuiDockNodeFlags Flags = ImGuiDockNodeFlags_PassthruCentralNode;
+        ImGuiDockNodeFlags Flags = ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_AutoHideTabBar;
         ImGuiID DockspaceID = ImGui::GetID("MyDockSpace");
         ImGui::DockSpace(DockspaceID, ImVec2(0.0f, 0.0f), Flags);
         if (SetDataWksNow)
@@ -102,7 +102,6 @@ namespace IFCS
             ImGui::DockBuilderSplitNode(Center, ImGuiDir_Right, 0.175f, &Right, nullptr);
             ImGui::DockBuilderDockWindow("Data Browser", Left);
             ImGui::DockBuilderDockWindow("Annotation", Center);
-            ImGui::DockBuilderDockWindow("Training Set Generator", Center);
             ImGui::DockBuilderDockWindow("Category Management", Right);
             ImGui::DockBuilderFinish(DockspaceID);
             SetDataWksNow = false;
@@ -117,6 +116,7 @@ namespace IFCS
             ImGuiID Right;
             ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Left, 0.15f, &Left, &Right);
             ImGui::DockBuilderDockWindow("Data Browser", Left);
+            ImGui::DockBuilderDockWindow("Training Set Generator", Right);
             ImGui::DockBuilderDockWindow("Model Generator", Right);
             ImGui::DockBuilderFinish(DockspaceID);
             SetTrainWksNow = false;

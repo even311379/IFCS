@@ -18,7 +18,7 @@ namespace IFCS
         // TODO: make access of opencv clip info centric to here...
         std::vector<std::string> GetAllClips() const;
         std::vector<std::string> GetAllImages() const;
-        std::vector<std::string> GetAllFolders() const;
+        std::vector<std::string> GetImageFolders() const;
 
         bool IsAnnotationFramesEmpty() const {return AnnotationFramesData.empty(); }
         FClipInfo SelectedClipInfo;

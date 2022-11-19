@@ -10,7 +10,6 @@
 #include "Detection.h"
 #include "Modals.h"
 #include "Setting.h"
-#include "TrainingSetGenerator.h"
 #include "Utils.h"
 #include "Style.h"
 #include "IconFontCppHeaders/IconsFontAwesome5.h"
@@ -66,10 +65,6 @@ void IFCS::MainMenu::Render()
                 if (ImGui::MenuItem("CategoryManagement", "", CategoryManagement::Get().GetVisibility()))
                 {
                     CategoryManagement::Get().ToggleVisibility();
-                }
-                if (ImGui::MenuItem("TrainingSetGenerator", "", TrainingSetGenerator::Get().GetVisibility()))
-                {
-                    TrainingSetGenerator::Get().ToggleVisibility();
                 }
                 ImGui::EndMenu();
             }

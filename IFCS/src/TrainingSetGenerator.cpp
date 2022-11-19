@@ -68,11 +68,11 @@ namespace IFCS
             RenderResizeWidget();
             ImGui::TreePop();
         }
-        if (ImGui::TreeNode("Augmentation"))
-        {
-            RenderAugmentationWidget();
-            ImGui::TreePop();
-        }
+        // if (ImGui::TreeNode("Augmentation"))
+        // {
+        //     RenderAugmentationWidget();
+        //     ImGui::TreePop();
+        // }
         ImGui::Unindent();
         ImGui::PushFont(Setting::Get().TitleFont);
         ImGui::Text("Summary");
@@ -146,9 +146,9 @@ namespace IFCS
             Desc.Split[0] = SplitPercent[0] / 100;
             Desc.Split[1] = SplitPercent[1] / 100;
             Desc.Split[2] = SplitPercent[2] / 100;
-            Desc.NumDuplicates = AugmentationDuplicates;
+            // Desc.NumDuplicates = AugmentationDuplicates;
             Desc.TotalImagesExported = TotalExportImages;
-            Desc.AppliedAugmentationDescription = MakeAugmentationDescription();
+            // Desc.AppliedAugmentationDescription = MakeAugmentationDescription();
             Data.push_back(Desc.Serialize());
             YAML::Emitter Out;
             Out << Data;
@@ -588,7 +588,7 @@ namespace IFCS
                 Temp[i] = (ImU16)N;
                 CatNames.emplace_back(Cat.c_str());
                 BarData.emplace_back(Temp);
-                Colors.emplace_back(CategoryManagement::Get().GetColorFrameDisplayName(Cat));
+                // Colors.emplace_back(CategoryManagement::Get().GetColorFrameDisplayName(Cat));
                 i++;
                 Positions.push_back((double)i);
             }
@@ -614,6 +614,7 @@ namespace IFCS
         //     "are highly imbalanced, you should apply SMOTE to handle it! (Undev yet)");
     }
 
+    // TODO: no need to augment at all!!! The yolo v7 itself has already provide these features!!!
     void TrainingSetGenerator::RenderAugmentationWidget()
     {
         ImGui::Checkbox("Should apply image augmentation?", &bApplyImageAugmentation);

@@ -12,7 +12,6 @@
 #include "Train.h"
 #include "Panel.h"
 #include "Detection.h"
-#include "TrainingSetGenerator.h"
 #include "yaml-cpp/yaml.h"
 
 namespace IFCS
@@ -134,7 +133,6 @@ namespace IFCS
     {
         Annotation::Get().SetVisibility(false);
         CategoryManagement::Get().SetVisibility(false);
-        TrainingSetGenerator::Get().SetVisibility(false);
         Train::Get().SetVisibility(false);
         Detection::Get().SetVisibility(false);
         DataBrowser::Get().SetVisibility(true);
@@ -143,7 +141,6 @@ namespace IFCS
         {
         case EWorkspace::Data:
             Annotation::Get().SetVisibility(true);
-            TrainingSetGenerator::Get().SetVisibility(true);
             CategoryManagement::Get().SetVisibility(true);
             BGPanel::Get().SetDataWksNow = true;
             break;
