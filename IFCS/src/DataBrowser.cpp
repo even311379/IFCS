@@ -164,6 +164,14 @@ namespace IFCS
                 ImGui::Checkbox("Show not ready only?", &NeedReviewedOnly);
                 ImGui::TreePop();
             }
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+            {
+                char Send[128];
+                strcpy(Send, (Setting::Get().ProjectPath + "/Images/").c_str());
+                ImGui::SetDragDropPayload("ImageFolder", &Send, sizeof(Send));
+                ImGui::Text("/ (Image Folder)");
+                ImGui::EndDragDropSource();
+            }
             if (ImGui::TreeNode((std::string(ICON_FA_TH) + " Training Sets").c_str()))
             {
                 CreateSeletable_TrainingSets();
@@ -218,8 +226,6 @@ namespace IFCS
         Tick++;
     }
 
-
-    // TODO: selected clip/image widget and
 
     // Copy and modify from https://discourse.dearimgui.org/t/how-to-mix-imgui-treenode-and-filesystem-to-print-the-current-directory-recursively/37
     void DataBrowser::RecursiveClipTreeNodeGenerator(const std::filesystem::path& Path, unsigned int Depth)
@@ -330,11 +336,14 @@ namespace IFCS
                 }
                 if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
                 {
+                    std::string F = entry.path().u8string();
+                    std::replace(F.begin(), F.end(), '\\', '/');
                     char Send[128];
-                    strcpy(Send, entry.path().filename().u8string().c_str());
+                    strcpy(Send, F.c_str());
                     ImGui::SetDragDropPayload("ImageFolder", &Send, sizeof(Send));
+                    const size_t RelativeImageFolderNameOffset = Setting::Get().ProjectPath.size() + 8;
                     // for test now
-                    ImGui::Text(Send);
+                    ImGui::Text("%s (Image folder)", F.substr(RelativeImageFolderNameOffset).c_str());
                     ImGui::EndDragDropSource();
                 }
             }
@@ -401,7 +410,7 @@ namespace IFCS
     void DataBrowser::CreateSeletable_TrainingSets()
     {
         YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/TrainingSets.yaml");
-        for (YAML::const_iterator it = Data.begin(); it != Data.end(); ++it)
+        for (YAML::const_iterator it=Data.begin();it!=Data.end();++it)
         {
             std::string Name = it->first.as<std::string>();
             if (ImGui::Selectable(Name.c_str(), Name == SelectedTrainingSet))

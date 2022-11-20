@@ -23,6 +23,7 @@ namespace IFCS
         void RenderSummary();
         void RenderTrainingSetExportWidget();
         void UpdateGenerartorInfo();
+        bool IncludeReadyOnly = false;
         std::vector<std::string> IncludedClips;
         std::vector<std::string> IncludedImageFolders;
         std::string CatExportSummary;
@@ -32,10 +33,11 @@ namespace IFCS
         int TotalExportImages = 0;
         std::unordered_map<UUID, int> CategoriesExportCounts;
         int SelectedResizeAspectRatio;
-        int ExportedImageSize[2] = {748, 432};
+        int ExportedImageSize[2] = {768, 432};
         void GenerateTrainingSet();
         void GenerateImgTxt(cv::VideoCapture& Cap, int FrameNum,const std::vector<FAnnotation>& InAnnotations,
             const char* GenName, bool IsOriginal, const char* SplitName);
+        std::future<void> GenerateSet_Future;
 
 
         // training
@@ -46,11 +48,13 @@ namespace IFCS
         bool IsTraining;
         void Training();
         void OpenTensorBoard();
+        void OnTrainingFinished();
 
         bool bApplyTransferLearning = true;
         int Epochs = 40;
         int BatchSize = 16;
-        int ImageSize[2] = {748, 432};
+        int TrainImgSize = 640;
+        int TestImgSize = 640;
         bool ShouldTrackRunProgress = false;
         void UpdateTrainScript();
         std::string SetPathScript = "";
@@ -58,6 +62,14 @@ namespace IFCS
         std::string TrainLog = "";
         std::string ModelName;
         int SelectedHypIdx = 0;
+        // advanced
+        bool ApplyEvolve;
+        bool ApplyAdam;
+        bool ApplyCacheImage;
+        bool ApplyWeightedImageSelection;
+        bool ApplyMultiScale;
+        int MaxWorkers = 1;
+        std::array<bool, 8> Devices;
 
         std::string TensorBoardHostCommand = "";
         bool HasHostTensorBoard = false;

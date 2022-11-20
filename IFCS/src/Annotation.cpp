@@ -79,8 +79,7 @@ namespace IFCS
         if (IsLoadingVideo) return;
         DataBrowser::Get().VideoFrames.clear();
         IsLoadingVideo = true;
-        // async load frame with multi core?
-
+        // async load frame with 4 core?
         // TODO: sometimes it will still hand there... but it's pretty robust now?
         auto LoadVideo = [this](int Ith)
         {

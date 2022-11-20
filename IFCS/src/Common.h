@@ -143,7 +143,7 @@ namespace IFCS
         void Deserialize(YAML::Node InputNode);
         void Pan(std::array<float, 2> Changed);
         void Resize(EBoxCorner WhichCorner, std::array<float, 2> Changed);
-        std::string GetExportTxt(int CID) const;
+        std::string GetExportTxt(size_t CID) const;
     };
 
     struct FTrainingSetDescription
@@ -151,7 +151,7 @@ namespace IFCS
         FTrainingSetDescription() = default;
         FTrainingSetDescription(const std::string& InName, const YAML::Node& InputNode);
         std::string Name;
-        std::vector<std::string> Categories; // exported format...
+        std::vector<std::string> Categories;
         std::string CreationTime;
         std::vector<std::string> IncludeClips;
         std::vector<std::string> IncludeImageFolders;
@@ -170,15 +170,10 @@ namespace IFCS
         FModelDescription() = default;
         FModelDescription(const std::string& InName, const YAML::Node& InputNode);
         std::string Name;
-        std::vector<std::string> Categories; // exported format...
+        std::vector<std::string> Categories; 
         std::string CreationTime;
         std::string ModelType;
-        std::string HyperParameter;
         std::string SourceTrainingSet; // name
-        float TrainingTime = 0.f; // hours
-        std::array<int, 2> ImageSize = {748, 432};
-        int BatchSize = 0;
-        int NumEpochs = 0;
         float Precision = 0.f; // take best?
         float Recall = 0.f;
         float mAP5 = 0.f;

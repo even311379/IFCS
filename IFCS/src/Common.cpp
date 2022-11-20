@@ -188,7 +188,7 @@ namespace IFCS
     }
 
 
-    std::string FAnnotation::GetExportTxt(int CID) const
+    std::string FAnnotation::GetExportTxt(size_t CID) const
     {
         std::array<float, 4> Out = XYWH;
         Out[0] /= WorkArea.x;
@@ -219,9 +219,7 @@ namespace IFCS
         OutNode["IncludeImageFolders"] = IncludeImageFolders;
         OutNode["Size"] = Size;
         OutNode["Split"] = Split;
-        // OutNode["NumDuplicates"] = NumDuplicates;
         OutNode["TotalImagesExported"] = TotalImagesExported;
-        // OutNode["AppliedAugmentationDescription"] = AppliedAugmentationDescription;
         return OutNode;
     }
 
@@ -234,9 +232,7 @@ namespace IFCS
         IncludeImageFolders = InputNode["IncludeImageFolders"].as<std::vector<std::string>>();
         Size = InputNode["Size"].as<std::array<int, 2>>();
         Split = InputNode["Split"].as<std::array<float, 3>>();
-        // NumDuplicates = InputNode["NumDuplicates"].as<int>();
         TotalImagesExported = InputNode["TotalImagesExported"].as<int>();
-        // AppliedAugmentationDescription = InputNode["AppliedAugmentationDescription"].as<std::string>();
     }
 
     void FTrainingSetDescription::MakeDetailWidget()
@@ -274,13 +270,6 @@ namespace IFCS
         // Split and total export
         ImGui::TextWrapped("Train: %d, Valid: %d, Test: %d", int(Split[0] * TotalImagesExported),
                            int(Split[1] * TotalImagesExported), int(Split[2] * TotalImagesExported));
-        // if (NumDuplicates == 0) return;
-        // ImGui::Separator();
-        // ImGui::Text("Aug duplicates: %d", NumDuplicates);
-        // ImGui::Text("Applied Augmentation:");
-        // ImGui::BeginChildFrame(ImGui::GetID("AAs"), ImVec2(Width, ImGui::GetTextLineHeight() * 3));
-        // ImGui::Text(AppliedAugmentationDescription.c_str());
-        // ImGui::EndChildFrame();
     }
 
     FModelDescription::FModelDescription(const std::string& InName, const YAML::Node& InputNode)
@@ -294,12 +283,7 @@ namespace IFCS
         OutNode["Categories"] = Categories;
         OutNode["CreationTime"] = CreationTime;
         OutNode["ModelType"] = ModelType;
-        OutNode["HyperParameter"] = HyperParameter;
         OutNode["SourceTrainingSet"] = SourceTrainingSet;
-        OutNode["TraningTime"] = TrainingTime;
-        OutNode["ImageSize"] = ImageSize;
-        OutNode["BatchSize"] = BatchSize;
-        OutNode["NumEpochs"] = NumEpochs;
         OutNode["Precision"] = Precision;
         OutNode["Recall"] = Recall;
         OutNode["mAP5"] = mAP5;
@@ -313,12 +297,7 @@ namespace IFCS
         Categories = InputNode["Categories"].as<std::vector<std::string>>();
         CreationTime = InputNode["CreationTime"].as<std::string>();
         ModelType = InputNode["ModelType"].as<std::string>();
-        HyperParameter = InputNode["HyperParameter"].as<std::string>();
         SourceTrainingSet = InputNode["SourceTrainingSet"].as<std::string>();
-        TrainingTime = InputNode["TrainingTime"].as<float>();
-        ImageSize = InputNode["ImageSize"].as<std::array<int, 2>>();
-        BatchSize = InputNode["BatchSize"].as<int>();
-        NumEpochs = InputNode["NumEpochs"].as<int>();
         Precision = InputNode["Precision"].as<float>();
         Recall = InputNode["Recall"].as<float>();
         mAP5 = InputNode["mAP5"].as<float>();
@@ -341,24 +320,9 @@ namespace IFCS
         ImGui::Text("Model Type:");
         ImGui::SameLine(Offset);
         ImGui::Text(ModelType.c_str());
-        ImGui::Text("Hyp:");
-        ImGui::SameLine(Offset);
-        ImGui::Text(HyperParameter.c_str());
         ImGui::Text("Data Set:");
         ImGui::SameLine(Offset);
         ImGui::Text(SourceTrainingSet.c_str());
-        ImGui::Text("Train Time:");
-        ImGui::SameLine(Offset);
-        ImGui::Text("%.2f hours", TrainingTime);
-        ImGui::Text("Image Size:");
-        ImGui::SameLine(Offset);
-        ImGui::Text("%d x %d", ImageSize[0], ImageSize[1]);
-        ImGui::Text("Batch Size:");
-        ImGui::SameLine(Offset);
-        ImGui::Text("%d", BatchSize);
-        ImGui::Text("Num Epochs:");
-        ImGui::SameLine(Offset);
-        ImGui::Text("%d", NumEpochs);
         ImGui::Text("Precision:");
         ImGui::SameLine(Offset);
         ImGui::Text("%.3f", Precision);

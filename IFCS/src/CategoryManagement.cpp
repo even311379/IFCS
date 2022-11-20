@@ -12,6 +12,9 @@
 
 namespace IFCS
 {
+    // TODO: count in images is missing...
+
+    
     void CategoryManagement::Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose)
     {
         Panel::Setup(InName, InShouldOpen, InFlags, InCanClose);

@@ -8,6 +8,7 @@
 #include <random>
 #include <thread>
 #include <string>
+#include <regex>
 
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
@@ -20,13 +21,12 @@
 
 #include "shellapi.h"
 #include "Implot/implot.h"
+#include "Imspinner/imspinner.h"
 
 // TODO: model comparison!!!
 
 namespace IFCS
 {
-    static std::string RunResult;
-
     static const char* ModelOptions[] = {
         "yolov7", "yolov7-d6", "yolov7-e6", "yolov7-e6e", "yolov7-tiny", "yolov7-w6", "yolov7x"
     };
@@ -38,8 +38,12 @@ namespace IFCS
     void Train::Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose)
     {
         Panel::Setup(InName, InShouldOpen, InFlags, InCanClose);
+        Devices[0] = true;
         UpdateTrainScript();
     }
+
+    bool IsGeneratingSet = false;
+    char NewTrainingSetName[64];
 
     void Train::RenderContent()
     {
@@ -47,44 +51,58 @@ namespace IFCS
         {
             if (ImGui::BeginTabItem("Training Set"))
             {
-                ImGui::PushFont(Setting::Get().TitleFont);
-                ImGui::Text("Training Set Generator");
-                ImGui::PopFont();
-                ImGui::Indent();
-                if (ImGui::TreeNode("Data Select"))
+                if (IsGeneratingSet)
                 {
-                    RenderDataSelectWidget();
-                    ImGui::TreePop();
+                    ImSpinner::SpinnerBarsScaleMiddle("Spinner_GeneratingSet", 6,
+                                                      ImColor(Style::BLUE(400, Setting::Get().Theme)));
+                    ImGui::Text("Generating training set...");
+                    if (GenerateSet_Future.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
+                    {
+                        NewTrainingSetName[0] = '\0';
+                        IsGeneratingSet = false;
+                    }
                 }
-                if (ImGui::TreeNode("Category To Export"))
+                else
                 {
-                    RenderCategoryWidget();
-                    ImGui::TreePop();
-                }
-                if (ImGui::TreeNode("Train / Valid / Test Split"))
-                {
-                    RenderSplitWidget();
-                    ImGui::TreePop();
-                }
-                if (ImGui::TreeNode("Resize"))
-                {
-                    RenderResizeWidget();
-                    ImGui::TreePop();
-                }
-                ImGui::Unindent();
-                ImGui::PushFont(Setting::Get().TitleFont);
-                ImGui::Text("Summary");
-                ImGui::PopFont();
-                ImGui::Indent();
-                RenderSummary();
-                ImGui::Unindent();
-                ImGui::PushFont(Setting::Get().TitleFont);
-                ImGui::Text("Export");
-                ImGui::PopFont();
-                ImGui::Indent();
-                RenderTrainingSetExportWidget();
+                    ImGui::PushFont(Setting::Get().TitleFont);
+                    ImGui::Text("Training Set Generator");
+                    ImGui::PopFont();
+                    ImGui::Indent();
+                    if (ImGui::TreeNode("Data Select"))
+                    {
+                        RenderDataSelectWidget();
+                        ImGui::TreePop();
+                    }
+                    if (ImGui::TreeNode("Category To Export"))
+                    {
+                        RenderCategoryWidget();
+                        ImGui::TreePop();
+                    }
+                    if (ImGui::TreeNode("Train / Valid / Test Split"))
+                    {
+                        RenderSplitWidget();
+                        ImGui::TreePop();
+                    }
+                    if (ImGui::TreeNode("Resize"))
+                    {
+                        RenderResizeWidget();
+                        ImGui::TreePop();
+                    }
+                    ImGui::Unindent();
+                    ImGui::PushFont(Setting::Get().TitleFont);
+                    ImGui::Text("Summary");
+                    ImGui::PopFont();
+                    ImGui::Indent();
+                    RenderSummary();
+                    ImGui::Unindent();
+                    ImGui::PushFont(Setting::Get().TitleFont);
+                    ImGui::Text("Export");
+                    ImGui::PopFont();
+                    ImGui::Indent();
+                    RenderTrainingSetExportWidget();
 
-                ImGui::Unindent();
+                    ImGui::Unindent();
+                }
                 ImGui::EndTabItem();
             }
             if (ImGui::BeginTabItem("Training"))
@@ -100,35 +118,45 @@ namespace IFCS
                     ImGui::EndTabBar();
                     return;
                 }
-                RenderTrainingOptions();
-                RenderTrainingScript();
+                if (IsTraining)
+                {
+                    ImSpinner::SpinnerBarsScaleMiddle("Spinner_Training", 6,
+                                                      ImColor(Style::BLUE(400, Setting::Get().Theme)));
+                    ImGui::Text("Training...");
+                    if (TrainingFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
+                    {
+                        OnTrainingFinished();
+                    }
+                }
+                else
+                {
+                    RenderTrainingOptions();
+                    RenderTrainingScript();
+                }
+                ImGui::Text("Monitor progress with tensorboard:");
+                if (ImGui::Button("Host & Open tensorboard", ImVec2(240, 0)))
+                {
+                    OpenTensorBoard();
+                }
+                if (!TrainLog.empty())
+                {
+                    ImGui::Text("Training Log:");
+                    ImGui::BeginChildFrame(ImGui::GetID("TrainLog"), ImVec2(0, ImGui::GetTextLineHeight() * 3));
+                    ImGui::TextWrapped(TrainLog.c_str());
+                    ImGui::EndChildFrame();
+                }
                 ImGui::EndTabItem();
             }
             ImGui::EndTabBar();
-        }
-
-        if (IsTraining)
-        {
-            if (TrainingFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
-            {
-                TrainLog += Utils::GetCurrentTimeString(true) + " Training complete!\n";
-
-                // TODO: write model info to yaml?
-                // need to calculate best iter and save its metrics
-                /*
-            fi = fitness(np.array(results).reshape(1, -1))               
-            def fitness(x):
-                # Model fitness as a weighted combination of metrics
-                w = [0.0, 0.0, 0.1, 0.9]  # weights for [P, R, mAP@0.5, mAP@0.5:0.95]
-                return (x[:, :4] * w).sum(1)
-                 */
-                IsTraining = false;
-            }
         }
     }
 
     void Train::RenderDataSelectWidget()
     {
+        if (ImGui::Checkbox("Ready only?", &IncludeReadyOnly))
+        {
+            UpdateGenerartorInfo();
+        }
         ImGui::Text("Select which folders / clips to include in this training set:");
         const ImVec2 FrameSize = ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 9);
         const size_t RelativeClipNameOffset = Setting::Get().ProjectPath.size() + 7;
@@ -150,14 +178,20 @@ namespace IFCS
             if (const ImGuiPayload* Payload = ImGui::AcceptDragDropPayload("Clip"))
             {
                 std::string ClipToInclude = std::string((const char*)Payload->Data);
-                IncludedClips.push_back(ClipToInclude);
-                UpdateGenerartorInfo();
+                if (!Utils::Contains(IncludedClips, ClipToInclude))
+                {
+                    IncludedClips.push_back(ClipToInclude);
+                    UpdateGenerartorInfo();
+                }
             }
             if (const ImGuiPayload* Payload = ImGui::AcceptDragDropPayload("ImageFolder"))
             {
                 std::string ImageFolderToInclude = std::string((const char*)Payload->Data);
-                IncludedImageFolders.push_back(ImageFolderToInclude);
-                UpdateGenerartorInfo();
+                if (!Utils::Contains(IncludedImageFolders, ImageFolderToInclude))
+                {
+                    IncludedImageFolders.push_back(ImageFolderToInclude);
+                    UpdateGenerartorInfo();
+                }
             }
         }
         char AddClipPreviewTitle[128];
@@ -250,11 +284,13 @@ namespace IFCS
             UpdateGenerartorInfo();
         }
 
-        int C = 0;
+        int TotalCount = 0;
         for (auto [s, i] : CategoriesExportCounts)
-            C += i;
+        {
+            TotalCount += i;
+        }
         const size_t NumBars = CategoriesExportCounts.size();
-        if (C > 0 && NumBars > 1)
+        if (TotalCount > 0 && NumBars > 1)
         {
             std::vector<ImVec4> Colors;
             std::vector<std::vector<ImU16>> BarData;
@@ -555,7 +591,6 @@ namespace IFCS
         ImGui::EndChildFrame();
     }
 
-    char NewTrainingSetName[64];
 
     void Train::RenderTrainingSetExportWidget()
     {
@@ -564,7 +599,18 @@ namespace IFCS
         ImGui::SameLine();
         if (ImGui::Button("Generate", ImVec2(240, 0)))
         {
-            GenerateTrainingSet();
+            if (std::strlen(NewTrainingSetName) == 0) return;
+            if (NumIncludedAnnotations == 0) return;
+            for (auto Node : YAML::LoadFile(Setting::Get().ProjectPath + "/Data/TrainingSets.yaml"))
+            {
+                if (std::string(NewTrainingSetName) == Node.first.as<std::string>()) return;
+            }
+            IsGeneratingSet = true;
+            auto func = [this]()
+            {
+                GenerateTrainingSet();
+            };
+            GenerateSet_Future = std::async(std::launch::async, func);
         }
     }
 
@@ -582,6 +628,7 @@ namespace IFCS
             for (YAML::const_iterator Frame = Data[C].begin(); Frame != Data[C].end(); ++Frame)
             {
                 YAML::Node ANode = Frame->second.as<YAML::Node>();
+                if (IncludeReadyOnly && !ANode["IsReady"].as<bool>()) continue;
                 bool ContainsExportedCategory = false;
                 for (YAML::const_iterator A = ANode.begin(); A != ANode.end(); ++A)
                 {
@@ -619,6 +666,7 @@ namespace IFCS
         {
             if (!Data[Img]) continue;
             YAML::Node ANode = Data[Img][0];
+            if (IncludeReadyOnly && !ANode["IsReady"].as<bool>()) continue;
             bool ContainsExportedCategory = false;
             for (YAML::const_iterator A = ANode.begin(); A != ANode.end(); ++A)
             {
@@ -656,21 +704,19 @@ namespace IFCS
     }
 
     std::unordered_map<UUID, size_t> CategoryExportedID;
-    
+
     void Train::GenerateTrainingSet()
     {
-        // TODO: gen image folders is still missing...
-        // TODO: is category info generated???
-        
-        if (std::strlen(NewTrainingSetName) == 0) return;
         // create folders and description files
         const std::string ProjectPath = Setting::Get().ProjectPath;
+        std::unordered_map<UUID, FCategory> CatData = CategoryManagement::Get().Data;
+        std::unordered_map<UUID, bool> CatCheckData = CategoryManagement::Get().GeneratorCheckData;
         std::filesystem::create_directories(ProjectPath + "/Data/" + NewTrainingSetName);
         std::string SplitName[3] = {"train", "valid", "test"};
         std::string TypeName[2] = {"images", "labels"};
         CategoryExportedID.clear();
         size_t i = 0;
-        for (const auto& [CID, V] : CategoriesExportCounts )
+        for (const auto& [CID, V] : CategoriesExportCounts)
         {
             CategoryExportedID[CID] = i;
             i++;
@@ -692,57 +738,52 @@ namespace IFCS
             ofs << Utils::GetCurrentTimeString() << std::endl;
         }
         ofs.close();
-        // write file to /Data/TrainingSets.yaml
-        ofs.open(ProjectPath + "/Data/TrainingSets.yaml");
-        if (ofs.is_open())
-        {
-            YAML::Node Data = YAML::LoadFile(ProjectPath + "/Data/TrainingSets.yaml");
-            FTrainingSetDescription Desc;
-            Desc.Name = NewTrainingSetName;
-            Desc.CreationTime = Utils::GetCurrentTimeString();
-            std::vector<std::string> IC;
-            IC.assign(IncludedClips.begin(), IncludedClips.end());
-            Desc.IncludeClips = IC;
-            std::vector<std::string> II;
-            II.assign(IncludedImageFolders.begin(), IncludedImageFolders.end());
-            Desc.IncludeImageFolders = II;
-            Desc.Size[0] = ExportedImageSize[0];
-            Desc.Size[1] = ExportedImageSize[1];
-            Desc.Split[0] = SplitPercent[0] / 100;
-            Desc.Split[1] = SplitPercent[1] / 100;
-            Desc.Split[2] = SplitPercent[2] / 100;
-            Desc.TotalImagesExported = TotalExportImages;
-            Data.push_back(Desc.Serialize());
-            YAML::Emitter Out;
-            Out << Data;
-            ofs << Out.c_str();
-        }
-        ofs.close();
 
-        std::unordered_map<UUID, FCategory> CatData = CategoryManagement::Get().Data;
-        std::unordered_map<UUID, bool> CatCheckData = CategoryManagement::Get().GeneratorCheckData;
-        
+        // write file to /Data/TrainingSets.yaml
+        FTrainingSetDescription Desc;
+        Desc.Name = NewTrainingSetName;
+        for (const auto& [CID, V] : CategoriesExportCounts)
+        {
+            Desc.Categories.push_back(CatData[CID].DisplayName);
+        }
+        Desc.CreationTime = Utils::GetCurrentTimeString();
+        std::vector<std::string> IC;
+        IC.assign(IncludedClips.begin(), IncludedClips.end());
+        Desc.IncludeClips = IC;
+        std::vector<std::string> II;
+        II.assign(IncludedImageFolders.begin(), IncludedImageFolders.end());
+        Desc.IncludeImageFolders = II;
+        Desc.Size[0] = ExportedImageSize[0];
+        Desc.Size[1] = ExportedImageSize[1];
+        Desc.Split[0] = SplitPercent[0] / 100;
+        Desc.Split[1] = SplitPercent[1] / 100;
+        Desc.Split[2] = SplitPercent[2] / 100;
+        Desc.TotalImagesExported = TotalExportImages;
+        YAML::Node TSData = YAML::LoadFile(ProjectPath + "/Data/TrainingSets.yaml");
+        TSData[Desc.Name] = Desc.Serialize();
+        ofs.open(ProjectPath + "/Data/TrainingSets.yaml");
+        YAML::Emitter Out;
+        Out << TSData;
+        ofs << Out.c_str();
+        ofs.close();
 
         //write data file for yolo
         ofs.open(ProjectPath + "/Data/" + NewTrainingSetName + "/" + NewTrainingSetName + ".yaml");
-        if (ofs.is_open())
+        ofs << "train: " << ProjectPath + "/Data/" + NewTrainingSetName + "/train/images" << std::endl;
+        ofs << "val: " << ProjectPath + "/Data/" + NewTrainingSetName + "/valid/images" << std::endl;
+        ofs << "test: " << ProjectPath + "/Data/" + NewTrainingSetName + "/test/images" << std::endl << std::endl;
+        size_t S = CategoriesExportCounts.size();
+        ofs << "nc: " << S << std::endl;
+        ofs << "names: [";
+        size_t j = 0;
+        for (const auto& [CID, N] : CategoriesExportCounts)
         {
-            ofs << "train: " << ProjectPath + "/Data/" + NewTrainingSetName + "/train/images" << std::endl;
-            ofs << "val: " << ProjectPath + "/Data/" + NewTrainingSetName + "/valid/images" << std::endl;
-            ofs << "test: " << ProjectPath + "/Data/" + NewTrainingSetName + "/test/images" << std::endl << std::endl;
-            size_t S = CategoriesExportCounts.size();
-            ofs << "nc: " << S << std::endl;
-            ofs << "names: [";
-            size_t i = 0;
-            for (const auto& [CID, N] : CategoriesExportCounts)
-            {
-                ofs << "'" << CatData[CID].DisplayName << "'";
-                if (i < S - 1)
-                    ofs << ", ";
-                i++;
-            }
-            ofs << "]" << std::endl;
+            ofs << "'" << CatData[CID].DisplayName << "'";
+            if (j < S - 1)
+                ofs << ", ";
+            j++;
         }
+        ofs << "]" << std::endl;
         ofs.close();
         // save export setting
 
@@ -777,6 +818,7 @@ namespace IFCS
             for (YAML::const_iterator it = Data[Clip].begin(); it != Data[Clip].end(); ++it)
             {
                 if (it->second.size() == 0) continue;
+                if (IncludeReadyOnly && !it->second["IsReady"].as<bool>()) continue;
                 int FrameNum = it->first.as<int>();
                 std::string GenName = Clip.substr(ProjectPath.size() + 1) + "_" + std::to_string(FrameNum);
                 std::replace(GenName.begin(), GenName.end(), '/', '-');
@@ -785,6 +827,8 @@ namespace IFCS
                 // should check category in each image
                 for (YAML::const_iterator A = Node.begin(); A != Node.end(); ++A)
                 {
+                    if (A->first.as<std::string>() == "UpdateTime" || A->first.as<std::string>() == "IsReady")
+                        continue;
                     if (CatCheckData[A->second["CategoryID"].as<uint64_t>()])
                         Annotations.emplace_back(A->second);
                 }
@@ -806,6 +850,59 @@ namespace IFCS
             }
             Cap.release();
         }
+        // handle images
+        std::vector<std::string> IncludedImgs;
+        for (const auto& IF : IncludedImageFolders)
+        {
+            for (const auto& p : std::filesystem::directory_iterator(IF))
+            {
+                if (p.is_directory()) continue;
+                std::string FullPath = p.path().u8string();
+                std::replace(FullPath.begin(), FullPath.end(), '\\', '/');
+                if (!Data[FullPath]) continue;
+                if (IncludeReadyOnly && !Data[FullPath][0]["IsReady"].as<bool>()) continue;
+                IncludedImgs.push_back(FullPath);
+            }
+        }
+        for (const std::string& Img : IncludedImgs)
+        {
+            std::string SplitName;
+            if (std::find(TrainingIdx.begin(), TrainingIdx.end(), N) != TrainingIdx.end())
+                SplitName = "Train";
+            else if (std::find(ValidIdx.begin(), ValidIdx.end(), N) != ValidIdx.end())
+                SplitName = "Valid";
+            else
+                SplitName = "Test";
+            std::string GenName = Img.substr(ProjectPath.size() + 1) + "_";
+            std::replace(GenName.begin(), GenName.end(), '/', '-');
+            const std::string OutImgName = Setting::Get().ProjectPath + "/Data/" + NewTrainingSetName + "/" + SplitName
+                + "/images/" + GenName + ".jpg";
+            const std::string OutTxtName = Setting::Get().ProjectPath + "/Data/" + NewTrainingSetName + "/" + SplitName
+                + "/labels/" + GenName + ".txt";
+            cv::Mat ImgData = cv::imread(Img);
+            cv::resize(ImgData, ImgData, cv::Size(ExportedImageSize[0], ExportedImageSize[1]));
+            cv::imwrite(OutImgName, ImgData);
+
+            std::vector<FAnnotation> Annotations;
+            for (YAML::const_iterator it = Data[Img][0].begin(); it != Data[Img][0].end(); ++it)
+            {
+                if (it->first.as<std::string>() == "UpdateTime" || it->first.as<std::string>() == "IsReady")
+                    continue;
+                if (CatCheckData[it->second["CategoryID"].as<uint64_t>()])
+                    Annotations.emplace_back(it->second);
+            }
+            std::ofstream ofs;
+            ofs.open(OutTxtName);
+            if (ofs.is_open())
+            {
+                for (auto& A : Annotations)
+                {
+                    ofs << A.GetExportTxt(CategoryExportedID[A.CategoryID]).c_str() << std::endl;
+                }
+            }
+            ofs.close();
+            N++;
+        }
     }
 
     void Train::GenerateImgTxt(cv::VideoCapture& Cap, int FrameNum, const std::vector<FAnnotation>& InAnnotations,
@@ -819,7 +916,6 @@ namespace IFCS
         Cap.set(cv::CAP_PROP_POS_FRAMES, FrameNum);
         Cap >> Frame;
         cv::resize(Frame, Frame, cv::Size(ExportedImageSize[0], ExportedImageSize[1]));
-        cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
         cv::imwrite(OutImgName, Frame);
         std::ofstream ofs;
         ofs.open(OutTxtName);
@@ -832,6 +928,8 @@ namespace IFCS
         }
         ofs.close();
     }
+
+    bool ModelNameIsDuplicated = false;
 
     void Train::RenderTrainingOptions()
     {
@@ -846,13 +944,12 @@ namespace IFCS
         if (ImGui::BeginCombo("Choose Training Set", SelectedTrainingSet.Name.c_str()))
         {
             YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/TrainingSets.yaml");
-            // for (size_t i = 0; i < Data.size(); i++)
-            for (YAML::const_iterator it = Data.begin(); it != Data.end(); ++it)
+            for (auto D : Data)
             {
-                auto Name = it->first.as<std::string>();
+                auto Name = D.first.as<std::string>();
                 if (ImGui::Selectable(Name.c_str(), Name == SelectedTrainingSet.Name))
                 {
-                    SelectedTrainingSet = FTrainingSetDescription(it->first.as<std::string>(), it->second);
+                    SelectedTrainingSet = FTrainingSetDescription(Name, D.second);
                     UpdateTrainScript();
                 }
             }
@@ -890,31 +987,85 @@ namespace IFCS
             UpdateTrainScript();
         }
         // Image size
-        if (ImGui::InputInt("Image Width", &ImageSize[0], 32, 128))
+        if (ImGui::InputInt("Image size (Train)", &TrainImgSize, 32, 128))
         {
-            if (ImageSize[0] < 64) ImageSize[0] = 64;
-            if (ImageSize[0] > 1280) ImageSize[0] = 1280;
             UpdateTrainScript();
         }
-        if (ImGui::InputInt("Image Height", &ImageSize[1], 32, 128))
+        if (ImGui::InputInt("Image size (Test)", &TestImgSize, 32, 128))
         {
-            if (ImageSize[1] < 64) ImageSize[1] = 64;
-            if (ImageSize[1] > 1280) ImageSize[1] = 1280;
             UpdateTrainScript();
         }
         // model name
         if (ImGui::InputText("Model name", &ModelName))
         {
-            // TODO: check if the name is used...
+            ModelNameIsDuplicated = false;
+            for (auto D : YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml"))
+            {
+                if (D.first.as<std::string>() == ModelName)
+                {
+                    ModelNameIsDuplicated = true;
+                    break;
+                }
+            }
             UpdateTrainScript();
+        }
+
+        // Add advanced options
+        if (ImGui::TreeNode("Advanced"))
+        {
+            if (ImGui::Checkbox("Evolve hyperparameters?", &ApplyEvolve))
+            {
+                UpdateTrainScript();
+            }
+            if (ImGui::Checkbox("Use Adam optimizer?", &ApplyAdam))
+            {
+                UpdateTrainScript();
+            }
+            if (ImGui::Checkbox("Cache images for faster training?", &ApplyCacheImage))
+            {
+                UpdateTrainScript();
+            }
+            if (ImGui::Checkbox("Use weighted image selection for training?", &ApplyWeightedImageSelection))
+            {
+                UpdateTrainScript();
+            }
+            if (ImGui::Checkbox("Vary img-size +/- 50%%?", &ApplyMultiScale))
+            {
+                UpdateTrainScript();
+            }
+            if (ImGui::InputInt("Max number of dataloader workers", &MaxWorkers))
+            {
+                if (MaxWorkers < 1) MaxWorkers = 1;
+                UpdateTrainScript();
+            }
+            // cuda device
+            ImGui::Text("Cuda devices to use:");
+            if (ImGui::Checkbox("0", &Devices[0])) UpdateTrainScript();
+            ImGui::SameLine();
+            if (ImGui::Checkbox("1", &Devices[1])) UpdateTrainScript();
+            ImGui::SameLine();
+            if (ImGui::Checkbox("2", &Devices[2])) UpdateTrainScript();
+            ImGui::SameLine();
+            if (ImGui::Checkbox("3", &Devices[3])) UpdateTrainScript();
+            ImGui::SameLine();
+            if (ImGui::Checkbox("4", &Devices[4])) UpdateTrainScript();
+            ImGui::SameLine();
+            if (ImGui::Checkbox("5", &Devices[5])) UpdateTrainScript();
+            ImGui::SameLine();
+            if (ImGui::Checkbox("6", &Devices[6])) UpdateTrainScript();
+            ImGui::SameLine();
+            if (ImGui::Checkbox("7", &Devices[7])) UpdateTrainScript();
+
+
+            ImGui::TreePop();
         }
     }
 
     void Train::RenderTrainingScript()
     {
-        if (SelectedTrainingSet.Name.empty() || ModelName.empty())
+        if (SelectedTrainingSet.Name.empty() || ModelName.empty() || ModelNameIsDuplicated)
         {
-            ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "Training set or model name not set yet!");
+            ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "Something wrong in training set or model name");
         }
         else
         {
@@ -924,25 +1075,13 @@ namespace IFCS
             {
                 ImGui::SetClipboardText((SetPathScript + "\n" + TrainScript).c_str());
             }
-            ImGui::BeginChildFrame(ImGui::GetID("TrainScript"), ImVec2(0, ImGui::GetTextLineHeight() * 4));
+            ImGui::BeginChildFrame(ImGui::GetID("TrainScript"), ImVec2(0, ImGui::GetTextLineHeight() * 6));
             ImGui::TextWrapped((SetPathScript + "\n" + TrainScript).c_str());
             ImGui::EndChildFrame();
-            if (ImGui::Button("Start Training", ImVec2(-1, 0)))
+            if (ImGui::Button("Start Training", ImVec2(240, 0)))
             {
                 Training();
             }
-            if (!TrainLog.empty())
-            {
-                ImGui::Text("Training Log:");
-                ImGui::BeginChildFrame(ImGui::GetID("TrainLog"), ImVec2(0, ImGui::GetTextLineHeight() * 3));
-                ImGui::TextWrapped(TrainLog.c_str());
-                ImGui::EndChildFrame();
-            }
-        }
-        ImGui::Text("Check progress with tensorboard:");
-        if (ImGui::Button("Host & Open tensorboard", ImVec2(-1, 0)))
-        {
-            OpenTensorBoard();
         }
     }
 
@@ -976,8 +1115,6 @@ namespace IFCS
             ofs.close();
             system("Train.bat");
         };
-
-
         IsTraining = true;
         TrainingFuture = std::async(std::launch::async, func);
     }
@@ -988,8 +1125,9 @@ namespace IFCS
         if (!HasHostTensorBoard)
         {
             // make host only once
-            const char host[150] =
-                " K:/Python/python-3.10.8-embed-amd64/Scripts/tensorboard --logdir L:/IFCS_DEV_PROJECTS/Great/Models";
+            char host[255];
+            sprintf(host, "%s/Scripts/tensorboard --logdir %s/Models", Setting::Get().PythonPath.c_str(),
+                    Setting::Get().ProjectPath.c_str());
             auto func = [=]()
             {
                 system(host);
@@ -1000,6 +1138,69 @@ namespace IFCS
         }
         char url[100] = "http://localhost:6006/";
         ShellExecuteA(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
+    }
+
+    void Train::OnTrainingFinished()
+    {
+        IsTraining = false;
+        // if there is no results.txt, just assume it failed...
+        if (!std::filesystem::exists(Setting::Get().ProjectPath + "/Models/" + ModelName + "/results.txt"))
+        {
+            TrainLog += Utils::GetCurrentTimeString(true) + " Training FAILED!\n";
+            return;
+        }
+        TrainLog += Utils::GetCurrentTimeString(true) + " Training complete!\n";
+
+        // store results data
+        std::ifstream InFile(Setting::Get().ProjectPath + "/Models/" + ModelName + "/results.txt");
+        std::vector<std::vector<std::string>> Results;
+        std::string line;
+        while (std::getline(InFile, line))
+        {
+            std::vector<std::string> Row;
+            std::stringstream sline(std::regex_replace(line, std::regex(" +"), ",").substr(1));
+            std::string item;
+            while (std::getline(sline, item, ','))
+            {
+                Row.push_back(item);
+            }
+            Results.push_back(Row);
+        }
+        // get best (compared by 0.1*mAP@0.5 + 0.9*mAP@0.5:0.95)
+        size_t BestIt = 0;
+        float BestFitness = 0.f;
+        int i = 0;
+        for (auto Row : Results)
+        {
+            float Fitness = std::stof(Row[10]) * 0.1f + std::stof(Row[11]) * 0.9f;
+            if (BestFitness < Fitness)
+            {
+                BestFitness = Fitness;
+                BestIt = i;
+            }
+            i++;
+        }
+        spdlog::info("Best it {}??", BestIt);
+        
+        FModelDescription Desc;
+        Desc.Name = ModelName;
+        Desc.CreationTime = Utils::GetCurrentTimeString(); 
+        Desc.Categories = SelectedTrainingSet.Categories;
+        Desc.ModelType = ModelOptions[SelectedModelIdx];
+        Desc.SourceTrainingSet = SelectedTrainingSet.Name;
+        Desc.Precision = std::stof(Results[BestIt][8]);
+        Desc.Recall = std::stof(Results[BestIt][9]);
+        Desc.mAP5 = std::stof(Results[BestIt][10]);
+        Desc.mAP5_95 = std::stof(Results[BestIt][11]);
+        YAML::Node Origin = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
+        Origin[Desc.Name] = Desc.Serialize();
+        std::ofstream ofs(Setting::Get().ProjectPath + "/Models/Models.yaml");
+        YAML::Emitter Out;
+        Out << Origin;
+        ofs << Out.c_str();
+        ofs.close();
+
+        ModelName.clear();
     }
 
     void Train::UpdateTrainScript()
@@ -1018,8 +1219,21 @@ namespace IFCS
         TrainScript += " --hyp data/hyp.scratch." + std::string(HypOptions[SelectedHypIdx]) + ".yaml";
         TrainScript += " --epochs " + std::to_string(Epochs);
         TrainScript += " --batch-size " + std::to_string(BatchSize);
-        TrainScript += " --img-size " + std::to_string(ImageSize[0]) + " " + std::to_string(ImageSize[1]);
-        TrainScript += " --workers 1 --device 0";
+        TrainScript += " --img-size " + std::to_string(TrainImgSize) + " " + std::to_string(TestImgSize);
+        TrainScript += " --workers " + std::to_string(MaxWorkers);
+        std::string temp;
+        int i = 0;
+        for (bool b : Devices)
+        {
+            if (b) temp += std::to_string(i) + ",";
+            i++;
+        }
+        TrainScript += " --device " + temp.substr(0, temp.size() - 1);
+        if (ApplyEvolve) TrainScript += " --evolve";
+        if (ApplyAdam) TrainScript += " --adam";
+        if (ApplyCacheImage) TrainScript += " --cache-images";
+        if (ApplyWeightedImageSelection) TrainScript += " --image-weights";
+        if (ApplyMultiScale) TrainScript += " --multi-scale";
         TrainScript += " --project " + Setting::Get().ProjectPath + "/Models";
         TrainScript += " --name " + std::string(ModelName);
 
