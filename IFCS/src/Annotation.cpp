@@ -134,7 +134,6 @@ namespace IFCS
             Cap.open(DataBrowser::Get().SelectedClipInfo.ClipPath);
             int i = NewBlockStart + int(float(Ith) * float(BlockSize) / 4.f);
             int End = NewBlockStart + int(float(Ith + 1) / 4.f * float(BlockSize));
-            spdlog::info("{}:{}", i, End);
             Cap.set(cv::CAP_PROP_POS_FRAMES, i);
             while (1)
             {

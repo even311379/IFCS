@@ -20,15 +20,21 @@
 
 namespace IFCS
 {
+    static std::array<bool, 8> Devices;
+    static int BlockSize = 500;
+    static bool IsLoadingVideo = false;
+
     void Detection::Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose)
     {
         Panel::Setup(InName, InShouldOpen, InFlags, InCanClose);
+        Devices[0] = true;
     }
 
     // TODO: this is just a cool feature? not sure whether it is 100% required...
     void Detection::ClearCacheIndividuals()
     {
     }
+
 
     void Detection::RenderContent()
     {
@@ -75,10 +81,8 @@ namespace IFCS
                     ImGui::EndCombo();
                 }
 
-                if (ImGui::InputInt("ImageSize", &ImageSize, 32, 128))
+                if (ImGui::InputInt("Image Size (Test)", &ImageSize, 32, 128))
                 {
-                    if (ImageSize < 64) ImageSize = 64;
-                    if (ImageSize > 1280) ImageSize = 1280;
                     UpdateDetectionScript();
                 }
                 if (ImGui::InputFloat("Confidence", &Confidence, 0.01f, 0.1f, "%.2f"))
@@ -106,6 +110,28 @@ namespace IFCS
                             break;
                         }
                     }
+                }
+                if (ImGui::TreeNode("Advanced"))
+                {
+                    // cuda device
+                    ImGui::Text("Cuda devices to use:");
+                    if (ImGui::Checkbox("0", &Devices[0])) UpdateDetectionScript();
+                    ImGui::SameLine();
+                    if (ImGui::Checkbox("1", &Devices[1])) UpdateDetectionScript();
+                    ImGui::SameLine();
+                    if (ImGui::Checkbox("2", &Devices[2])) UpdateDetectionScript();
+                    ImGui::SameLine();
+                    if (ImGui::Checkbox("3", &Devices[3])) UpdateDetectionScript();
+                    ImGui::SameLine();
+                    if (ImGui::Checkbox("4", &Devices[4])) UpdateDetectionScript();
+                    ImGui::SameLine();
+                    if (ImGui::Checkbox("5", &Devices[5])) UpdateDetectionScript();
+                    ImGui::SameLine();
+                    if (ImGui::Checkbox("6", &Devices[6])) UpdateDetectionScript();
+                    ImGui::SameLine();
+                    if (ImGui::Checkbox("7", &Devices[7])) UpdateDetectionScript();
+
+                    ImGui::TreePop();
                 }
                 if (IsDetectionNameUsed)
                     ImGui::TextColored(Style::RED(400, Setting::Get().Theme),
@@ -193,8 +219,6 @@ namespace IFCS
                     ImSpinner::SpinnerBarsScaleMiddle("Spinner2", 6, ImColor(Style::BLUE(400, Setting::Get().Theme)));
                     if (AnalyzeFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
                     {
-                        CurrentFrame = 0;
-                        UpdateFrame(CurrentFrame, true);
                         UpdateRoiScreenData();
                         IsAnalyzing = false;
                     }
@@ -206,15 +230,7 @@ namespace IFCS
                     ImGui::EndTabBar();
                     return;
                 }
-                if (IsLoadingFrames)
-                {
-                    ImGui::Text("Wait for frames loading... (play speed will be very slow now)");
-                    ImSpinner::SpinnerBarsScaleMiddle("Spinner3", 6, ImColor(Style::BLUE(400, Setting::Get().Theme)));
-                    if (LoadFrameBufferFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
-                    {
-                        IsLoadingFrames = false;
-                    }
-                }
+
                 int N = 0;
                 for (const auto& [k, v] : Categories)
                 {
@@ -227,7 +243,7 @@ namespace IFCS
                 }
                 ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 1280) * 0.5f);
                 ImVec2 StartPos = ImGui::GetCursorScreenPos();
-                ImGui::Image((void*)(intptr_t)LoadedFramePtr, ImVec2(1280, 720));
+                ImGui::Image((void*)(intptr_t)LoadedFramePtr_Analysis, ImVec2(1280, 720));
                 RenderDetectionBox(StartPos);
                 static char* PlayIcon;
                 if (CurrentFrame == EndFrame)
@@ -240,15 +256,7 @@ namespace IFCS
                 {
                     if (CurrentFrame == EndFrame)
                         CurrentFrame = StartFrame;
-                    if (!IsPlaying)
-                    {
-                        IsPlaying = true;
-                        JustPlayed = true;
-                    }
-                    else
-                    {
-                        JustPaused = true;
-                    }
+                    IsPlaying = !IsPlaying;
                 }
                 ImGui::SameLine();
                 static ImVec2 NewFramePad(4, (32 - ImGui::GetFontSize()) / 2);
@@ -271,6 +279,20 @@ namespace IFCS
                     if (EndFrame < StartFrame) EndFrame = StartFrame + 1;
                 }
                 ImGui::PopStyleVar();
+                if (IsLoadingVideo)
+                {
+                    ImSpinner::SpinnerBarsScaleMiddle("Spinner3", 6, ImColor(Style::BLUE(400, Setting::Get().Theme)));
+                    ImGui::Text("Video Loading...");
+                    int NumCoreFinished = 0;
+                    for (size_t T = 0; T < 4; T++)
+                    {
+                        if (Tasks[T].wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
+                        {
+                            NumCoreFinished++;
+                        }
+                    }
+                    if (NumCoreFinished == 4) IsLoadingVideo = false;
+                }
                 // TODO: add export video?
                 if (SelectedAnalysisType == 0)
                 {
@@ -308,13 +330,25 @@ namespace IFCS
         DetectScript += " --project " + ProjectPath + "/Detections";
         DetectScript += " --name " + DetectionName;
         DetectScript += " --source " + ProjectPath + "/Clips/" + SelectedClip;
-        DetectScript += " --device 0 --save-txt --save-conf";
+        std::string temp;
+        int i = 0;
+        for (bool b : Devices)
+        {
+            if (b) temp += std::to_string(i) + ",";
+            i++;
+        }
+        DetectScript += " --device " + temp.substr(0, temp.size() - 1);
+        DetectScript += " --save-txt --save-conf";
 
         ////////////////////////////////////////////////
+        /* if exec in console... it will not save to yaml!!... Just ignore it...
+         * 
         std::string AppPath = std::filesystem::current_path().u8string();
         SaveToProjectScript = Setting::Get().ProjectPath + "/python " + AppPath +
             "/Scripts/SaveDetectionDataToProject.py";
         // TODO: add lots of arguments and write that python script...
+         * 
+         */
     }
 
     void Detection::MakeDetection()
@@ -337,8 +371,6 @@ namespace IFCS
 
     void Detection::RenderDetectionBox(ImVec2 StartPos)
     {
-        // ImU32 Color = ImGui::ColorConvertFloat4ToU32(Style::RED());
-        // ImGui::GetWindowDrawList()->AddRect(StartPos, StartPos + ImVec2{100, 100}, Color);
         if (LoadedLabels.count(CurrentFrame))
         {
             for (const FLabelData& L : LoadedLabels[CurrentFrame])
@@ -404,70 +436,43 @@ namespace IFCS
         }
     }
 
-    void Detection::UpdateFrame(int FrameNumber, bool UpdateClipInfo)
-    {
-        if (UpdateClipInfo || IsLoadingFrames)
-        {
-            cv::Mat Frame;
-            cv::VideoCapture cap(DetectionClip);
-            TotalClipFrameSize = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
-            EndFrame = TotalClipFrameSize;
-            ClipFPS = (float)cap.get(cv::CAP_PROP_FPS);
-            ClipWidth = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
-            FIndividualData::Width = ClipWidth;
-            ClipHeight = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
-            FIndividualData::Height = ClipHeight;
-            cap.set(cv::CAP_PROP_POS_FRAMES, FrameNumber);
-            cap >> Frame;
-            cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y)); // 16 : 9 // no need to resize?
-            cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
-            cap.release();
-            UpdateFrameImpl(Frame);
-        }
-        else
-        {
-            if (DataBrowser::Get().VideoFrames.size() > FrameNumber)
-                UpdateFrameImpl(DataBrowser::Get().VideoFrames[FrameNumber]);
-        }
-    }
+    // void Detection::UpdateFrame(int FrameNumber, bool UpdateClipInfo)
+    // {
+    //     if (UpdateClipInfo || IsLoadingFrames)
+    //     {
+    //         cv::Mat Frame;
+    //         cv::VideoCapture cap(DetectionClip);
+    //         TotalClipFrameSize = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
+    //         EndFrame = TotalClipFrameSize;
+    //         ClipFPS = (float)cap.get(cv::CAP_PROP_FPS);
+    //         ClipWidth = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
+    //         FIndividualData::Width = ClipWidth;
+    //         ClipHeight = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+    //         FIndividualData::Height = ClipHeight;
+    //         cap.set(cv::CAP_PROP_POS_FRAMES, FrameNumber);
+    //         cap >> Frame;
+    //         cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y)); // 16 : 9 // no need to resize?
+    //         cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+    //         cap.release();
+    //         UpdateFrameImpl(Frame);
+    //     }
+    //     else
+    //     {
+    //         if (DataBrowser::Get().VideoFrames.size() > FrameNumber)
+    //             UpdateFrameImpl(DataBrowser::Get().VideoFrames[FrameNumber]);
+    //     }
+    // }
 
     void Detection::ProcessingVideoPlay()
     {
         if (!IsPlaying) return;
-        if (JustPlayed)
-        {
-            JustPlayed = false;
-        }
-        if (JustPaused)
-        {
-            JustPaused = false;
-            IsPlaying = false;
-            return;
-        }
-
-        // check should wait for update frame
         static float TimePassed = 0.f;
         TimePassed += (1.0f / ImGui::GetIO().Framerate);
         if (TimePassed < (1 / ClipFPS)) return;
         TimePassed = 0.f;
-        if (IsLoadingFrames)
-        {
-            cv::VideoCapture Cap;
-            Cap.open(DetectionClip);
-            Cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
-            static cv::Mat Frame;
-            Cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
-            Cap >> Frame;
-            cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y)); // 16 : 9 // no need to resize?
-            cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
-            UpdateFrameImpl(Frame);
-        }
-        else
-        {
-            UpdateFrameImpl(DataBrowser::Get().VideoFrames[CurrentFrame]);
-        }
+        DisplayFrame(CurrentFrame);
         CurrentFrame += 1;
-        //check should release cap and stop play
+        LoadingVideoBlock();
         if (CurrentFrame == EndFrame)
         {
             IsPlaying = false;
@@ -478,8 +483,8 @@ namespace IFCS
     {
         UpdateCurrentCatCount();
         UpdateAccumulatedPasses();
-        glGenTextures(1, &LoadedFramePtr);
-        glBindTexture(GL_TEXTURE_2D, LoadedFramePtr);
+        glGenTextures(1, &LoadedFramePtr_Analysis);
+        glBindTexture(GL_TEXTURE_2D, LoadedFramePtr_Analysis);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
@@ -523,10 +528,8 @@ namespace IFCS
             CurrentFrame = int((ImGui::GetMousePos().x - RectStart.x) / Width * (float)(EndFrame - StartFrame)) +
                 StartFrame;
             if (CurrentFrame < StartFrame) CurrentFrame = StartFrame;
-            if (IsPlaying)
-                JustPaused = true;
-            else
-                UpdateFrame(CurrentFrame);
+            IsPlaying = false;
+            DisplayFrame(CurrentFrame);
         }
     }
 
@@ -577,11 +580,6 @@ namespace IFCS
             ImGui::TableHeadersRow();
             for (const auto& [Cat, Pass] : CurrentPass)
             {
-                // TODO: choose color this way will crash!   use static color for now...
-                // ImVec4 CatColor = std::find_if(std::begin(Categories), std::end(Categories), [=](const FCategoryData& C)
-                // {
-                //     return C.CatName == Cat;
-                // })->CatColor;
                 const char* id = Cat.c_str();
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
@@ -857,8 +855,6 @@ namespace IFCS
             ImGui::SameLine();
             ImGui::ColorEdit3("##hint", (float*)&HintColor, ImGuiColorEditFlags_NoInputs);
         }
-        // ImGui::SetNextItemWidth(240.f);
-        // ImGui::DragInt("Per Unit Frame Size", &PUFS, 1, 1, TotalClipFrameSize);
         static ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV |
             ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable;
 
@@ -1039,24 +1035,121 @@ namespace IFCS
         IsAnalyzing = true;
         AnalyzeFuture = std::async(std::launch::async, LoadLabels);
 
-        IsLoadingFrames = true;
         DataBrowser::Get().VideoFrames.clear();
-        auto LoadFrameBuffer = [=]()
+
+        cv::Mat Frame;
+        cv::VideoCapture cap(DetectionClip);
+        TotalClipFrameSize = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
+        EndFrame = TotalClipFrameSize;
+        ClipFPS = (float)cap.get(cv::CAP_PROP_FPS);
+        ClipWidth = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
+        FIndividualData::Width = ClipWidth;
+        ClipHeight = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+        FIndividualData::Height = ClipHeight;
+        cap >> Frame;
+        cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y)); // 16 : 9 // no need to resize?
+        cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+        cap.release();
+        UpdateFrameImpl(Frame);
+
+        DataBrowser::Get().VideoFrames.clear();
+        IsLoadingVideo = true;
+        auto LoadVideo = [this](int Ith)
         {
             cv::VideoCapture Cap;
             Cap.open(DetectionClip);
-            cv::Mat Frame;
-            int F = 0;
+            const int FramesToLoad = std::min(TotalClipFrameSize, BlockSize * 3);
+            int i = int(float(Ith) * float(FramesToLoad) / 4.f);
+            int End = int(float(Ith + 1) / 4.f * float(FramesToLoad));
+            Cap.set(cv::CAP_PROP_POS_FRAMES, i);
             while (1)
             {
-                Cap.read(Frame);
-                if (Frame.empty()) break;
-                cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y)); // 16 : 9 // no need to resize?
+                if (i > End)
+                {
+                    break;
+                }
+                cv::Mat Frame;
+                Cap >> Frame;
+                if (Frame.empty())
+                {
+                    break;
+                }
+                cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y));
                 cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
-                DataBrowser::Get().VideoFrames[F] = Frame;
-                F++;
+                DataBrowser::Get().VideoFrames[i] = Frame;
+                i++;
             }
+            Cap.release();
         };
-        LoadFrameBufferFuture = std::async(std::launch::async, LoadFrameBuffer);
+        for (int T = 0; T < 4; T++)
+        {
+            Tasks[T] = std::async(std::launch::async, LoadVideo, T);
+        }
+    }
+
+    void Detection::LoadingVideoBlock()
+    {
+        // check which block to load and which to erase
+        if (IsLoadingVideo) return;
+        if (CurrentFrame + BlockSize * 2 > TotalClipFrameSize) return;
+        if (DataBrowser::Get().VideoFrames.count(CurrentFrame + BlockSize * 2)) return;
+        IsLoadingVideo = true;
+        const int OldBlockStart = (CurrentFrame / BlockSize - 1) * BlockSize;
+        for (int i = OldBlockStart; i < OldBlockStart + BlockSize; i++)
+        {
+            DataBrowser::Get().VideoFrames.erase(i);
+        }
+        int NewBlockStart = ((CurrentFrame / BlockSize) + 2) * BlockSize;
+        // async load frame with multi core?
+        auto LoadVideo = [=](int Ith)
+        {
+            cv::VideoCapture Cap;
+            Cap.open(DetectionClip);
+            int i = NewBlockStart + int(float(Ith) * float(BlockSize) / 4.f);
+            int End = NewBlockStart + int(float(Ith + 1) / 4.f * float(BlockSize));
+            Cap.set(cv::CAP_PROP_POS_FRAMES, i);
+            while (1)
+            {
+                if (i > End)
+                {
+                    break;
+                }
+                cv::Mat Frame;
+                Cap.read(Frame);
+                if (Frame.empty())
+                {
+                    break;
+                }
+                cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y));
+                cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+                DataBrowser::Get().VideoFrames[i] = Frame;
+                i++;
+            }
+            Cap.release();
+        };
+        for (int T = 0; T < 4; T++)
+        {
+            Tasks[T] = std::async(std::launch::async, LoadVideo, T);
+        }
+    }
+
+    void Detection::DisplayFrame(int NewFrameNum)
+    {
+        CurrentFrame = NewFrameNum;
+        if (!DataBrowser::Get().VideoFrames.count(CurrentFrame))
+        {
+            cv::VideoCapture cap(DetectionClip);
+            cv::Mat Frame;
+            cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
+            cap >> Frame;
+            cv::resize(Frame, Frame, cv::Size(1280, 720)); // 16 : 9
+            cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+            cap.release();
+            UpdateFrameImpl(Frame);
+        }
+        else
+        {
+            UpdateFrameImpl(DataBrowser::Get().VideoFrames[NewFrameNum]);
+        }
     }
 }

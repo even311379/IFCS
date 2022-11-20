@@ -182,7 +182,7 @@ namespace IFCS
                 CreateSeletable_Models();
                 ImGui::TreePop();
             }
-            if (ImGui::TreeNode((std::string(ICON_FA_WAVE_SQUARE) + " Predictions").c_str()))
+            if (ImGui::TreeNode((std::string(ICON_FA_WAVE_SQUARE) + " Detections").c_str()))
             {
                 CreateSeletable_Detections();
                 ImGui::TreePop();
