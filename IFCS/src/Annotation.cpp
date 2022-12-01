@@ -430,7 +430,7 @@ namespace IFCS
                 ImVec2 ImgPos = (ZoomPos - PanAmount) / GetZoom(OldZoomLevel);
                 PanAmount = ZoomPos - ImgPos * GetZoom();
             }
-            if (EditMode == EAnnotationEditMode::Add && ImGui::IsMouseClicked(0))
+            if (EditMode == EAnnotationEditMode::Add && ImGui::IsMouseClicked(0) && DataBrowser::Get().IsSelectAnyClipOrImg())
             {
                 if (CategoryManagement::Get().GetSelectedCategory())
                 {
@@ -788,7 +788,7 @@ namespace IFCS
                 {
                     ImgNode[std::to_string(ID)] = Ann.Serialize();
                 }
-                Origin[DataBrowser::Get().SelectedImageInfo.ImagePath][0] = ImgNode;
+                Origin[DataBrowser::Get().SelectedImageInfo.ImagePath]["0"] = ImgNode;
             }
         }
         else

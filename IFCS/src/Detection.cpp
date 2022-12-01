@@ -12,6 +12,7 @@
 
 #include <fstream>
 #include <variant>
+#include <regex>
 
 #include "yaml-cpp/yaml.h"
 #include "opencv2/opencv.hpp"
@@ -339,16 +340,6 @@ namespace IFCS
         }
         DetectScript += " --device " + temp.substr(0, temp.size() - 1);
         DetectScript += " --save-txt --save-conf";
-
-        ////////////////////////////////////////////////
-        /* if exec in console... it will not save to yaml!!... Just ignore it...
-         * 
-        std::string AppPath = std::filesystem::current_path().u8string();
-        SaveToProjectScript = Setting::Get().ProjectPath + "/python " + AppPath +
-            "/Scripts/SaveDetectionDataToProject.py";
-        // TODO: add lots of arguments and write that python script...
-         * 
-         */
     }
 
     void Detection::MakeDetection()
@@ -995,9 +986,16 @@ namespace IFCS
             for (const auto& Entry : std::filesystem::directory_iterator(Path))
             {
                 std::string TxtName = Entry.path().filename().u8string();
+                // TODO: replace this search by regex... NEED TEST
+                std::smatch m;
+                std::regex_search(TxtName, m, std::regex("_(d+)\\."));
+                int FrameCount = std::stoi(m.str(1));
+                
+                /*
                 size_t FrameDigits = TxtName.find('.') - TxtName.find('_') - 1;
                 std::string Temp = TxtName.substr(TxtName.find('_') + 1, FrameDigits);
                 int FrameCount = std::stoi(Temp);
+                */
                 std::ifstream TxtFile(Entry.path().u8string());
                 std::string Line;
                 std::vector<FLabelData> Labels;

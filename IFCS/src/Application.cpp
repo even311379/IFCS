@@ -61,7 +61,7 @@ namespace IFCS
         // TODO: set window size by config file 
         Window = glfwCreateWindow(1920, 1080, "IFCS", NULL, NULL);
         if (Window == NULL) return;
-        glfwSetWindowPos(Window, 0, 50);
+        // glfwSetWindowPos(Window, 0, 50);
         // glfwSetWindowAttrib(Window, GLFW_RESIZABLE, 0); // should not block resize?
         glfwMakeContextCurrent(Window);
         glfwSwapInterval(1); // enable vsync
@@ -105,6 +105,14 @@ namespace IFCS
         *Setting::Get().TitleFont = *Setting::Get().DefaultFont; // is this so called deep copy?
         Setting::Get().TitleFont->Scale = 1.5;
 
+        // markdown fonts
+        Setting::Get().H2 = new ImFont;
+        *Setting::Get().H2 = *Setting::Get().DefaultFont;
+        Setting::Get().H2->Scale = 1.25;
+        Setting::Get().H3 = new ImFont;
+        *Setting::Get().H3= *Setting::Get().DefaultFont;
+        Setting::Get().H3->Scale = 1.10f;
+
         // load static images?
     }
 
@@ -117,6 +125,7 @@ namespace IFCS
         MainMenu::Get().SetApp(this);
         BGPanel::Get().Setup();
         Setting::Get().LoadEditorIni();
+        Setting::Get().SetupApp(this);
         LogPanel::Get().Setup("Log", false, 0);
         DataBrowser::Get().Setup("Data Browser", true, 0);
         Annotation::Get().Setup("Annotation", true, 0);
@@ -131,7 +140,7 @@ namespace IFCS
         {
             Modals::Get().IsModalOpen_Welcome = true;
         }
-        
+
         // DEV
         // TestPanel* test = new TestPanel();
         // test->Setup("abstraction", true, 0);
@@ -197,6 +206,12 @@ namespace IFCS
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
             glfwSwapBuffers(Window);
 
+            if (RequestToChangeTitle)
+            {
+                glfwSetWindowTitle(Window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
+                RequestToChangeTitle = false;
+            }
+
             if (RequestToQuit)
             {
                 glfwDestroyWindow(Window);
@@ -235,6 +250,5 @@ namespace IFCS
 
     void Application::HandleDialogClose()
     {
-
     }
 }

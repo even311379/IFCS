@@ -13,6 +13,7 @@
 #include "Utils.h"
 #include "Style.h"
 #include "IconFontCppHeaders/IconsFontAwesome5.h"
+#include "ImFileDialog/ImFileDialog.h"
 
 IFCS::MainMenu::~MainMenu()
 {
@@ -24,23 +25,40 @@ void IFCS::MainMenu::Render()
     {
         if (ImGui::BeginMenu(LOCTEXT("ToolbarMenu.Project")))
         {
+            if (ImGui::BeginMenu("Open"))
+            {
+                if (ImGui::MenuItem(LOCTEXT("ToolbarItem.LoadProject")))
+                {
+                    Modals::Get().IsModalOpen_LoadProject = true;
+                }
+                if (Setting::Get().RecentProjects.size() > 1)
+                {
+                    ImGui::Separator();
+                    for (const std::string& P : Setting::Get().RecentProjects)
+                    {
+                        if (P == Setting::Get().ProjectPath) continue;
+                        if (ImGui::MenuItem(P.c_str()))
+                        {
+                            Setting::Get().ProjectPath = P;
+                            Setting::Get().StartFromPreviousProject();
+                        }
+                    }
+                }
+                ImGui::EndMenu();
+            }
             if (ImGui::MenuItem(LOCTEXT("ToolbarItem.NewProject")))
             {
                 Modals::Get().IsModalOpen_NewProject = true;
             }
-            // TODO: recent projects...
-            if (ImGui::MenuItem(LOCTEXT("ToolbarItem.LoadProject")))
-            {
-                Modals::Get().IsModalOpen_LoadProject = true;
-            }
+            ImGui::Separator();
             if (ImGui::MenuItem(LOCTEXT("ToolbarItem.ImportData")))
             {
-                // TODO: weird problem that makes opening this widget so much buggy...
-                // Modals::Get().IsModalOpen_ImportData = true;
+                Modals::Get().IsModalOpen_ImportData = true;
             }
             if (ImGui::MenuItem(LOCTEXT("ToolbarItem.ExportData")))
             {
-                // Modals::Get().IsModalOpen_ExportData = true;
+                Modals::Get().IsChoosingFolder = true;
+                ifd::FileDialog::Instance().Open("ChooseExportAnnotationDialog", "Export annotation data", "");
             }
             ImGui::Separator();
             if (ImGui::MenuItem(LOCTEXT("ToolbarItem.Setting")))

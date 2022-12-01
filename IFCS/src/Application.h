@@ -17,7 +17,10 @@ namespace IFCS
 
         void run();
 
+        bool RequestToChangeTitle = false;
+        
         bool RequestToQuit = false;
+
 
     private:
         GLFWwindow* Window;

@@ -5,14 +5,13 @@
 
 struct ImFont;
 
-namespace IFCS 
+namespace IFCS
 {
-
     class Setting
     {
     public:
         Setting();
-        
+
         static Setting& Get()
         {
             static Setting setting;
@@ -38,7 +37,9 @@ namespace IFCS
 
         ImFont* DefaultFont;
         ImFont* TitleFont;
-
+        ImFont* H1;
+        ImFont* H2;
+        ImFont* H3;
         void SetWorkspace(EWorkspace NewWorkspace);
 
         std::string PythonPath;
@@ -46,8 +47,12 @@ namespace IFCS
         bool IsEnvSet() const;
         bool JustSetup = false;
 
-        // void DownloadYoloV7();
-        // void CreateEnv();
+        void SetupApp(class Application* InApp)
+        {
+            App = InApp;
+        }
+
+    private:
+        class Application* App;
     };
-    
 }

@@ -4,9 +4,9 @@
 
 #include <filesystem>
 #include <fstream>
-#include <spdlog/spdlog.h>
 
 #include "Annotation.h"
+#include "Application.h"
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
 #include "Train.h"
@@ -93,7 +93,7 @@ namespace IFCS
         OutNode["PythonPath"] = PythonPath;
         OutNode["YoloV7Path"] = YoloV7Path;
         user_out << OutNode;
-        
+
         // save as local file
         std::ofstream fout_2(ProjectPath + std::string("/IFCSUser.ini"));
         fout_2 << user_out.c_str();
@@ -127,6 +127,12 @@ namespace IFCS
     {
         RecentProjects.insert(ProjectPath);
         LoadUserIni();
+        Annotation::Get().ClearData();
+        CategoryManagement::Get().UpdateCategoryStatics();
+        CategoryManagement::Get().SelectedCatID = 0;
+        DataBrowser::Get().PostChangeProject();
+        
+        App->RequestToChangeTitle = true;
     }
 
     void Setting::SetWorkspace(EWorkspace NewWorkspace)

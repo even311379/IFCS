@@ -20,11 +20,25 @@ namespace IFCS
 
         FClipInfo SelectedClipInfo;
         FImageInfo SelectedImageInfo;
+
+        bool IsSelectAnyClipOrImg() const
+        {
+            return !SelectedClipInfo.ClipPath.empty() || !SelectedImageInfo.ImagePath.empty();
+        }
+
+        void PostChangeProject()
+        {
+            SelectedClipInfo.ClipPath.clear();
+            SelectedImageInfo.ImagePath.clear();
+            ShouldViewDetail = false;
+        };
         unsigned int LoadedFramePtr;
         std::map<int, cv::Mat> VideoFrames;
         void LoadVideoFrame(int FrameNumber);
-        void MatToGL(const cv::Mat& Frame );
+        void MatToGL(const cv::Mat& Frame);
 
+        const std::array<std::string, 6> AcceptedClipsFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"};
+        const std::array<std::string, 3> AcceptedImageFormat = {".jpg", ".jpeg", ".png"};
     protected:
         void RenderContent() override;
 
@@ -37,11 +51,10 @@ namespace IFCS
         void RenderDetailWidget();
         bool HasAnyClip = false;
         bool HasAnyImage = false;
-        std::unordered_map<std::string, FAnnotationToDisplay> ImgAnnotaionsToDisplay;
+        std::unordered_map<std::string, FAnnotationToDisplay> ImgAnnotationsToDisplay;
         bool NeedReviewedOnly;
-        
-        const std::array<std::string, 6> AcceptedClipsFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"};
-        const std::array<std::string, 3> AcceptedImageFormat = {".jpg", ".jpeg", ".png"}; 
+
+        bool ShouldViewDetail = false;
         std::string SelectedTrainingSet;
         FTrainingSetDescription TrainingSetDescription;
         std::string SelectedModel;

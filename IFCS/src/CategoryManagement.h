@@ -12,7 +12,7 @@ namespace IFCS
         MAKE_SINGLETON(CategoryManagement)
         void Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose = true) override;
         void UpdateCategoryStatics();
-        // ImVec4 GetColorFrameDisplayName(const std::string& InName);
+        void LoadCategoriesFromFile();
         std::unordered_map<UUID, FCategory> Data;
         std::unordered_map<UUID, bool> GeneratorCheckData;
         FCategory* GetSelectedCategory();
@@ -21,12 +21,12 @@ namespace IFCS
         std::vector<UUID> GetRegisteredCIDs() const;
         bool NeedUpdate = false;
     protected:
+        bool CheckValidNewCatName();
         void RenderContent() override;
 
     private:
         char NewCatName[64];
         void Save();
-        void LoadCategoriesFromFile();
         bool ShowBar;
         bool OpenChangeName = false;
         void DrawSummaryBar();

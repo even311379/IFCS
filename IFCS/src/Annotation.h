@@ -6,7 +6,6 @@
 namespace IFCS
 {
 
-    
     class Annotation : public Panel
     {
     public:
@@ -18,6 +17,11 @@ namespace IFCS
         bool IsImage = false;
         std::map<int, FAnnotationToDisplay> GetAnnotationToDisplay();
         void MoveFrame(int NewFrame);
+        void ClearData()
+        {
+            Data_Img.clear();
+            Data.clear();
+        };
         
     protected:
         void RenderContent() override;

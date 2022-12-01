@@ -77,6 +77,17 @@ namespace IFCS
     static int Tick = 0;
     static bool NeedSave = false;
 
+    bool CategoryManagement::CheckValidNewCatName()
+    {
+        if (std::string(NewCatName).empty()) return true;
+        for (auto& [ID, Cat] : Data)
+        {
+            if (std::string(NewCatName) == Cat.DisplayName)
+                return true;
+        }
+        return false;
+    }
+
     void CategoryManagement::RenderContent()
     {
         const float LineHeight = ImGui::GetTextLineHeightWithSpacing();
@@ -118,7 +129,7 @@ namespace IFCS
                 ImGui::SameLine();
                 ImGui::Text("(%d)", Cat.TotalUsedCount);
                 if (ImGui::IsItemHovered())
-                    ImGui::SetTooltip("(use annotation in: this frame / all project)");
+                    ImGui::SetTooltip("(number of annotation in this project)");
                 ImGui::PopID();
             }
         }
@@ -128,15 +139,16 @@ namespace IFCS
             ImGui::SetNextItemWidth(120);
             ImGui::InputText("##new cat name", NewCatName, IM_ARRAYSIZE(NewCatName));
             ImGui::SameLine();
+            ImGui::BeginDisabled(CheckValidNewCatName());
             if (ImGui::Button("Add", ImVec2(65, 0)))
             {
-                if (std::string(NewCatName).empty()) return;
                 const UUID NewID = UUID();
                 Data[NewID] = FCategory(NewCatName);
                 NewCatName[0] = 0;
                 GeneratorCheckData[NewID] = true;
                 NeedSave = true;
             }
+            ImGui::EndDisabled();
             if (Data.size() > 1)
             {
                 ImGui::SameLine();
@@ -264,9 +276,9 @@ namespace IFCS
 
     void CategoryManagement::LoadCategoriesFromFile()
     {
-        if (!Setting::Get().ProjectIsLoaded) return;
         Data.clear();
         YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Categories.yaml"));
+        
         for (YAML::const_iterator it = Node.begin(); it != Node.end(); ++it)
         {
             Data[UUID(it->first.as<uint64_t>())] = FCategory(it->second.as<YAML::Node>());
@@ -301,23 +313,36 @@ namespace IFCS
             const UUID NewUID;
             Data[NewUID] = FCategory("Default");
             SelectedCatID = NewUID;
+            NeedSave = true;
         }
         for (auto [UID, Cat] : Data)
             Cat.TotalUsedCount = 0;
         YAML::Node AllNodes = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
-        for (YAML::const_iterator Clip = AllNodes.begin(); Clip != AllNodes.end(); ++Clip)
+        for (YAML::const_iterator File = AllNodes.begin(); File != AllNodes.end(); ++File)
         {
-            const YAML::Node& Frames = Clip->second;
-            for (YAML::const_iterator Fit = Frames.begin(); Fit != Frames.end(); ++Fit)
-            {
-                const YAML::Node& Frame = Fit->second;
-                for (YAML::const_iterator i = Frame.begin(); i != Frame.end(); ++i)
+            // if (File->second.IsMap())
+            // {
+                const YAML::Node& Frames = File->second;
+                for (YAML::const_iterator Fit = Frames.begin(); Fit != Frames.end(); ++Fit)
                 {
-                    if (i->first.as<std::string>() == "IsReady" || i->first.as<std::string>() == "UpdateTime")
-                        continue;
-                    Data[i->second["CategoryID"].as<uint64_t>()].TotalUsedCount += 1;
+                    const YAML::Node& Frame = Fit->second;
+                    for (YAML::const_iterator i = Frame.begin(); i != Frame.end(); ++i)
+                    {
+                        if (i->first.as<std::string>() == "IsReady" || i->first.as<std::string>() == "UpdateTime")
+                            continue;
+                        Data[i->second["CategoryID"].as<uint64_t>()].TotalUsedCount += 1;
+                    }
                 }
-            }
+            // }
+            // else
+            // {
+            //     for (YAML::const_iterator i = File->second[0].begin(); i != File->second[0].end(); ++i)
+            //     {
+            //         if (i->first.as<std::string>() == "IsReady" || i->first.as<std::string>() == "UpdateTime")
+            //             continue;
+            //         Data[i->second["CategoryID"].as<uint64_t>()].TotalUsedCount += 1;
+            //     }
+            // }
         }
     }
 }

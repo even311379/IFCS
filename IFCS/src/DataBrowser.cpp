@@ -27,7 +27,6 @@ namespace IFCS
     };
 
     EAssetType LastSelectedAssetType = EAssetType::Clip;
-    bool ShouldViewDetail = false;
 
     void DataBrowser::Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose)
     {
@@ -134,8 +133,7 @@ namespace IFCS
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_HorizontalScrollbar;
         ImGui::BeginChild("DataBrowserWindow", ChildWindowSize, false, window_flags);
         {
-            if (ImGui::TreeNodeEx((std::string(ICON_FA_VIDEO) + " Clips").c_str(),
-                                  ImGuiTreeNodeFlags_DefaultOpen))
+            if (ImGui::TreeNode((std::string(ICON_FA_VIDEO) + " Clips").c_str()))
             {
                 RecursiveClipTreeNodeGenerator(ClipFolderPath, 0);
                 if (!HasAnyClip)
@@ -206,7 +204,7 @@ namespace IFCS
         {
             Tick = 0;
             // Update img ann to display...
-            ImgAnnotaionsToDisplay.clear();
+            ImgAnnotationsToDisplay.clear();
             YAML::Node AnnData = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
             for (YAML::const_iterator it = AnnData.begin(); it != AnnData.end(); ++it)
             {
@@ -216,7 +214,7 @@ namespace IFCS
                     if (FilePath.empty()) continue;
                     if (Utils::InsensitiveStringCompare(FilePath.substr(FilePath.size() - 4), Format))
                     {
-                        ImgAnnotaionsToDisplay[FilePath] =
+                        ImgAnnotationsToDisplay[FilePath] =
                             FAnnotationToDisplay((int)it->second[0].size() - 2, it->second[0]["IsReady"].as<bool>());
                         break;
                     }
@@ -360,19 +358,19 @@ namespace IFCS
                 }
                 if (!pass) return;
                 std::string FullImagePath = entry.path().u8string();
-                if (NeedReviewedOnly && !ImgAnnotaionsToDisplay.count(FullImagePath)) return;
+                std::string ImageName = entry.path().filename().u8string();
+                std::replace(FullImagePath.begin(), FullImagePath.end(), '\\', '/');
+                std::string LabelName;
                 HasAnyImage = true;
                 if (Depth > 0)
                 {
                     ImGui::Indent();
                 }
-                std::string ImageName = entry.path().filename().u8string();
-                std::replace(FullImagePath.begin(), FullImagePath.end(), '\\', '/');
-                std::string LabelName;
-                if (ImgAnnotaionsToDisplay.count(FullImagePath))
+                if (ImgAnnotationsToDisplay.count(FullImagePath))
                 {
+                    const FAnnotationToDisplay AD = ImgAnnotationsToDisplay[FullImagePath];
+                    if (NeedReviewedOnly && AD.IsReady) continue;
                     char buff[128];
-                    const FAnnotationToDisplay AD = ImgAnnotaionsToDisplay[FullImagePath];
                     const char* Icon = AD.IsReady ? ICON_FA_CHECK : "";
                     sprintf(buff, "%s ...... (%d) %s", ImageName.c_str(), AD.Count, Icon);
                     LabelName = buff;
@@ -381,22 +379,26 @@ namespace IFCS
                 {
                     LabelName = ImageName;
                 }
-                if (ImGui::Selectable(LabelName.c_str(), SelectedImageInfo.ImagePath == FullImagePath,
-                                      ImGuiSelectableFlags_AllowDoubleClick))
+                if (!NeedReviewedOnly || ImgAnnotationsToDisplay.count(FullImagePath))
                 {
-                    SelectedClipInfo.ClipPath = "";
-                    SelectedImageInfo.ImagePath = FullImagePath;
-                    ShouldViewDetail = true;
-                    LastSelectedAssetType = EAssetType::Image;
-                    if (Setting::Get().ActiveWorkspace == EWorkspace::Data)
+                    if (ImGui::Selectable(LabelName.c_str(), SelectedImageInfo.ImagePath == FullImagePath,
+                                          ImGuiSelectableFlags_AllowDoubleClick))
                     {
-                        Annotation::Get().DisplayImage();
+                        SelectedClipInfo.ClipPath = "";
+                        SelectedImageInfo.ImagePath = FullImagePath;
+                        ShouldViewDetail = true;
+                        LastSelectedAssetType = EAssetType::Image;
+                        if (Setting::Get().ActiveWorkspace == EWorkspace::Data)
+                        {
+                            Annotation::Get().DisplayImage();
+                        }
+                        else // only update info...
+                        {
+                            cv::Mat Img = cv::imread(SelectedImageInfo.ImagePath);
+                            SelectedImageInfo.Update(Img.cols, Img.rows);
+                        }
                     }
-                    else // only update info...
-                    {
-                        cv::Mat Img = cv::imread(SelectedImageInfo.ImagePath);
-                        SelectedImageInfo.Update(Img.cols, Img.rows);
-                    }
+                    
                 }
 
                 if (Depth > 0)

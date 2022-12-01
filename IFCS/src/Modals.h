@@ -20,7 +20,6 @@ namespace IFCS
         bool IsModalOpen_NewProject;
         bool IsModalOpen_LoadProject;
         bool IsModalOpen_ImportData;
-        bool IsModalOpen_ExportData;
         bool IsModalOpen_Setting;
         bool IsModalOpen_About;
         bool IsModalOpen_Tutorial;
@@ -37,7 +36,6 @@ namespace IFCS
         void RenderNewProject();
         void RenderLoadProject();
         void RenderImportData();
-        void RenderExportData();
         void RenderSetting();
         int ThemeToUse = 0;
         int LanguageToUse = 0;
@@ -49,10 +47,7 @@ namespace IFCS
         char TempPythonPath[128];
         char TempYoloV7Path[128];
         char TempPythonEnv[128];
-        void RenderAbout();
-        void RenderTutorial();
-        void RenderContact();
-        void RenderLicense();
+        void RenderDoc(const char* DocName);
         void HandleFileDialogClose();
     };
     
