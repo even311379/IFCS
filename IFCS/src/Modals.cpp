@@ -499,7 +499,6 @@ namespace IFCS
         YAML::Node TargetAnnotations = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
         for (const auto& [FilePath, Anns] : ToImport)
         {
-            spdlog::info("path is wrong?? {}", FilePath);
             for (const auto& [f, ANode] : Anns)
             {
                 const std::string Rel = FilePath.substr(Setting::Get().ProjectPath.size());
@@ -629,6 +628,8 @@ namespace IFCS
                 if (ImGui::Button("Import", ImVec2(240, 0)))
                 {
                     ProcessingDataImport();
+                    FileToImport[0] = '\0';
+                    IsSourceValid = false;
                     ImGui::CloseCurrentPopup();
                     IsModalOpen_ImportData = false;
                 }

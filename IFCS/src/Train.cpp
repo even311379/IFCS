@@ -31,9 +31,10 @@ namespace IFCS
         "yolov7", "yolov7-d6", "yolov7-e6", "yolov7-e6e", "yolov7-tiny", "yolov7-w6", "yolov7x"
     };
 
-    static const char* HypOptions[] = {
-        "p5", "p6", "tiny", "custom"
-    };
+    std::vector<int> Model6Indices = {1, 2, 3, 5};
+    // static const char* HypOptions[] = {
+    //     "p5", "p6", "tiny", "custom"
+    // };
 
     void Train::Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose)
     {
@@ -966,11 +967,12 @@ namespace IFCS
         ImGui::Text("(Tiny not supported)");
         // TODO: allow to selection custom pre-trained weight?
 
-        // hyp options
-        if (ImGui::Combo("Hyper parameter", &SelectedHypIdx, HypOptions, IM_ARRAYSIZE(HypOptions)))
-        {
-            UpdateTrainScript();
-        }
+        // Hyper parameters are bounding to specific models... and normal users should just leave it away...
+        // // hyp options
+        // if (ImGui::Combo("Hyper parameter", &SelectedHypIdx, HypOptions, IM_ARRAYSIZE(HypOptions)))
+        // {
+        //     UpdateTrainScript();
+        // }
 
         // epoch
         if (ImGui::InputInt("Num Epoch", &Epochs, 1, 10))
@@ -1147,6 +1149,8 @@ namespace IFCS
         if (!std::filesystem::exists(Setting::Get().ProjectPath + "/Models/" + ModelName + "/results.txt"))
         {
             TrainLog += Utils::GetCurrentTimeString(true) + " Training FAILED!\n";
+            std::filesystem::remove_all(Setting::Get().ProjectPath + "/Models/" + ModelName);
+            // delete duplicated folder... 
             return;
         }
         TrainLog += Utils::GetCurrentTimeString(true) + " Training complete!\n";
@@ -1180,11 +1184,10 @@ namespace IFCS
             }
             i++;
         }
-        spdlog::info("Best it {}??", BestIt);
-        
+
         FModelDescription Desc;
         Desc.Name = ModelName;
-        Desc.CreationTime = Utils::GetCurrentTimeString(); 
+        Desc.CreationTime = Utils::GetCurrentTimeString();
         Desc.Categories = SelectedTrainingSet.Categories;
         Desc.ModelType = ModelOptions[SelectedModelIdx];
         Desc.SourceTrainingSet = SelectedTrainingSet.Name;
@@ -1201,13 +1204,28 @@ namespace IFCS
         ofs.close();
 
         ModelName.clear();
+
+        // delete epoch_XXX.pt in weights folder to save space?
+        for (auto entry : std::filesystem::directory_iterator(
+                 Setting::Get().ProjectPath + "/Models/" + ModelName + "/weights/"))
+        {
+            if (entry.path().filename().u8string().find("epoch") != std::string::npos)
+            {
+                std::filesystem::remove(entry.path());
+            }
+        }
     }
 
     void Train::UpdateTrainScript()
     {
+        const bool IsChoose6Model = Utils::Contains(Model6Indices, SelectedModelIdx);
+
         SetPathScript = "cd " + Setting::Get().YoloV7Path;
         TrainScript = "";
-        TrainScript += Setting::Get().PythonPath + "/python train.py";
+        if (IsChoose6Model)
+            TrainScript += Setting::Get().PythonPath + "/python train_aux.py";
+        else
+            TrainScript += Setting::Get().PythonPath + "/python train.py";
         TrainScript += " --weights ";
         if (bApplyTransferLearning)
             TrainScript += std::string(ModelOptions[SelectedModelIdx]) + "_training.pt";
@@ -1216,7 +1234,12 @@ namespace IFCS
         TrainScript += " --cfg cfg/training/" + std::string(ModelOptions[SelectedModelIdx]) + ".yaml";
         TrainScript += " --data " + Setting::Get().ProjectPath + "/Data/" + SelectedTrainingSet.Name + "/" +
             SelectedTrainingSet.Name + ".yaml";
-        TrainScript += " --hyp data/hyp.scratch." + std::string(HypOptions[SelectedHypIdx]) + ".yaml";
+        if (IsChoose6Model)
+            TrainScript += " --hyp data/hyp.scratch.p6.yaml";
+        else if (SelectedModelIdx == 4)
+            TrainScript += " --hyp data/hyp.scratch.tiny.yaml";
+        else
+            TrainScript += " --hyp data/hyp.scratch.p5.yaml";
         TrainScript += " --epochs " + std::to_string(Epochs);
         TrainScript += " --batch-size " + std::to_string(BatchSize);
         TrainScript += " --img-size " + std::to_string(TrainImgSize) + " " + std::to_string(TestImgSize);

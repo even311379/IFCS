@@ -237,15 +237,16 @@ namespace IFCS
 
     void FTrainingSetDescription::MakeDetailWidget()
     {
-        float Width = ImGui::GetContentRegionAvail().x;
+        const float Width = ImGui::GetContentRegionAvail().x;
         ImGui::TextWrapped(CreationTime.c_str());
+        const size_t RelOffset = Setting::Get().ProjectPath.size() + 7;
         if (!IncludeClips.empty())
         {
             ImGui::Text("Included Clips:");
-            ImGui::BeginChildFrame(ImGui::GetID("DCs"), ImVec2(Width, ImGui::GetTextLineHeight() * 3));
+            ImGui::BeginChildFrame(ImGui::GetID("DCs"), ImVec2(Width, ImGui::GetTextLineHeightWithSpacing() * 2));
             for (const std::string& C : IncludeClips)
             {
-                std::string NoPath = C.substr(Setting::Get().ProjectPath.size() + 7);
+                std::string NoPath = C.substr(RelOffset);
                 ImGui::Text(NoPath.c_str());
             }
             ImGui::EndChildFrame();
@@ -253,8 +254,14 @@ namespace IFCS
         if (!IncludeImageFolders.empty())
         {
             ImGui::Text("Included Image folders:");
-            ImGui::BeginChildFrame(ImGui::GetID("DIFs"), ImVec2(Width, ImGui::GetTextLineHeight() * 3));
-            ImGui::Text("PASS");
+            ImGui::BeginChildFrame(ImGui::GetID("DIFs"), ImVec2(Width, ImGui::GetTextLineHeightWithSpacing() * 2));
+            for (const std::string& C : IncludeImageFolders)
+            {
+                std::string NoPath = C.substr(RelOffset + 1);
+                if (NoPath.empty())
+                    NoPath = "(Root)"; 
+                ImGui::Text(NoPath.c_str());
+            }
             ImGui::EndChildFrame();
         }
         // Cats

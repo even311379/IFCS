@@ -4,7 +4,7 @@
 int main()
 {
     system("chcp 65001"); // make encoding utf8?
-
+    
     // create app
     const auto app = new IFCS::Application();
     

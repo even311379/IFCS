@@ -23,6 +23,7 @@
 
 #include "ImFileDialog/ImFileDialog.h"
 #include "fa_solid_900.h"
+#include "stb_image.h"
 #include "IconFontCppHeaders/IconsFontAwesome5.h"
 
 namespace IFCS
@@ -65,6 +66,15 @@ namespace IFCS
         // glfwSetWindowAttrib(Window, GLFW_RESIZABLE, 0); // should not block resize?
         glfwMakeContextCurrent(Window);
         glfwSwapInterval(1); // enable vsync
+
+        // create window toolbar icon (top - left)
+        int IconWidth, IconHeight, IconChannels;
+        unsigned char* pixels = stbi_load("Resources/IFCS.png", &IconWidth, &IconHeight, &IconChannels, 4);
+        GLFWimage Icon[1];
+        Icon[0].width = IconWidth;
+        Icon[0].height = IconHeight;
+        Icon[0].pixels = pixels;
+        glfwSetWindowIcon(Window, 1, Icon);
 
         // create imgui/ implot
         ImGui::CreateContext();

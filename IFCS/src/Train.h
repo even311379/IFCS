@@ -61,7 +61,7 @@ namespace IFCS
         std::string TrainScript = "";
         std::string TrainLog = "";
         std::string ModelName;
-        int SelectedHypIdx = 0;
+        // int SelectedHypIdx = 0;
         // advanced
         bool ApplyEvolve;
         bool ApplyAdam;
