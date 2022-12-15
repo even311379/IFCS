@@ -79,7 +79,7 @@ namespace IFCS
                         RenderCategoryWidget();
                         ImGui::TreePop();
                     }
-                    if (ImGui::TreeNode("Train / Valid / Test Split"))
+                    if (ImGui::TreeNode("Train / Valid / (Test) Split"))
                     {
                         RenderSplitWidget();
                         ImGui::TreePop();
@@ -267,274 +267,485 @@ namespace IFCS
 
     void Train::RenderCategoryWidget()
     {
-        auto CatData = CategoryManagement::Get().Data;
-        for (auto& [UID, Should] : CategoryManagement::Get().GeneratorCheckData)
+        if (IncludedClips.size() + IncludedImageFolders.size() == 0)
         {
-            if (ImGui::Checkbox(CatData[UID].DisplayName.c_str(), &Should))
+            ImGui::Text("No training clip / image folder to export! Add some in [Data Select]");
+            return;
+        }
+        auto CatData = CategoryManagement::Get().Data;
+        static char MergedName[64];
+        static std::vector<UUID> UsedCatId;
+        static std::vector<UUID> SelectedCatIDs;
+        if (ImGui::Checkbox("Need to merge category to export?", &ShouldMergeCategories))
+        {
+            CategoryMergeData.clear();
+            UsedCatId.clear();
+            SelectedCatIDs.clear();
+            for (auto& [UID, Should] : CategoryManagement::Get().GeneratorCheckData)
             {
+                Should = false;
+            }
+            MergedName[0] = '\0';
+            UpdateGenerartorInfo();
+        }
+        if (ShouldMergeCategories)
+        {
+            ImGui::BeginChild("ChildToMerge", ImVec2(300, 400), true);
+            ImGui::BulletText("Select what to merge:");
+            ImGui::Separator();
+            for (auto& [UID, Should] : CategoryManagement::Get().GeneratorCheckData)
+            {
+                if (Utils::Contains(UsedCatId, UID)) continue;
+                const bool HasSelected = Utils::Contains(SelectedCatIDs, UID);
+                if (ImGui::Selectable(CatData[UID].DisplayName.c_str(), HasSelected))
+                {
+                    if (HasSelected)
+                    {
+                        SelectedCatIDs.erase(std::remove(SelectedCatIDs.begin(), SelectedCatIDs.end(), UID),
+                                             SelectedCatIDs.end());
+                    }
+                    else
+                    {
+                        SelectedCatIDs.push_back(UID);
+                    }
+                }
+            }
+            ImGui::EndChild();
+            ImGui::SameLine();
+            ImGui::BeginChild("ChildMergeBtns", ImVec2(400, 400), false);
+            ImGui::Dummy({0, 200});
+            ImGui::BeginDisabled(SelectedCatIDs.empty());
+            if (ImGui::Button("Add >>"))
+            {
+                for (const UUID UID : SelectedCatIDs)
+                {
+                    FCategoryMergeData NewData;
+                    NewData.DisplayName = CatData[UID].DisplayName;
+                    NewData.SourceCatIdx.push_back(UID);
+                    UsedCatId.push_back(UID);
+                    CategoryManagement::Get().GeneratorCheckData[UID] = true;
+                    CategoryMergeData.push_back(NewData);
+                }
+                UpdateGenerartorInfo();
+                SelectedCatIDs.clear();
+            }
+            ImGui::EndDisabled();
+            ImGui::InputText("Merged name", MergedName, IM_ARRAYSIZE(MergedName));
+            bool CanMerge = false;
+            if (MergedName[0] != '\0' && SelectedCatIDs.size() > 1)
+            {
+                CanMerge = true;
+                for (const auto& Data : CategoryMergeData)
+                {
+                    if (Data.DisplayName == std::string(MergedName))
+                    {
+                        CanMerge = false;
+                        break;
+                    }
+                }
+            }
+            ImGui::BeginDisabled(!CanMerge);
+            if (ImGui::Button("Merge >>"))
+            {
+                FCategoryMergeData NewData;
+                NewData.DisplayName = MergedName;
+                for (const UUID UID : SelectedCatIDs)
+                {
+                    NewData.SourceCatIdx.push_back(UID);
+                    UsedCatId.push_back(UID);
+                    CategoryManagement::Get().GeneratorCheckData[UID] = true;
+                }
+                CategoryMergeData.push_back(NewData);
+                UpdateGenerartorInfo();
+                SelectedCatIDs.clear();
+                MergedName[0] = '\0';
+            }
+            ImGui::EndDisabled();
+            ImGui::Separator();
+            if (ImGui::Button("<< Reset"))
+            {
+                CategoryMergeData.clear();
+                UsedCatId.clear();
+                SelectedCatIDs.clear();
+                for (auto& [UID, Should] : CategoryManagement::Get().GeneratorCheckData)
+                {
+                    Should = false;
+                }
+                MergedName[0] = '\0';
                 UpdateGenerartorInfo();
             }
+            ImGui::EndChild();
+            ImGui::SameLine();
+            ImGui::BeginChild("ChildMerged", ImVec2(300, 400), true);
+            ImGui::BulletText("Merged result:");
+            ImGui::Separator();
+            for (const auto& Data : CategoryMergeData)
+            {
+                ImGui::TextColored(Style::RED(400, Setting::Get().Theme), Data.DisplayName.c_str());
+                if (Data.SourceCatIdx.size() == 1) continue;
+                ImGui::Indent(75);
+                for (const UUID& ID : Data.SourceCatIdx)
+                {
+                    ImGui::Text(CatData[ID].DisplayName.c_str());
+                }
+                ImGui::Unindent(75);
+            }
+            ImGui::EndChild();
+            // draw export histogram
+            int TotalCount = 0;
+            for (auto [s, i] : CategoriesExportCounts)
+            {
+                TotalCount += i;
+            }
+            const size_t NumBars = CategoryMergeData.size();
+            if (TotalCount > 0 && NumBars > 1)
+            {
+                std::vector<std::vector<ImU16>> BarData;
+                std::vector<const char*> CatNames;
+                std::vector<double> Positions;
+                size_t i = 0;
+                for (const auto& [CatName, N] : CategoriesExportCounts_Merged)
+                {
+                    std::vector<ImU16> Temp(NumBars, 0);
+                    Temp[i] = (ImU16)N;
+                    CatNames.emplace_back(CatName.c_str());
+                    BarData.emplace_back(Temp);
+                    i++;
+                    Positions.push_back((double)i);
+                }
+                if (ImPlot::BeginPlot("Category Counts", ImVec2(-1, 0), ImPlotFlags_NoInputs |
+                                      ImPlotFlags_NoTitle | ImPlotFlags_NoLegend | ImPlotFlags_NoFrame))
+                {
+                    ImPlot::SetupAxes(0, 0, ImPlotAxisFlags_NoLabel, ImPlotAxisFlags_NoLabel);
+                    ImPlot::SetupAxisTicks(ImAxis_Y1, Positions.data(), (int)NumBars, CatNames.data());
+                    for (size_t j = 0; j < NumBars; j++)
+                        ImPlot::PlotBars(CatNames[j], BarData[j].data(), (int)NumBars, 0.5, 1,
+                                         ImPlotBarGroupsFlags_Horizontal);
+                    ImPlot::EndPlot();
+                }
+                ImGui::TextWrapped("HINT! Imbalanced data may impair model! You should prevent it somehow...");
+            }
         }
-
-        if (ImGui::Button("Add all catogories"))
+        else
         {
             for (auto& [UID, Should] : CategoryManagement::Get().GeneratorCheckData)
             {
-                Should = true;
+                if (ImGui::Checkbox(CatData[UID].DisplayName.c_str(), &Should))
+                {
+                    UpdateGenerartorInfo();
+                }
             }
-            UpdateGenerartorInfo();
-        }
 
-        int TotalCount = 0;
-        for (auto [s, i] : CategoriesExportCounts)
-        {
-            TotalCount += i;
-        }
-        const size_t NumBars = CategoriesExportCounts.size();
-        if (TotalCount > 0 && NumBars > 1)
-        {
-            std::vector<ImVec4> Colors;
-            std::vector<std::vector<ImU16>> BarData;
-            std::vector<const char*> CatNames;
-            std::vector<double> Positions;
-            size_t i = 0;
-            for (const auto& [CID, N] : CategoriesExportCounts)
+            if (ImGui::Button("Add all catogories"))
             {
-                std::vector<ImU16> Temp(NumBars, 0);
-                Temp[i] = (ImU16)N;
-                CatNames.emplace_back(CatData[CID].DisplayName.c_str());
-                BarData.emplace_back(Temp);
-                Colors.emplace_back(CatData[CID].Color);
-                i++;
-                Positions.push_back((double)i);
+                for (auto& [UID, Should] : CategoryManagement::Get().GeneratorCheckData)
+                {
+                    Should = true;
+                }
+                UpdateGenerartorInfo();
             }
-            static ImPlotColormap RC = ImPlot::AddColormap("ExpBarColors", Colors.data(), (int)NumBars);
-            ImPlot::PushColormap(RC);
-            if (ImPlot::BeginPlot("Category Counts", ImVec2(-1, 0), ImPlotFlags_NoInputs |
-                                  ImPlotFlags_NoTitle | ImPlotFlags_NoLegend | ImPlotFlags_NoFrame))
+            // draw export histogram
+            int TotalCount = 0;
+            for (auto [s, i] : CategoriesExportCounts)
             {
-                ImPlot::SetupAxes(0, 0, ImPlotAxisFlags_NoLabel, ImPlotAxisFlags_NoLabel);
-                ImPlot::SetupAxisTicks(ImAxis_Y1, Positions.data(), (int)NumBars, CatNames.data());
-                for (size_t j = 0; j < NumBars; j++)
-                    ImPlot::PlotBars(CatNames[j], BarData[j].data(), (int)NumBars, 0.5, 1,
-                                     ImPlotBarGroupsFlags_Horizontal);
-                ImPlot::EndPlot();
+                TotalCount += i;
             }
-            ImPlot::PopColormap();
-            ImGui::TextWrapped("HINT! Imbalanced data may impair model! You should prevent it somehow...");
+            const size_t NumBars = CategoriesExportCounts.size();
+
+            // TODO: bar size is wrong when only 2 bar displayed...  why??
+            // for (const auto [K, V] : CategoriesExportCounts)
+            // {
+            //     spdlog::info("ID {} : {}", K, V);
+            // }
+            if (TotalCount > 0 && NumBars > 1)
+            {
+                std::vector<ImVec4> Colors;
+                std::vector<std::vector<ImU16>> BarData;
+                std::vector<const char*> CatNames;
+                std::vector<double> Positions;
+                size_t i = 0;
+                for (const auto& [CID, N] : CategoriesExportCounts)
+                {
+                    std::vector<ImU16> Temp(NumBars, 0);
+                    Temp[i] = (ImU16)N;
+                    CatNames.emplace_back(CatData[CID].DisplayName.c_str());
+                    BarData.emplace_back(Temp);
+                    Colors.emplace_back(CatData[CID].Color);
+                    i++;
+                    Positions.push_back((double)i);
+                }
+                static ImPlotColormap RC = ImPlot::AddColormap("ExpBarColors", Colors.data(), (int)NumBars);
+                ImPlot::PushColormap(RC);
+                if (ImPlot::BeginPlot("Category Counts", ImVec2(-1, 0), ImPlotFlags_NoInputs |
+                                      ImPlotFlags_NoTitle | ImPlotFlags_NoLegend | ImPlotFlags_NoFrame))
+                {
+                    ImPlot::SetupAxes(0, 0, ImPlotAxisFlags_NoLabel, ImPlotAxisFlags_NoLabel);
+                    ImPlot::SetupAxisTicks(ImAxis_Y1, Positions.data(), (int)NumBars, CatNames.data());
+                    for (size_t j = 0; j < NumBars; j++)
+                        ImPlot::PlotBars(CatNames[j], BarData[j].data(), (int)NumBars, 0.5, 1,
+                                         ImPlotBarGroupsFlags_Horizontal);
+                    ImPlot::EndPlot();
+                }
+                ImPlot::PopColormap();
+                ImGui::TextWrapped("HINT! Imbalanced data may impair model! You should prevent it somehow...");
+            }
         }
     }
 
 
     float SplitPercent[3] = {70, 30, 0};
     int SplitImgs[3];
+    bool IncludeTestSet = false;
 
     void Train::RenderSplitWidget()
     {
         if (TotalExportImages == 0)
         {
-            ImGui::Text("No training image to export!");
+            ImGui::Text("No training image to export! Add some in [Data Select] or [Category To Export]");
             return;
         }
         static float SplitControlPos1 = 0.7f;
         static float SplitControlPos2 = 1.f;
-        ImVec2 CurrentPos = ImGui::GetCursorScreenPos();
-        ImU32 Color = ImGui::ColorConvertFloat4ToU32(Style::BLUE(600, Setting::Get().Theme));
-        const float AvailWidth = ImGui::GetContentRegionAvail().x * 0.95f;
-        ImVec2 RectStart = CurrentPos + ImVec2(0, 17);
-        ImVec2 RectEnd = CurrentPos + ImVec2(AvailWidth, 22);
-        ImGui::GetWindowDrawList()->AddRectFilled(RectStart, RectEnd, Color, 20.f);
-        const ImVec2 ControlPos1 = CurrentPos + ImVec2(SplitControlPos1 * AvailWidth - 6.f, 5);
-        ImGui::GetWindowDrawList()->AddRectFilled(ControlPos1, ControlPos1 + ImVec2(12.f, 25), Color, 6.f);
-        ImGui::SetCursorScreenPos(ControlPos1);
-        ImGui::InvisibleButton("TrainControlMin", ImVec2(12.f, 20));
-        if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-        if (ImGui::IsMouseDragging(0) && ImGui::IsItemActive())
+        if (ImGui::Checkbox("Include test set?", &IncludeTestSet))
         {
-            SplitControlPos1 += ImGui::GetIO().MouseDelta.x / AvailWidth;
-            SplitControlPos1 = Utils::Round(SplitControlPos1, 2);
-            if (SplitControlPos1 <= 0) SplitControlPos1 = 0;
-            if (SplitControlPos1 >= 1) SplitControlPos1 = 1;
-            if (SplitControlPos1 > SplitControlPos2)
+            if (!IncludeTestSet)
             {
-                const float temp = SplitControlPos2;
-                SplitControlPos2 = SplitControlPos1;
-                SplitControlPos1 = temp;
+                SplitPercent[2] = 0;
+                SplitPercent[0] = 100 - SplitPercent[1];
+                SplitImgs[2] = 0;
+                SplitImgs[0] = TotalExportImages - SplitImgs[1];
+                SplitControlPos2 = 1.f;
+                SplitControlPos1 = SplitPercent[0] / 100.f;
             }
-            SplitPercent[0] = SplitControlPos1 * 100.f;
-            SplitPercent[1] = (SplitControlPos2 - SplitControlPos1) * 100.f;
-            SplitPercent[2] = (1 - SplitControlPos2) * 100.f;
-            SplitImgs[0] = int(SplitPercent[0] * 0.01f * TotalExportImages);
-            SplitImgs[1] = int(SplitPercent[1] * 0.01f * TotalExportImages);
-            SplitImgs[2] = TotalExportImages - SplitImgs[0] - SplitImgs[1];
         }
-        const ImVec2 ControlPos2 = CurrentPos + ImVec2(SplitControlPos2 * AvailWidth - 6.f, 5);
-        ImGui::GetWindowDrawList()->AddRectFilled(ControlPos2, ControlPos2 + ImVec2(12.f, 25), Color, 6.f);
-        ImGui::SetCursorScreenPos(ControlPos2);
-        ImGui::InvisibleButton("TrainControlMax", ImVec2(12.f, 20));
-        if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-        if (ImGui::IsMouseDragging(0) && ImGui::IsItemActive())
+
+        if (IncludeTestSet) // in most case, two sets are enough!
         {
-            SplitControlPos2 += ImGui::GetIO().MouseDelta.x / AvailWidth;
-            SplitControlPos2 = Utils::Round(SplitControlPos2, 2);
-            if (SplitControlPos2 <= 0) SplitControlPos2 = 0;
-            if (SplitControlPos2 >= 1) SplitControlPos2 = 1;
-            if (SplitControlPos1 > SplitControlPos2)
+            ImVec2 CurrentPos = ImGui::GetCursorScreenPos();
+            ImU32 Color = ImGui::ColorConvertFloat4ToU32(Style::BLUE(600, Setting::Get().Theme));
+            const float AvailWidth = ImGui::GetContentRegionAvail().x * 0.95f;
+            ImVec2 RectStart = CurrentPos + ImVec2(0, 17);
+            ImVec2 RectEnd = CurrentPos + ImVec2(AvailWidth, 22);
+            ImGui::GetWindowDrawList()->AddRectFilled(RectStart, RectEnd, Color, 20.f);
+            const ImVec2 ControlPos1 = CurrentPos + ImVec2(SplitControlPos1 * AvailWidth - 6.f, 5);
+            ImGui::GetWindowDrawList()->AddRectFilled(ControlPos1, ControlPos1 + ImVec2(12.f, 25), Color, 6.f);
+            ImGui::SetCursorScreenPos(ControlPos1);
+            ImGui::InvisibleButton("TrainControlMin", ImVec2(12.f, 20));
+            if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+            if (ImGui::IsMouseDragging(0) && ImGui::IsItemActive())
             {
-                const float temp = SplitControlPos2;
-                SplitControlPos2 = SplitControlPos1;
-                SplitControlPos1 = temp;
+                SplitControlPos1 += ImGui::GetIO().MouseDelta.x / AvailWidth;
+                SplitControlPos1 = Utils::Round(SplitControlPos1, 2);
+                if (SplitControlPos1 <= 0) SplitControlPos1 = 0;
+                if (SplitControlPos1 >= 1) SplitControlPos1 = 1;
+                if (SplitControlPos1 > SplitControlPos2)
+                {
+                    const float temp = SplitControlPos2;
+                    SplitControlPos2 = SplitControlPos1;
+                    SplitControlPos1 = temp;
+                }
+                SplitPercent[0] = SplitControlPos1 * 100.f;
+                SplitPercent[1] = (SplitControlPos2 - SplitControlPos1) * 100.f;
+                SplitPercent[2] = (1 - SplitControlPos2) * 100.f;
+                SplitImgs[0] = int(SplitPercent[0] * 0.01f * TotalExportImages);
+                SplitImgs[1] = int(SplitPercent[1] * 0.01f * TotalExportImages);
+                SplitImgs[2] = TotalExportImages - SplitImgs[0] - SplitImgs[1];
             }
-            SplitPercent[0] = SplitControlPos1 * 100.f;
-            SplitPercent[1] = (SplitControlPos2 - SplitControlPos1) * 100.f;
-            SplitPercent[2] = (1 - SplitControlPos2) * 100.f;
-            SplitImgs[0] = int(SplitPercent[0] * 0.01f * TotalExportImages);
-            SplitImgs[1] = int(SplitPercent[1] * 0.01f * TotalExportImages);
-            SplitImgs[2] = TotalExportImages - SplitImgs[0] - SplitImgs[1];
+            const ImVec2 ControlPos2 = CurrentPos + ImVec2(SplitControlPos2 * AvailWidth - 6.f, 5);
+            ImGui::GetWindowDrawList()->AddRectFilled(ControlPos2, ControlPos2 + ImVec2(12.f, 25), Color, 6.f);
+            ImGui::SetCursorScreenPos(ControlPos2);
+            ImGui::InvisibleButton("TrainControlMax", ImVec2(12.f, 20));
+            if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+            if (ImGui::IsMouseDragging(0) && ImGui::IsItemActive())
+            {
+                SplitControlPos2 += ImGui::GetIO().MouseDelta.x / AvailWidth;
+                SplitControlPos2 = Utils::Round(SplitControlPos2, 2);
+                if (SplitControlPos2 <= 0) SplitControlPos2 = 0;
+                if (SplitControlPos2 >= 1) SplitControlPos2 = 1;
+                if (SplitControlPos1 > SplitControlPos2)
+                {
+                    const float temp = SplitControlPos2;
+                    SplitControlPos2 = SplitControlPos1;
+                    SplitControlPos1 = temp;
+                }
+                SplitPercent[0] = SplitControlPos1 * 100.f;
+                SplitPercent[1] = (SplitControlPos2 - SplitControlPos1) * 100.f;
+                SplitPercent[2] = (1 - SplitControlPos2) * 100.f;
+                SplitImgs[0] = int(SplitPercent[0] * 0.01f * TotalExportImages);
+                SplitImgs[1] = int(SplitPercent[1] * 0.01f * TotalExportImages);
+                SplitImgs[2] = TotalExportImages - SplitImgs[0] - SplitImgs[1];
+            }
+            // Add text in middle of the control
+            float TxtWidth1 = ImGui::CalcTextSize("Train").x;
+            float TxtWidth2 = ImGui::CalcTextSize("Valid").x;
+            float TxtWidth3 = ImGui::CalcTextSize("Test").x;
+            const float TxtPosY = 35.f;
+            ImVec2 TxtPos1 = CurrentPos + ImVec2((SplitControlPos1 * AvailWidth - TxtWidth1) * 0.5f, TxtPosY);
+            ImVec2 TxtPos2 = CurrentPos + ImVec2(
+                (SplitControlPos1 + (SplitControlPos2 - SplitControlPos1) * 0.5f) * AvailWidth - TxtWidth2 * 0.5f,
+                TxtPosY);
+            ImVec2 TxtPos3 = CurrentPos + ImVec2(
+                (SplitControlPos2 + (1.f - SplitControlPos2) * 0.5f) * AvailWidth - TxtWidth3 * 0.5f,
+                TxtPosY);
+            ImGui::GetWindowDrawList()->AddText(TxtPos1, Color, "Train");
+            ImGui::GetWindowDrawList()->AddText(TxtPos2, Color, "Valid");
+            ImGui::GetWindowDrawList()->AddText(TxtPos3, Color, "Test");
+            ImGui::Dummy({0, 50});
+
+            // draw the percent
+            const float CachedSplitPercent[3] = {SplitPercent[0], SplitPercent[1], SplitPercent[2]};
+            if (ImGui::InputFloat3("Train/Valid/Test (%)", SplitPercent, "%.0f%%"))
+            {
+                // check which one changed
+                size_t ChangedID = 0;
+                for (size_t i = 0; i < 3; i++)
+                {
+                    if (!Utils::FloatCompare(CachedSplitPercent[i], SplitPercent[i]))
+                    {
+                        ChangedID = i;
+                    }
+                }
+                // clamp
+                if (SplitPercent[ChangedID] > 100.f) SplitPercent[ChangedID] = 100.f;
+                if (SplitPercent[ChangedID] < 0.f) SplitPercent[ChangedID] = 0.f;
+                // modify other
+                // still tries to remain train > test > valid && and mimic the movement widget as possible
+                const float ChangedAmount = SplitPercent[ChangedID] - CachedSplitPercent[ChangedID];
+                if (ChangedID == 0)
+                {
+                    if (ChangedAmount > SplitPercent[1])
+                    {
+                        SplitPercent[2] -= ChangedAmount - SplitPercent[1];
+                        SplitPercent[1] = 0.f;
+                    }
+                    else
+                    {
+                        SplitPercent[1] -= ChangedAmount;
+                    }
+                }
+                else if (ChangedID == 1)
+                {
+                    if (ChangedAmount > SplitPercent[2])
+                    {
+                        SplitPercent[1] -= ChangedAmount - SplitPercent[2];
+                        SplitPercent[2] = 0.f;
+                    }
+                    else
+                    {
+                        SplitPercent[2] -= ChangedAmount;
+                    }
+                }
+                else if (ChangedID == 2)
+                {
+                    if (ChangedAmount > SplitPercent[1])
+                    {
+                        SplitPercent[0] -= ChangedAmount - SplitPercent[1];
+                        SplitPercent[1] = 0.f;
+                    }
+                    else
+                    {
+                        SplitPercent[1] -= ChangedAmount;
+                    }
+                }
+
+                // propagate to images and widget
+                SplitImgs[0] = static_cast<int>(std::nearbyint(
+                    SplitPercent[0] * static_cast<float>(TotalExportImages) / 100.f));
+                SplitImgs[1] = static_cast<int>(std::nearbyint(
+                    SplitPercent[1] * static_cast<float>(TotalExportImages) / 100.f));
+                SplitImgs[2] = static_cast<int>(std::nearbyint(
+                    SplitPercent[2] * static_cast<float>(TotalExportImages) / 100.f));
+                SplitControlPos1 = SplitPercent[0] * 0.01f;
+                SplitControlPos2 = (SplitPercent[0] + SplitPercent[1]) * 0.01f;
+            }
+            int CachedSplitImgs[3] = {SplitImgs[0], SplitImgs[1], SplitImgs[2]};
+            if (ImGui::InputInt3("Train/Valid/Test (Images)", SplitImgs))
+            {
+                // check which one changed
+                size_t ChangedID = 0;
+                for (size_t i = 0; i < 3; i++)
+                {
+                    if (CachedSplitImgs[i] != SplitImgs[i])
+                    {
+                        ChangedID = i;
+                    }
+                }
+                // clamp
+                if (SplitImgs[ChangedID] > TotalExportImages) SplitImgs[ChangedID] = TotalExportImages;
+                if (SplitImgs[ChangedID] < 0) SplitImgs[ChangedID] = 0;
+                // modify other
+                // still tries to remain train > test > valid && and mimic the movement widget as possible
+                const int ChangedAmount = SplitImgs[ChangedID] - CachedSplitImgs[ChangedID];
+                if (ChangedID == 0)
+                {
+                    if (ChangedAmount > SplitImgs[1])
+                    {
+                        SplitImgs[2] -= ChangedAmount - SplitImgs[1];
+                        SplitImgs[1] = 0;
+                    }
+                    else
+                    {
+                        SplitImgs[1] -= ChangedAmount;
+                    }
+                }
+                else if (ChangedID == 1)
+                {
+                    if (ChangedAmount > SplitImgs[2])
+                    {
+                        SplitImgs[1] -= ChangedAmount - SplitImgs[2];
+                        SplitImgs[2] = 0;
+                    }
+                    else
+                    {
+                        SplitImgs[2] -= ChangedAmount;
+                    }
+                }
+                else if (ChangedID == 2)
+                {
+                    if (ChangedAmount > SplitImgs[1])
+                    {
+                        SplitImgs[0] -= ChangedAmount - SplitImgs[1];
+                        SplitImgs[1] = 0;
+                    }
+                    else
+                    {
+                        SplitImgs[1] -= ChangedAmount;
+                    }
+                }
+
+                // propagate to images and widget
+                SplitPercent[0] = Utils::Round((float)SplitImgs[0] / (float)TotalExportImages, 2) * 100.f;
+                SplitPercent[1] = Utils::Round((float)SplitImgs[1] / (float)TotalExportImages, 2) * 100.f;
+                SplitPercent[2] = Utils::Round((float)SplitImgs[2] / (float)TotalExportImages, 2) * 100.f;
+                SplitControlPos1 = SplitPercent[0] * 0.01f;
+                SplitControlPos2 = (SplitPercent[0] + SplitPercent[1]) * 0.01f;
+            }
         }
-        // Add text in middle of the control
-        float TxtWidth1 = ImGui::CalcTextSize("Train").x;
-        float TxtWidth2 = ImGui::CalcTextSize("Valid").x;
-        float TxtWidth3 = ImGui::CalcTextSize("Test").x;
-        const float TxtPosY = 35.f;
-        ImVec2 TxtPos1 = CurrentPos + ImVec2((SplitControlPos1 * AvailWidth - TxtWidth1) * 0.5f, TxtPosY);
-        ImVec2 TxtPos2 = CurrentPos + ImVec2(
-            (SplitControlPos1 + (SplitControlPos2 - SplitControlPos1) * 0.5f) * AvailWidth - TxtWidth2 * 0.5f, TxtPosY);
-        ImVec2 TxtPos3 = CurrentPos + ImVec2(
-            (SplitControlPos2 + (1.f - SplitControlPos2) * 0.5f) * AvailWidth - TxtWidth3 * 0.5f,
-            TxtPosY);
-        ImGui::GetWindowDrawList()->AddText(TxtPos1, Color, "Train");
-        ImGui::GetWindowDrawList()->AddText(TxtPos2, Color, "Valid");
-        ImGui::GetWindowDrawList()->AddText(TxtPos3, Color, "Test");
-        ImGui::Dummy({0, 50});
-
-        // draw the percent
-        const float CachedSplitPercent[3] = {SplitPercent[0], SplitPercent[1], SplitPercent[2]};
-        if (ImGui::InputFloat3("Train/Valid/Test (%)", SplitPercent, "%.0f%%"))
+        else
         {
-            // check which one changed
-            size_t ChangedID = 0;
-            for (size_t i = 0; i < 3; i++)
+            if (ImGui::SliderFloat("Train / Valid split", &SplitControlPos1, 0.f, 1.f))
             {
-                if (!Utils::FloatCompare(CachedSplitPercent[i], SplitPercent[i]))
-                {
-                    ChangedID = i;
-                }
+                SplitImgs[2] = 0;
+                SplitImgs[0] = int(TotalExportImages * SplitControlPos1);
+                SplitImgs[1] = TotalExportImages - SplitImgs[0];
+                SplitPercent[0] = SplitControlPos1 * 100;
+                SplitPercent[1] = 100 - SplitPercent[0];
             }
-            // clamp
-            if (SplitPercent[ChangedID] > 100.f) SplitPercent[ChangedID] = 100.f;
-            if (SplitPercent[ChangedID] < 0.f) SplitPercent[ChangedID] = 0.f;
-            // modify other
-            // still tries to remain train > test > valid && and mimic the movement widget as possible
-            const float ChangedAmount = SplitPercent[ChangedID] - CachedSplitPercent[ChangedID];
-            if (ChangedID == 0)
+            int CachedSplitImgs[2] = {SplitImgs[0], SplitImgs[1]};
+            if (ImGui::InputInt2("Train / Valid (Images)", SplitImgs))
             {
-                if (ChangedAmount > SplitPercent[1])
+                if (SplitImgs[0] != CachedSplitImgs[0])
                 {
-                    SplitPercent[2] -= ChangedAmount - SplitPercent[1];
-                    SplitPercent[1] = 0.f;
+                    SplitImgs[1] = TotalExportImages - SplitImgs[0];
                 }
                 else
                 {
-                    SplitPercent[1] -= ChangedAmount;
+                    SplitImgs[0] = TotalExportImages - SplitImgs[1];
                 }
+                SplitControlPos1 = (float)SplitImgs[0] / (float)TotalExportImages;
+                SplitPercent[0] = SplitControlPos1 * 100;
+                SplitPercent[1] = 100 - SplitPercent[0];
             }
-            else if (ChangedID == 1)
-            {
-                if (ChangedAmount > SplitPercent[2])
-                {
-                    SplitPercent[1] -= ChangedAmount - SplitPercent[2];
-                    SplitPercent[2] = 0.f;
-                }
-                else
-                {
-                    SplitPercent[2] -= ChangedAmount;
-                }
-            }
-            else if (ChangedID == 2)
-            {
-                if (ChangedAmount > SplitPercent[1])
-                {
-                    SplitPercent[0] -= ChangedAmount - SplitPercent[1];
-                    SplitPercent[1] = 0.f;
-                }
-                else
-                {
-                    SplitPercent[1] -= ChangedAmount;
-                }
-            }
-
-            // propagate to images and widget
-            SplitImgs[0] = static_cast<int>(std::nearbyint(
-                SplitPercent[0] * static_cast<float>(TotalExportImages) / 100.f));
-            SplitImgs[1] = static_cast<int>(std::nearbyint(
-                SplitPercent[1] * static_cast<float>(TotalExportImages) / 100.f));
-            SplitImgs[2] = static_cast<int>(std::nearbyint(
-                SplitPercent[2] * static_cast<float>(TotalExportImages) / 100.f));
-            SplitControlPos1 = SplitPercent[0] * 0.01f;
-            SplitControlPos2 = (SplitPercent[0] + SplitPercent[1]) * 0.01f;
-        }
-        int CachedSplitImgs[3] = {SplitImgs[0], SplitImgs[1], SplitImgs[2]};
-        if (ImGui::InputInt3("Train/Valid/Test (Images)", SplitImgs))
-        {
-            // check which one changed
-            size_t ChangedID = 0;
-            for (size_t i = 0; i < 3; i++)
-            {
-                if (CachedSplitImgs[i] != SplitImgs[i])
-                {
-                    ChangedID = i;
-                }
-            }
-            // clamp
-            if (SplitImgs[ChangedID] > TotalExportImages) SplitImgs[ChangedID] = TotalExportImages;
-            if (SplitImgs[ChangedID] < 0) SplitImgs[ChangedID] = 0;
-            // modify other
-            // still tries to remain train > test > valid && and mimic the movement widget as possible
-            const int ChangedAmount = SplitImgs[ChangedID] - CachedSplitImgs[ChangedID];
-            if (ChangedID == 0)
-            {
-                if (ChangedAmount > SplitImgs[1])
-                {
-                    SplitImgs[2] -= ChangedAmount - SplitImgs[1];
-                    SplitImgs[1] = 0;
-                }
-                else
-                {
-                    SplitImgs[1] -= ChangedAmount;
-                }
-            }
-            else if (ChangedID == 1)
-            {
-                if (ChangedAmount > SplitImgs[2])
-                {
-                    SplitImgs[1] -= ChangedAmount - SplitImgs[2];
-                    SplitImgs[2] = 0;
-                }
-                else
-                {
-                    SplitImgs[2] -= ChangedAmount;
-                }
-            }
-            else if (ChangedID == 2)
-            {
-                if (ChangedAmount > SplitImgs[1])
-                {
-                    SplitImgs[0] -= ChangedAmount - SplitImgs[1];
-                    SplitImgs[1] = 0;
-                }
-                else
-                {
-                    SplitImgs[1] -= ChangedAmount;
-                }
-            }
-
-            // propagate to images and widget
-            SplitPercent[0] = Utils::Round((float)SplitImgs[0] / (float)TotalExportImages, 2) * 100.f;
-            SplitPercent[1] = Utils::Round((float)SplitImgs[1] / (float)TotalExportImages, 2) * 100.f;
-            SplitPercent[2] = Utils::Round((float)SplitImgs[2] / (float)TotalExportImages, 2) * 100.f;
-            SplitControlPos1 = SplitPercent[0] * 0.01f;
-            SplitControlPos2 = (SplitPercent[0] + SplitPercent[1]) * 0.01f;
         }
     }
 
@@ -621,6 +832,7 @@ namespace IFCS
         auto CatData = CategoryManagement::Get().Data;
         auto CatChecker = CategoryManagement::Get().GeneratorCheckData;
         CategoriesExportCounts.clear();
+        CategoriesExportCounts_Merged.clear();
         NumIncludedFrames = 0;
         NumIncludedAnnotations = 0;
         NumIncludedImages = 0;
@@ -695,12 +907,34 @@ namespace IFCS
         SplitImgs[2] = TotalExportImages - SplitImgs[0] - SplitImgs[1]; // to prevent lacking due to round off...
 
         CatExportSummary = "";
-        for (const auto& [CID, Count] : CategoriesExportCounts)
+        char buf[64];
+        if (ShouldMergeCategories)
         {
-            char buf[64];
-            sprintf(buf, "%s(%.2f %%) ", CatData[CID].DisplayName.c_str(),
-                    (float)Count / (float)NumIncludedAnnotations * 100.f);
-            CatExportSummary += buf;
+            for (const auto& Data : CategoryMergeData)
+            {
+                int Sum = 0;
+                for (const UUID& CID : Data.SourceCatIdx)
+                {
+                    if (CategoriesExportCounts.count(CID))
+                        Sum += CategoriesExportCounts[CID];
+                }
+                CategoriesExportCounts_Merged[Data.DisplayName] = Sum;
+            }
+            for (const auto& [CatName, Count] : CategoriesExportCounts_Merged)
+            {
+                sprintf(buf, "%s(%.2f %%) ", CatName.c_str(),
+                        (float)Count / (float)NumIncludedAnnotations * 100.f);
+                CatExportSummary += buf;
+            }
+        }
+        else
+        {
+            for (const auto& [CID, Count] : CategoriesExportCounts)
+            {
+                sprintf(buf, "%s(%.2f %%) ", CatData[CID].DisplayName.c_str(),
+                        (float)Count / (float)NumIncludedAnnotations * 100.f);
+                CatExportSummary += buf;
+            }
         }
     }
 
@@ -743,9 +977,19 @@ namespace IFCS
         // write file to /Data/TrainingSets.yaml
         FTrainingSetDescription Desc;
         Desc.Name = NewTrainingSetName;
-        for (const auto& [CID, V] : CategoriesExportCounts)
+        if (ShouldMergeCategories)
         {
-            Desc.Categories.push_back(CatData[CID].DisplayName);
+            for (const auto& [CatName, V] : CategoriesExportCounts_Merged)
+            {
+                Desc.Categories.push_back(CatName);
+            }
+        }
+        else
+        {
+            for (const auto& [CID, V] : CategoriesExportCounts)
+            {
+                Desc.Categories.push_back(CatData[CID].DisplayName);
+            }
         }
         Desc.CreationTime = Utils::GetCurrentTimeString();
         std::vector<std::string> IC;
@@ -773,16 +1017,29 @@ namespace IFCS
         ofs << "train: " << ProjectPath + "/Data/" + NewTrainingSetName + "/train/images" << std::endl;
         ofs << "val: " << ProjectPath + "/Data/" + NewTrainingSetName + "/valid/images" << std::endl;
         ofs << "test: " << ProjectPath + "/Data/" + NewTrainingSetName + "/test/images" << std::endl << std::endl;
-        size_t S = CategoriesExportCounts.size();
+        size_t S = ShouldMergeCategories ? CategoriesExportCounts_Merged.size() : CategoriesExportCounts.size();
         ofs << "nc: " << S << std::endl;
         ofs << "names: [";
         size_t j = 0;
-        for (const auto& [CID, N] : CategoriesExportCounts)
+        if (ShouldMergeCategories)
         {
-            ofs << "'" << CatData[CID].DisplayName << "'";
-            if (j < S - 1)
-                ofs << ", ";
-            j++;
+            for (const auto& Data : CategoryMergeData)
+            {
+                ofs << "'" << Data.DisplayName << "'";
+                if (j < S - 1)
+                    ofs << ", ";
+                j++;
+            }
+        }
+        else
+        {
+            for (const auto& [CID, N] : CategoriesExportCounts)
+            {
+                ofs << "'" << CatData[CID].DisplayName << "'";
+                if (j < S - 1)
+                    ofs << ", ";
+                j++;
+            }
         }
         ofs << "]" << std::endl;
         ofs.close();
@@ -898,7 +1155,21 @@ namespace IFCS
             {
                 for (auto& A : Annotations)
                 {
-                    ofs << A.GetExportTxt(CategoryExportedID[A.CategoryID]).c_str() << std::endl;
+                    if (ShouldMergeCategories)
+                    {
+                        int i = 0;
+                        for (const auto& Data : CategoryMergeData)
+                        {
+                            if (Utils::Contains(Data.SourceCatIdx, A.CategoryID))
+                                break;
+                            i++;
+                        }
+                        ofs << A.GetExportTxt(i).c_str() << std::endl;
+                    }
+                    else
+                    {
+                        ofs << A.GetExportTxt(CategoryExportedID[A.CategoryID]).c_str() << std::endl;
+                    }
                 }
             }
             ofs.close();
@@ -924,7 +1195,21 @@ namespace IFCS
         {
             for (auto& A : InAnnotations)
             {
-                ofs << A.GetExportTxt(CategoryExportedID[A.CategoryID]).c_str() << std::endl;
+                if (ShouldMergeCategories)
+                {
+                    int i = 0;
+                    for (const auto& Data : CategoryMergeData)
+                    {
+                        if (Utils::Contains(Data.SourceCatIdx, A.CategoryID))
+                            break;
+                        i++;
+                    }
+                    ofs << A.GetExportTxt(i).c_str() << std::endl;
+                }
+                else
+                {
+                    ofs << A.GetExportTxt(CategoryExportedID[A.CategoryID]).c_str() << std::endl;
+                }
             }
         }
         ofs.close();

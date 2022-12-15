@@ -103,6 +103,13 @@ namespace IFCS
         void Deserialize(YAML::Node InputNode);
     };
 
+    struct FCategoryMergeData
+    {
+        FCategoryMergeData()=default;
+        std::string DisplayName;
+        std::vector<UUID> SourceCatIdx;
+    };
+    
     enum class EAnnotationEditMode : uint8_t
     {
         Add = 0,
@@ -235,20 +242,22 @@ namespace IFCS
         }
         inline static int Width, Height;
         inline static std::vector<std::string> CategoryNames;
+        inline static float ConfThreshold = 0.1f;
         
         std::map<int, FLabelData> Info;
         bool IsCompleted = false;
+        bool HasPicked = false;
         int GetEnterFrame() const;
         int GetLeaveFrame() const;
         float GetApproxBodySize() const;
         float GetApproxSpeed() const;
-        std::string GetName(bool IsCommon = true) const;
+        std::string GetName() const;
         void AddInfo(const int& InFrameNum, const FLabelData& InLabel)
         {
             Info[InFrameNum] = InLabel;
         }
         // for sort to work?
-        inline static const ImGuiTableSortSpecs* CurrentSortSepcs;
+        inline static const ImGuiTableSortSpecs* CurrentSortSpecs;
         static int __cdecl CompareWithSortSpecs(const void* lhs, const void* rhs);
     };
 }

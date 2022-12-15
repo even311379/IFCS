@@ -24,6 +24,8 @@ namespace IFCS
         void RenderTrainingSetExportWidget();
         void UpdateGenerartorInfo();
         bool IncludeReadyOnly = false;
+        bool ShouldMergeCategories = false;
+        std::vector<FCategoryMergeData> CategoryMergeData;
         std::vector<std::string> IncludedClips;
         std::vector<std::string> IncludedImageFolders;
         std::string CatExportSummary;
@@ -32,8 +34,9 @@ namespace IFCS
         int NumIncludedAnnotations;
         int TotalExportImages = 0;
         std::unordered_map<UUID, int> CategoriesExportCounts;
+        std::unordered_map<std::string, int> CategoriesExportCounts_Merged;
         int SelectedResizeAspectRatio;
-        int ExportedImageSize[2] = {768, 432};
+        int ExportedImageSize[2] = {1280, 720};
         void GenerateTrainingSet();
         void GenerateImgTxt(cv::VideoCapture& Cap, int FrameNum,const std::vector<FAnnotation>& InAnnotations,
             const char* GenName, bool IsOriginal, const char* SplitName);
@@ -55,7 +58,6 @@ namespace IFCS
         int BatchSize = 16;
         int TrainImgSize = 640;
         int TestImgSize = 640;
-        bool ShouldTrackRunProgress = false;
         void UpdateTrainScript();
         std::string SetPathScript = "";
         std::string TrainScript = "";

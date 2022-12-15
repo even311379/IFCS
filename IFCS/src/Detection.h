@@ -93,7 +93,8 @@ namespace IFCS
         // maybe one point is enough? no... Using two points also contains the idea of ROI...
         float FishWayPos[2] = {0.2f, 0.8f};
         bool IsIndividualDataLatest = false;
-        bool IsSizeSimilar(const FLabelData& Label1, const FLabelData& Label2);
+        bool IsSizeSimilar(const FLabelData& Label1, const FLabelData& Label2, int FrameDiff = 1);
+        bool IsDistanceAcceptable(const FLabelData& Label1, const FLabelData& Label2, int FrameDiff = 1);
         void TrackIndividual();
         void GenerateCachedIndividualImages();
         std::vector<FIndividualData> IndividualData;

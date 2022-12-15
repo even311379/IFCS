@@ -455,47 +455,54 @@ namespace IFCS
         return Utils::Mean(S);
     }
 
-    std::string FIndividualData::GetName(bool IsCommon) const
+    std::string FIndividualData::GetName() const
     {
-        std::map<std::string, int> CatCount;
+        std::map<std::string, std::vector<float>> CatConfs;
+        int S = 0;
         for (const auto& [F, L] : Info)
         {
             if (L.CatID + 1 > (int)CategoryNames.size())
             {
                 return "Error";
             }
-            if (CatCount.count(CategoryNames[L.CatID]))
-            {
-                CatCount[CategoryNames[L.CatID]] += 1;
-            }
-            else
-            {
-                CatCount[CategoryNames[L.CatID]] = 0;
-            }
+            if (L.Conf < ConfThreshold) continue;
+            CatConfs[CategoryNames[L.CatID]].push_back(L.Conf);
+            S += 1;
         }
-
-        // TODO: only implement "IsCommon = true" for now...
-
-        //find max counts
-        //check if there are equals...
-        bool HasEqualMax = false;
-        int MaxCount = 0;
-        std::string CandidateOut;
-        for (const auto& [Cat, Count] : CatCount)
+        if (S == 0) return "UNCERTAIN";
+        std::string BestFitName;
+        // most pass one
+        int MaxPass = 999;
+        bool HaveSameBestFit = false;
+        std::vector<std::string> EqualCats;
+        for (auto [k, v] : CatConfs)
         {
-            if (Count > MaxCount)
+            if (v.size() == MaxPass)
             {
-                MaxCount = Count;
-                CandidateOut = Cat;
-                HasEqualMax = false;
+                EqualCats.push_back(k);
+                HaveSameBestFit = true;
             }
-            else if (Count == MaxCount)
+            else if (v.size() < MaxPass)
             {
-                HasEqualMax = true;
+                MaxPass = (int)v.size();
+                BestFitName = k;
+                HaveSameBestFit = false;
+                EqualCats.clear();
             }
         }
-        // TODO: should not see "uncertain"... something is wrong in my code...
-        return HasEqualMax ? "Uncertain" : CandidateOut;
+        if (!HaveSameBestFit) return BestFitName;
+        // if same, compare mean conf of that cat
+        float MaxMeanConf = 0.f;
+        for (auto Cat : EqualCats)
+        {
+            const float MeanConf = Utils::Mean(CatConfs[Cat]);
+            if (MeanConf > MaxMeanConf)
+            {
+                MaxMeanConf = MeanConf;
+                BestFitName = Cat;
+            }
+        }
+        return BestFitName;
     }
 
 
@@ -503,9 +510,9 @@ namespace IFCS
     {
         const FIndividualData* a = (const FIndividualData*)lhs;
         const FIndividualData* b = (const FIndividualData*)rhs;
-        for (int n = 0; n < CurrentSortSepcs->SpecsCount; n++)
+        for (int n = 0; n < CurrentSortSpecs->SpecsCount; n++)
         {
-            const ImGuiTableColumnSortSpecs* SortSpecs = &CurrentSortSepcs->Specs[n];
+            const ImGuiTableColumnSortSpecs* SortSpecs = &CurrentSortSpecs->Specs[n];
             int delta = 0;
             switch (SortSpecs->ColumnUserID)
             {
@@ -513,7 +520,7 @@ namespace IFCS
                 delta = a->GetName().compare(b->GetName());
                 break;
             case IndividualColumnID_IsPassed:
-                delta = a->IsCompleted == b->IsCompleted;
+                delta = a->IsCompleted && b->IsCompleted;
                 break;
             case IndividualColumnID_ApproxSpeed:
                 delta = (int)a->GetApproxSpeed() - (int)b->GetApproxSpeed();
@@ -522,7 +529,7 @@ namespace IFCS
                 delta = (int)a->GetApproxBodySize() - (int)b->GetApproxBodySize();
                 break;
             case IndividualColumnID_EnterFrame:
-                delta = a->GetEnterFrame() - b->GetLeaveFrame();
+                delta = a->GetEnterFrame() - b->GetEnterFrame();
                 break;
             case IndividualColumnID_LeaveFrame:
                 delta = a->GetLeaveFrame() - b->GetLeaveFrame();

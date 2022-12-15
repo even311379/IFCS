@@ -265,8 +265,8 @@ namespace IFCS
                 ImGui::SetNextItemWidth(120.f);
                 if (ImGui::DragInt("##PlayStart", &StartFrame, 1, 0, EndFrame - 1))
                 {
-                    if (CurrentFrame < StartFrame) CurrentFrame = StartFrame;
                     if (StartFrame > EndFrame) StartFrame = EndFrame - 1;
+                    if (CurrentFrame < StartFrame) CurrentFrame = StartFrame;
                 }
                 ImGui::PopStyleVar();
                 ImGui::SameLine();
@@ -276,8 +276,9 @@ namespace IFCS
                 ImGui::SetNextItemWidth(120.f);
                 if (ImGui::DragInt("##PlayEnd", &EndFrame, 1, StartFrame + 1, TotalClipFrameSize))
                 {
-                    if (CurrentFrame > EndFrame) CurrentFrame = EndFrame;
-                    if (EndFrame < StartFrame) EndFrame = StartFrame + 1;
+                    CurrentFrame = StartFrame;
+                    // if (CurrentFrame > EndFrame) CurrentFrame = EndFrame;
+                    // if (EndFrame < StartFrame) EndFrame = StartFrame + 1;
                 }
                 ImGui::PopStyleVar();
                 if (IsLoadingVideo)
@@ -427,32 +428,6 @@ namespace IFCS
         }
     }
 
-    // void Detection::UpdateFrame(int FrameNumber, bool UpdateClipInfo)
-    // {
-    //     if (UpdateClipInfo || IsLoadingFrames)
-    //     {
-    //         cv::Mat Frame;
-    //         cv::VideoCapture cap(DetectionClip);
-    //         TotalClipFrameSize = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
-    //         EndFrame = TotalClipFrameSize;
-    //         ClipFPS = (float)cap.get(cv::CAP_PROP_FPS);
-    //         ClipWidth = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
-    //         FIndividualData::Width = ClipWidth;
-    //         ClipHeight = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
-    //         FIndividualData::Height = ClipHeight;
-    //         cap.set(cv::CAP_PROP_POS_FRAMES, FrameNumber);
-    //         cap >> Frame;
-    //         cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y)); // 16 : 9 // no need to resize?
-    //         cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
-    //         cap.release();
-    //         UpdateFrameImpl(Frame);
-    //     }
-    //     else
-    //     {
-    //         if (DataBrowser::Get().VideoFrames.size() > FrameNumber)
-    //             UpdateFrameImpl(DataBrowser::Get().VideoFrames[FrameNumber]);
-    //     }
-    // }
 
     void Detection::ProcessingVideoPlay()
     {
@@ -524,6 +499,10 @@ namespace IFCS
         }
     }
 
+    static float MAX_SPEED_THRESHOLD = 0.1f;
+    static float BODY_SIZE_BUFFER = 0.2f;
+    static int NUM_BUFFER_FRAMES = 10;
+
     void Detection::RenderAnaylysisWidgets_Pass()
     {
         if (!IsIndividualDataLatest)
@@ -548,6 +527,35 @@ namespace IFCS
         }
         ImGui::SameLine();
         ImGui::ColorEdit3("##hint", (float*)&HintColor, ImGuiColorEditFlags_NoInputs);
+        if (ImGui::TreeNode("Advanced pass count parameters"))
+        {
+            if (ImGui::DragFloat("Conf threshold", &FIndividualData::ConfThreshold, 0.01f, 0.01f, 0.5f, "%.2f"))
+            {
+                IsIndividualDataLatest = false;
+            }
+            Utils::AddSimpleTooltip("A threshold value to decide which category this individual should belong to.\n"
+                "if none of its confidence value in different frames is higher than it, this individual will be UNCERTAIN");
+            if (ImGui::DragFloat("Max speed threshould", &MAX_SPEED_THRESHOLD, 0.01f, 0.01f, 0.5f, "%.2f"))
+            {
+                IsIndividualDataLatest = false;
+            }
+            Utils::AddSimpleTooltip("A threshold value to decide how to assign prediction to individual. "
+                "Same individual should locate at similar location, it's speed (pixel^2 / frames) should be smaller than"
+                " speed threshold * sqrt(ClipHeight^2 + ClipWidth^2)");
+            if (ImGui::DragFloat("Body size threshould", &BODY_SIZE_BUFFER, 0.01f, 0.01f, 0.5f, "%.2f"))
+            {
+                IsIndividualDataLatest = false;
+            }
+            Utils::AddSimpleTooltip("A threshold value to decide how to assign prediction to individual. "
+                "Same individual should have similar body size among frames. If this value is too small, same individual could be judged as different!");
+            if (ImGui::DragInt("Frames buffer threshold", &NUM_BUFFER_FRAMES, 1, 1, 60))
+            {
+                IsIndividualDataLatest = false;
+            }
+            Utils::AddSimpleTooltip("A threshold value to remove individaul that only appear in single frame. "
+                "If no new prediction for that individual after N frames are tracked, that individual could be a noise, and remove it");
+            ImGui::TreePop();
+        }
         if (!IsIndividualDataLatest)
         {
             if (ImGui::Button("Update individual tracking"))
@@ -586,105 +594,100 @@ namespace IFCS
             }
             ImGui::EndTable();
         }
-
-        flags |= ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable | ImGuiTableFlags_Sortable |
-            ImGuiTableFlags_SortMulti;
-        ImGuiTableColumnFlags CF = ImGuiTableColumnFlags_DefaultSort;
-        if (ImGui::BeginTable("##Individual", 7, flags, ImVec2(-1, ImGui::GetTextLineHeightWithSpacing() * 20)))
+        if (ImGui::TreeNode("Individual Data"))
         {
-            ImGui::TableSetupColumn("Category", CF, 0.f, IndividualColumnID_Category);
-            ImGui::TableSetupColumn("Is Passed", CF, 0.f, IndividualColumnID_IsPassed);
-            ImGui::TableSetupColumn("ApproxSpeed (pixel / frame)", CF, 0.f, IndividualColumnID_ApproxSpeed);
-            ImGui::TableSetupColumn("ApproxBodySize (pixel^2)", CF, 0.f, IndividualColumnID_ApproxBodySize);
-            ImGui::TableSetupColumn("Enter Frame", CF, 0.f, IndividualColumnID_EnterFrame);
-            ImGui::TableSetupColumn("Leave Frame", CF, 0.f, IndividualColumnID_LeaveFrame);
-            ImGui::TableSetupColumn("##view", ImGuiTableColumnFlags_NoSort, 0.f);
-            ImGui::TableHeadersRow();
-
-            if (ImGuiTableSortSpecs* SortSpec = ImGui::TableGetSortSpecs())
+            flags |= ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable | ImGuiTableFlags_Sortable |
+                ImGuiTableFlags_SortMulti;
+            ImGuiTableColumnFlags CF = ImGuiTableColumnFlags_DefaultSort;
+            if (ImGui::BeginTable("##Individual", 7, flags, ImVec2(-1, ImGui::GetTextLineHeightWithSpacing() * 20)))
             {
-                if (SortSpec->SpecsDirty)
-                {
-                    FIndividualData::CurrentSortSepcs = SortSpec;
-                    if (IndividualData.size() > 1)
-                        qsort(&IndividualData[0], IndividualData.size(), sizeof(IndividualData[0]),
-                              FIndividualData::CompareWithSortSpecs);
-                    FIndividualData::CurrentSortSepcs = NULL;
-                    SortSpec->SpecsDirty = false;
-                }
-            }
+                ImGui::TableSetupColumn("Category", CF, 0.f, IndividualColumnID_Category);
+                ImGui::TableSetupColumn("Is Passed", CF, 0.f, IndividualColumnID_IsPassed);
+                ImGui::TableSetupColumn("ApproxSpeed (pixel / frame)", CF, 0.f, IndividualColumnID_ApproxSpeed);
+                ImGui::TableSetupColumn("ApproxBodySize (pixel^2)", CF, 0.f, IndividualColumnID_ApproxBodySize);
+                ImGui::TableSetupColumn("Enter Frame", CF, 0.f, IndividualColumnID_EnterFrame);
+                ImGui::TableSetupColumn("Leave Frame", CF, 0.f, IndividualColumnID_LeaveFrame);
+                // ImGui::TableSetupColumn("##view", ImGuiTableColumnFlags_NoSort, 0.f);
+                ImGui::TableHeadersRow();
 
-            // use clipper?
-            ImGuiListClipper Clipper;
-            Clipper.Begin((int)IndividualData.size());
-            while (Clipper.Step())
-                for (int RowN = Clipper.DisplayStart; RowN < Clipper.DisplayEnd; RowN++)
+                if (ImGuiTableSortSpecs* SortSpec = ImGui::TableGetSortSpecs())
                 {
-                    FIndividualData* D = &IndividualData[RowN];
-                    ImGui::PushID(RowN);
-                    ImGui::TableNextRow();
-                    ImGui::TableNextColumn();
-                    ImGui::Text(D->GetName().c_str());
-                    ImGui::TableNextColumn();
-                    // TODO: replace with badge widget?
-                    if (D->IsCompleted)
-                        ImGui::TextColored(Style::GREEN(400, Setting::Get().Theme), "Pass");
-                    else
-                        ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "Unknown");
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%.2f", D->GetApproxSpeed());
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%.2f", D->GetApproxBodySize());
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%d", D->GetEnterFrame());
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%d", D->GetLeaveFrame());
-                    ImGui::TableNextColumn();
-                    ImGui::Button("View");
-                    Utils::AddSimpleTooltip(
-                        "[Upcoming feature] View image and frame where this individual come from...");
-                    ImGui::PopID();
+                    if (SortSpec->SpecsDirty)
+                    {
+                        FIndividualData::CurrentSortSpecs = SortSpec;
+                        if (IndividualData.size() > 1)
+                            qsort(&IndividualData[0], IndividualData.size(), sizeof(IndividualData[0]),
+                                  FIndividualData::CompareWithSortSpecs);
+                        FIndividualData::CurrentSortSpecs = NULL;
+                        SortSpec->SpecsDirty = false;
+                    }
                 }
-            ImGui::EndTable();
+
+                // use clipper?
+                ImGuiListClipper Clipper;
+                Clipper.Begin((int)IndividualData.size());
+                while (Clipper.Step())
+                    for (int RowN = Clipper.DisplayStart; RowN < Clipper.DisplayEnd; RowN++)
+                    {
+                        FIndividualData* D = &IndividualData[RowN];
+                        ImGui::PushID(RowN);
+                        ImGui::TableNextRow();
+                        ImGui::TableNextColumn();
+                        ImGui::Text(D->GetName().c_str());
+                        ImGui::TableNextColumn();
+                        if (D->IsCompleted)
+                            ImGui::TextColored(Style::GREEN(400, Setting::Get().Theme), "Pass");
+                        else
+                            ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "???");
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%.2f", D->GetApproxSpeed());
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%.2f", D->GetApproxBodySize());
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%d", D->GetEnterFrame());
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%d", D->GetLeaveFrame());
+                        // ImGui::TableNextColumn();
+                        // ImGui::Button("View");
+                        // Utils::AddSimpleTooltip(
+                        //     "[Upcoming feature] View image and frame where this individual come from...");
+                        ImGui::PopID();
+                    }
+                ImGui::EndTable();
+            }
+            ImGui::TreePop();
         }
     }
 
-    // TODO: simple is better... so I'll just use body size only to check individual?
-    bool Detection::IsSizeSimilar(const FLabelData& Label1, const FLabelData& Label2)
+    bool Detection::IsSizeSimilar(const FLabelData& Label1, const FLabelData& Label2, int FrameDiff)
     {
         // expose these vars to users?
         // the same individual should have same size between frames, but but to camera angle and it could be slightly different
-        static float BodySizeBuffer = 0.2f;
+        // considering multiple frames....
 
         float S1 = Label1.GetApproxBodySize(ClipWidth, ClipHeight);
         float S2 = Label2.GetApproxBodySize(ClipWidth, ClipHeight);
 
-        return (S1 < S2 * (1 + BodySizeBuffer) && S1 > S2 * (1 - BodySizeBuffer)) ||
-            (S2 < S1 * (1 + BodySizeBuffer) && S2 > S1 * (1 - BodySizeBuffer));
+        return (S1 < S2 * std::pow(1 + BODY_SIZE_BUFFER, FrameDiff + 1) && S1 > S2 * std::pow(
+                1 - BODY_SIZE_BUFFER, FrameDiff + 1)) ||
+            (S2 < S1 * std::pow(1 + BODY_SIZE_BUFFER, FrameDiff + 1) && S2 > S1 * std::pow(
+                1 - BODY_SIZE_BUFFER, FrameDiff + 1));
     }
 
-    // TODO: this algorithm is still wrong!! 40% until its good?
+
+    bool Detection::IsDistanceAcceptable(const FLabelData& Label1, const FLabelData& Label2, int FrameDiff)
+    {
+        // max speed per frame should never be faster than 0.1 * length of diagonal
+        const float Distance = Label1.Distance(Label2, ClipWidth, ClipHeight);
+        return Distance / (FrameDiff) / std::pow(ClipWidth * ClipWidth + ClipHeight * ClipHeight, 0.5) <
+            MAX_SPEED_THRESHOLD;
+    }
+
+
     void Detection::TrackIndividual()
     {
-        // spdlog::info("Maybe loaded labels are wrong? size: {} (was moved?)", LoadedLabels.size());
-        // for (auto [F, LL] : LoadedLabels)
-        // {
-        //     for (auto L : LL)
-        //     {
-        //         spdlog::info("Frame:{}, X:{}, Y:{}", F, L.X, L.Y);
-        //     }
-        // }
-
         float MinPos = std::min(FishWayPos[0], FishWayPos[1]);
         float MaxPos = std::max(FishWayPos[0], FishWayPos[1]);
-
-        // if two labels are very far... they might be different individual...
-        static float MaxPerFrameSpeed;
-        MaxPerFrameSpeed = 0.2f * Utils::Distance(0, 0, (float)FIndividualData::Width, (float)FIndividualData::Height);
-
-        // use cached individual images? use another ai individual check algorithm?
-        static int DisappearTime = 10;
-
         IndividualData.clear();
         std::vector<FIndividualData> TempTrackData;
         for (const auto& [F, LL] : LoadedLabels)
@@ -693,21 +696,17 @@ namespace IFCS
             {
                 // check if inside
                 bool IsInFishway;
-                bool IsLeaving;
+                bool IsInLeavingArea;
                 if (IsVertical)
                 {
                     IsInFishway = (L.Y >= MinPos) && (L.Y <= MaxPos);
-                    IsLeaving = FishWayPos[0] > FishWayPos[1] ? L.Y < FishWayPos[1] : L.Y > FishWayPos[1];
+                    IsInLeavingArea = FishWayPos[0] > FishWayPos[1] ? L.Y < FishWayPos[1] : L.Y > FishWayPos[1];
                 }
                 else
                 {
                     IsInFishway = (L.X >= MinPos) && (L.X <= MaxPos);
-                    IsLeaving = FishWayPos[0] > FishWayPos[1] ? L.X < FishWayPos[1] : L.X > FishWayPos[1];
+                    IsInLeavingArea = FishWayPos[0] > FishWayPos[1] ? L.X < FishWayPos[1] : L.X > FishWayPos[1];
                 }
-
-                // TODO: lots of miss count... when a lots of fish comes together...
-
-                // use Just enter??
 
                 // check has already tracked any
                 if (IsInFishway)
@@ -715,50 +714,82 @@ namespace IFCS
                     if (TempTrackData.empty())
                     {
                         TempTrackData.emplace_back(F, L);
+                        TempTrackData[0].HasPicked = true;
                     }
                     else
                     {
+                        int ClosestIdx = -1;
+                        float ClosestDistance = 999999.f;
                         // check should add new individual or add info
+                        int i = 0;
                         for (auto& Data : TempTrackData)
                         {
+                            if (Data.HasPicked) continue;
                             auto it = Data.Info.end();
-                            --it;
-                            // block body size as condition
-                            // if (IsSizeSimilar(it->second, L) && (it->second.Distance(L, ClipWidth, ClipHeight) / (float)
-                            //     (F - it->first) < MaxPerFrameSpeed))
-                            if (it->second.Distance(L, ClipWidth, ClipHeight) / (float)(F - it->first) <
-                                MaxPerFrameSpeed)
+                            --it; // the last record in each tracking individual
+                            const float Distance = it->second.Distance(L, ClipWidth, ClipHeight);
+                            // get the closest one with size rule and speed rule met...
+                            if (IsSizeSimilar(it->second, L, F - it->first) &&
+                                IsDistanceAcceptable(it->second, L, F - it->first) &&
+                                Distance <= ClosestDistance)
                             {
-                                Data.AddInfo(F, L);
-                                break; // TODO: add break here is 100% wrong!!!!
+                                ClosestIdx = i;
+                                ClosestDistance = Distance;
                             }
+                            i++;
+                        }
+                        if (ClosestIdx == -1)
+                        {
+                            TempTrackData.emplace_back(F, L);
+                            TempTrackData[0].HasPicked = true;
+                        }
+                        else
+                        {
+                            TempTrackData[ClosestIdx].AddInfo(F, L);
+                            TempTrackData[ClosestIdx].HasPicked = true;
                         }
                     }
                 }
+                
                 // check if this one is JUST leave the area...
-                else if (IsLeaving)
+                else if (IsInLeavingArea)
                 {
+                    int ClosestIdx = -1;
+                    float ClosestDistance = 999999.f;
+                    // check should add new individual or add info
+                    int i = 0;
                     for (auto& Data : TempTrackData)
                     {
+                        if (Data.HasPicked) continue;
                         auto it = Data.Info.end();
-                        --it;
-                        // if (IsSizeSimilar(it->second, L) && (it->second.Distance(L, ClipWidth, ClipHeight) / (float)
-                        //     (F - it->first) < MaxPerFrameSpeed))
-                        if (it->second.Distance(L, ClipWidth, ClipHeight) / (float)(F - it->first) < MaxPerFrameSpeed)
+                        --it; // the last record in each tracking individual
+                        const float Distance = it->second.Distance(L, ClipWidth, ClipHeight);
+                        // get the closest one with size rule and speed rule met...
+                        if (IsSizeSimilar(it->second, L, F - it->first) &&
+                            IsDistanceAcceptable(it->second, L, F - it->first) &&
+                            Distance <= ClosestDistance)
                         {
-                            Data.IsCompleted = true;
-                            break;
+                            ClosestIdx = i;
+                            ClosestDistance = Distance;
                         }
+                        i++;
+                    }
+                    if (ClosestIdx != -1)
+                    {
+                        TempTrackData[ClosestIdx].HasPicked = true;
+                        TempTrackData[ClosestIdx].IsCompleted = true;
                     }
                 }
             } // end of per frame
 
             // check which existing one should append
 
-            for (const auto& Data : TempTrackData)
+            for (auto& Data : TempTrackData)
             {
                 // check is completed or should untrack
-                if (std::prev(Data.Info.end())->first + DisappearTime < F || Data.IsCompleted)
+                Data.HasPicked = false;
+                if (Data.Info.size() == 1) continue;
+                if (std::prev(Data.Info.end())->first + NUM_BUFFER_FRAMES < F || Data.IsCompleted)
                 {
                     IndividualData.push_back(Data);
                 }
@@ -769,10 +800,8 @@ namespace IFCS
                     TempTrackData.end(),
                     [=](const FIndividualData& Data)
                     {
-                        bool R = (std::prev(Data.Info.end())->first + DisappearTime < F || Data.IsCompleted);
-                        // if (R)
-                        //     spdlog::info("Was removed? {}, {}", std::prev(Data.Info.end())->first + DisappearTime, F);
-                        return (std::prev(Data.Info.end())->first + DisappearTime < F || Data.IsCompleted);
+                        bool R = (std::prev(Data.Info.end())->first + NUM_BUFFER_FRAMES < F || Data.IsCompleted);
+                        return (std::prev(Data.Info.end())->first + NUM_BUFFER_FRAMES < F || Data.IsCompleted);
                     }),
                 TempTrackData.end());
         }
@@ -989,12 +1018,7 @@ namespace IFCS
                 std::smatch m;
                 std::regex_search(TxtName, m, std::regex("_(\\d+)."));
                 int FrameCount = std::stoi(m.str(1));
-                
-                /*
-                size_t FrameDigits = TxtName.find('.') - TxtName.find('_') - 1;
-                std::string Temp = TxtName.substr(TxtName.find('_') + 1, FrameDigits);
-                int FrameCount = std::stoi(Temp);
-                */
+
                 std::ifstream TxtFile(Entry.path().u8string());
                 std::string Line;
                 std::vector<FLabelData> Labels;
