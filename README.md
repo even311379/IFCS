@@ -1,27 +1,13 @@
-## IFCS
+# IFCS - Integrated Fish Counting System
 
-**I**ntegrated **F**ish **C**ounting **S**ystem
+A tool set that include all necessary steps to establish an automatic fish counting system in fish way. It aims to make ecological researchers to easily establish their own object detection pipeline for their target species. It is designed for fish way, but should work perfectly in any similar use case. The core algorithm for object detection in this app is [yolo v7](https://github.com/WongKinYiu/yolov7). 
 
-A graphical user interface that includes all the neccessary steps to create a YOYO based fish counting system. 
+### Major features:
+* Annotate on both image and directly on video clip
+* Asset management system specialized for yolo v7 to help you create the best model.
+* Count fish pass
 
-- To detect and sum up the amount of fish (many different species) pass given fish track. The research team is about to install some cameras at different positions.
+Hope this will make your life easier. 
+___
+Although trying to minimize the required knowledge, you still need some basic understanding about **machine learning**.
 
-These steps include: collecting data, annotate data, generate traing set, training, and get counting, which required many different tools and a certain bit of programing capability. With this tool, normal researches can easily create their AI models ... and so on and so on ...
-
-
-
-Upcoming with content...
-
-
-
-- c++ and (embeded python)
-
-- dear imgui
-
-- opencv
-
-- windows 64 for now... but should be cross-platform
-
-- Language: English and Traditional Chinese
-
-- 
