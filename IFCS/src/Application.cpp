@@ -180,7 +180,6 @@ namespace IFCS
             if (Setting::Get().ProjectIsLoaded)
             {
                 DataBrowser::Get().Render();
-                // FrameExtractor::Get().Render();
                 Annotation::Get().Render();
                 CategoryManagement::Get().Render();
                 Train::Get().Render();
@@ -195,9 +194,6 @@ namespace IFCS
             // ImGui::ShowDemoWindow();
             // UtilPanel::Get().Render();
             // ImPlot::ShowDemoWindow();
-
-            // third party close/end
-            HandleDialogClose();
 
             if (tick == 1)
             {
@@ -258,7 +254,5 @@ namespace IFCS
         };
     }
 
-    void Application::HandleDialogClose()
-    {
-    }
+
 }

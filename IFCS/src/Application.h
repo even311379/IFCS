@@ -26,7 +26,6 @@ namespace IFCS
         GLFWwindow* Window;
         ImVec4 ClearColor = ImVec4(0.45f,0.55f, 0.60f, 1.00f);
         void CreateFileDialog();
-        void HandleDialogClose();
         
     };
     

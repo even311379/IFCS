@@ -19,6 +19,9 @@ namespace IFCS
     static int StartFrame;
     static int EndFrame;
     static int BlockSize = 500;
+    static ImVec2 WorkStartPos;
+    static bool IsPlaying;
+    static int FrameJumpSize = 1;
 
     void Annotation::DisplayFrame(int NewFrameNum)
     {
@@ -281,8 +284,6 @@ namespace IFCS
         }
     }
 
-    ImVec2 WorkStartPos;
-    bool IsPreviousTickDragging;
 
     void Annotation::RenderAnnotationWork()
     {
@@ -384,7 +385,6 @@ namespace IFCS
                                 UpdateTime_Img = Utils::GetCurrentTimeString();
                             else
                                 CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
-                            NeedSave = true;
                         }
                         ImGui::EndCombo();
                     }
@@ -399,7 +399,9 @@ namespace IFCS
                 Data_Img.erase(ToDeleteAnnID);
             else
                 Data[CurrentFrame].erase(ToDeleteAnnID);
+
             ToDeleteAnnID = 0;
+            NeedSave = true;
         }
         static ImVec2 AddPointStart;
         static bool IsAdding;
@@ -430,7 +432,8 @@ namespace IFCS
                 ImVec2 ImgPos = (ZoomPos - PanAmount) / GetZoom(OldZoomLevel);
                 PanAmount = ZoomPos - ImgPos * GetZoom();
             }
-            if (EditMode == EAnnotationEditMode::Add && ImGui::IsMouseClicked(0) && DataBrowser::Get().IsSelectAnyClipOrImg())
+            if (EditMode == EAnnotationEditMode::Add && ImGui::IsMouseClicked(0) && DataBrowser::Get().
+                IsSelectAnyClipOrImg())
             {
                 if (CategoryManagement::Get().GetSelectedCategory())
                 {
@@ -439,6 +442,10 @@ namespace IFCS
                 }
             }
 
+            /////////////////
+            // HOTKEYS
+            ////////////////
+
             if (ImGui::IsKeyPressed(ImGuiKey_W))
             {
                 EditMode = EAnnotationEditMode::Add;
@@ -446,6 +453,26 @@ namespace IFCS
             if (ImGui::IsKeyPressed(ImGuiKey_E))
             {
                 EditMode = EAnnotationEditMode::Edit;
+            }
+            // TODO: it's better off not add these hotkeys... it will conflict with ImGui default hotkeys...
+            if (!IsImage)
+            {
+                if (ImGui::IsKeyPressed(ImGuiKey_A))
+                {
+                    if (CurrentFrame == EndFrame)
+                        CurrentFrame = StartFrame;
+                    IsPlaying = !IsPlaying;
+                }
+                if (ImGui::IsKeyPressed(ImGuiKey_S))
+                {
+                    if (!IsPlaying)
+                        MoveFrame(CurrentFrame - FrameJumpSize);
+                }
+                if (ImGui::IsKeyPressed(ImGuiKey_D))
+                {
+                    if (!IsPlaying)
+                        MoveFrame(CurrentFrame + FrameJumpSize);
+                }
             }
         }
         if (ImGui::IsMouseReleased(0) && IsAdding)
@@ -471,7 +498,6 @@ namespace IFCS
 
     void Annotation::RenderVideoControls()
     {
-        static bool IsPlaying;
         static char* PlayIcon;
         if (CurrentFrame == EndFrame)
             PlayIcon = ICON_FA_SYNC;
@@ -485,6 +511,7 @@ namespace IFCS
                 CurrentFrame = StartFrame;
             IsPlaying = !IsPlaying;
         }
+        Utils::AddSimpleTooltip("Play (A)");
         ImGui::SameLine();
         static ImVec2 NewFramePad(4, (32 - ImGui::GetFontSize()) / 2);
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, NewFramePad);
@@ -557,7 +584,6 @@ namespace IFCS
         ImGui::Dummy({0, ImGui::GetTextLineHeightWithSpacing() * 0.5f});
         static float ButtonsOffset;
         static ImVec2 BtnSize(ImGui::GetFont()->FontSize * 3, ImGui::GetFont()->FontSize * 1.5f);
-        static int FrameJumpSize = 1;
         ImGui::SetCursorPosX(ButtonsOffset);
         ImGui::BeginGroup();
         {
@@ -565,17 +591,19 @@ namespace IFCS
             sprintf(buf, "%s %d", ICON_FA_MINUS, FrameJumpSize);
             if (ImGui::Button(buf, BtnSize))
             {
-                MoveFrame(CurrentFrame - FrameJumpSize);
+                if (!IsPlaying)
+                    MoveFrame(CurrentFrame - FrameJumpSize);
             }
-            Utils::AddSimpleTooltip("Jump backward frames");
+            Utils::AddSimpleTooltip("Jump backward frames (S)");
             ImGui::SameLine();
             char buf1[32];
             sprintf(buf1, "%s %d", ICON_FA_PLUS, FrameJumpSize);
             if (ImGui::Button(buf1, BtnSize))
             {
-                MoveFrame(CurrentFrame + FrameJumpSize);
+                if (!IsPlaying)
+                    MoveFrame(CurrentFrame + FrameJumpSize);
             }
-            Utils::AddSimpleTooltip("Jump forward frames");
+            Utils::AddSimpleTooltip("Jump forward frames (D)");
             ImGui::SameLine();
             ImGui::SetNextItemWidth(BtnSize.x);
             static ImVec2 BtnFramePad(4, (BtnSize.y - ImGui::GetFontSize()) / 2);
@@ -627,7 +655,7 @@ namespace IFCS
                 ShouldChangeEditMode = true;
                 EditModeToChange = EAnnotationEditMode::Add;
             }
-            Utils::AddSimpleTooltip("Add annotation");
+            Utils::AddSimpleTooltip("Add annotation (W)");
             if (EditMode == EAnnotationEditMode::Add)
                 ImGui::PopStyleColor();
             ImGui::SameLine();
@@ -638,7 +666,7 @@ namespace IFCS
                 ShouldChangeEditMode = true;
                 EditModeToChange = EAnnotationEditMode::Edit;
             }
-            Utils::AddSimpleTooltip("Edit annotation");
+            Utils::AddSimpleTooltip("Edit annotation (E)");
             if (EditMode == EAnnotationEditMode::Edit)
                 ImGui::PopStyleColor();
             ImGui::SameLine();
@@ -732,7 +760,7 @@ namespace IFCS
                     Data.erase(CurrentFrame);
                 NeedSave = true;
             }
-            Utils::AddSimpleTooltip("Delete annotations in this frame/image");
+            Utils::AddSimpleTooltip("Delete all annotations in this frame/image");
             ImGui::PopFont();
         }
         ImGui::EndGroup();
@@ -743,7 +771,7 @@ namespace IFCS
             EditMode = EditModeToChange;
             ShouldChangeEditMode = false;
         }
-        
+
         if (IsImage)
         {
             if (!Data_Img.empty())

@@ -322,7 +322,7 @@ namespace IFCS
     {
         std::string ProjectPath = Setting::Get().ProjectPath;
         std::string SelectedModelName = SelectedModel;
-        SetPathScript = "cd " + Setting::Get().YoloV7Path;
+        SetPathScript = "cd /d " + Setting::Get().YoloV7Path;
         DetectScript = "";
         DetectScript += Setting::Get().PythonPath + "/python detect.py";
         DetectScript += " --weights " + ProjectPath + "/Models/" + SelectedModelName + "/weights/best.pt";

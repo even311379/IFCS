@@ -1505,7 +1505,7 @@ namespace IFCS
     {
         const bool IsChoose6Model = Utils::Contains(Model6Indices, SelectedModelIdx);
 
-        SetPathScript = "cd " + Setting::Get().YoloV7Path;
+        SetPathScript = "cd /d " + Setting::Get().YoloV7Path;
         TrainScript = "";
         if (IsChoose6Model)
             TrainScript += Setting::Get().PythonPath + "/python train_aux.py";
