@@ -11,7 +11,7 @@ Hope this will make your life easier.
 ___
 Although trying to minimize the required knowledge, you still need some basic understanding about **machine learning**.
 
-
+___
 ### How to build in windows:
 
 1. Download premake and set its path properly (ex: in env path), then run gen_win_project.bat to generate project files.
