@@ -6,10 +6,14 @@
 #include <istream>
 #include <sstream>
 #include <random>
+#include <locale>
+#include <codecvt>
 
 #include "imgui_internal.h"
 #include "Style.h"
 
+
+// #define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
 
 namespace IFCS
 {
@@ -91,6 +95,62 @@ namespace IFCS
                               });
         }
 
+        // std::wstring ToWString(const std::string& InString)
+        // {
+        //     // Solution to convert string to wstring: https://stackoverflow.com/a/18597384
+        //     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+        //     return converter.from_bytes(InString);
+        // }
+
+        // std::wstring ToWString(const char* InChars)
+        // {
+        //     return ToWString(std::string(InChars));
+        // }
+
+        std::string ConvertWideToANSI(const std::wstring& wstr)
+        {
+            int count = WideCharToMultiByte(CP_ACP, 0, wstr.c_str(), wstr.length(), NULL, 0, NULL, NULL);
+            std::string str(count, 0);
+            WideCharToMultiByte(CP_ACP, 0, wstr.c_str(), -1, &str[0], count, NULL, NULL);
+            return str;
+        }
+
+        std::wstring ConvertAnsiToWide(const std::string& str)
+        {
+            int count = MultiByteToWideChar(CP_ACP, 0, str.c_str(), str.length(), NULL, 0);
+            std::wstring wstr(count, 0);
+            MultiByteToWideChar(CP_ACP, 0, str.c_str(), str.length(), &wstr[0], count);
+            return wstr;
+        }
+
+        std::string ConvertWideToUtf8(const std::wstring& wstr)
+        {
+            int count = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), wstr.length(), NULL, 0, NULL, NULL);
+            std::string str(count, 0);
+            WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, &str[0], count, NULL, NULL);
+            return str;
+        }
+
+        std::wstring ConvertUtf8ToWide(const std::string& str)
+        {
+            int count = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), str.length(), NULL, 0);
+            std::wstring wstr(count, 0);
+            MultiByteToWideChar(CP_UTF8, 0, str.c_str(), str.length(), &wstr[0], count);
+            return wstr;
+        }
+
+        // std::string ToUString(const std::string& InString)
+        // {
+        //     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+        //     return converter.to_bytes(InString);
+        // }
+
+        // std::string ToUString(const char* InChars)
+        // {
+        //     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+        //     return converter.to_bytes((wchar_t*)InChars);
+        //     // return ToUString(std::string(InChars));
+        // }
 
         void AddSimpleTooltip(const char* Desc, float WrapSize, float Offset)
         {

@@ -39,6 +39,11 @@ namespace IFCS
             return;
         }
         ProjectPath = EditorIni["LastOpenProject"].as<std::string>();
+        if (!std::filesystem::exists(ProjectPath))
+        {
+            ProjectPath = "null";
+        }
+            
         if (EditorIni["RecentProjects"].IsSequence())
         {
             for (std::size_t i = 0; i < EditorIni["RecentProjects"].size(); i++)

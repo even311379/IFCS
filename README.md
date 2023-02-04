@@ -16,3 +16,4 @@ ___
 
 1. Download premake and set its path properly (ex: in env path), then run gen_win_project.bat to generate project files.
 2. Download [OpenCV](https://opencv.org/releases/) (4.6), and put its prebuild files (xxx.exe, xxx.dll, xxx.pdb) to your env path. Those files are not included in the repository, but required in this project.
+3. Rename folder **IFCS/Config_Template**  to **IFCS/Config**.

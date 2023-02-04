@@ -1,16 +1,16 @@
 ﻿#include "Modals.h"
 
 #include <fstream>
-#include "CategoryManagement.h"
+#include <shellapi.h>
 #include "ImFileDialog/ImFileDialog.h"
 #include "ImguiMD/imgui_markdown.h"
 #include "yaml-cpp/yaml.h"
-#include "Setting.h"
+
 #include "Style.h"
-
-#include <shellapi.h>
-
+#include "Setting.h"
+#include "CategoryManagement.h"
 #include "DataBrowser.h"
+
 
 namespace IFCS
 {
@@ -270,7 +270,8 @@ namespace IFCS
             if (ImGui::Button("Choose"))
             {
                 IsChoosingFolder = true;
-                ifd::FileDialog::Instance().Open("ChooseNewProjectLocationDialog", "Choose new project location", "");
+                ifd::FileDialog::Instance().Open("ChooseNewProjectLocationDialog", "Choose new project location", "",
+                    false, Setting::Get().ProjectPath);
             }
             ImGui::BeginDisabled(!CheckValidProjectName());
             if (ImGui::Button("OK", ImVec2(240, 0)))
@@ -312,7 +313,7 @@ namespace IFCS
             {
                 IsChoosingFolder = true;
                 ifd::FileDialog::Instance().Open("ChooseExistingProjectLocationDialog",
-                                                 "Choose existing project location", "");
+                                                 "Choose existing project location", "", false, Setting::Get().ProjectPath);
             }
             ImGui::BeginDisabled(!CheckValidExistingProject());
             if (ImGui::Button("OK", ImVec2(240, 0)))
@@ -559,7 +560,7 @@ namespace IFCS
                 if (ImGui::Button("Choose data to import"))
                 {
                     ifd::FileDialog::Instance().Open("ChooseDataToImportDialogue",
-                                                     "Choose data to import", "Data {.yaml}");
+                                                     "Choose data to import", "Data {.yaml}", false, Setting::Get().ProjectPath);
                     IsChoosingFolder = true;
                 }
                 if (!IsSourceValid)

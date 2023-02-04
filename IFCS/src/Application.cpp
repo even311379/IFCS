@@ -2,8 +2,8 @@
 #include "Utils.h"
 
 #include "imgui_internal.h"
-#include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
+#include "backends/imgui_impl_glfw.h"
 #include "Implot/implot.h"
 
 #include <cstdio>
@@ -53,17 +53,13 @@ namespace IFCS
         glfwSetErrorCallback(glfw_error_callback);
         if (!glfwInit()) return;
 
-        // TODO: what this is for? is it important?
         const char* glsl_version = "#version 130";
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
-
         // TODO: set window size by config file 
         Window = glfwCreateWindow(1920, 1080, "IFCS", NULL, NULL);
         if (Window == NULL) return;
-        // glfwSetWindowPos(Window, 0, 50);
-        // glfwSetWindowAttrib(Window, GLFW_RESIZABLE, 0); // should not block resize?
         glfwMakeContextCurrent(Window);
         glfwSwapInterval(1); // enable vsync
 
@@ -143,6 +139,8 @@ namespace IFCS
         Detection::Get().Setup("Prediction", true, 0);
         if (Setting::Get().ProjectIsLoaded)
         {
+            // TODO: chinese project path?
+            // glfwSetWindowTitle(Window, "這是中文");
             glfwSetWindowTitle(Window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
             CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
         }
@@ -166,6 +164,8 @@ namespace IFCS
 
             if (Setting::Get().JustSetup)
             {
+                // TODO: chinese project path?
+                // glfwSetWindowTitle(Window, "這是中文");
                 glfwSetWindowTitle(Window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
                 CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
                 Setting::Get().JustSetup = false;
@@ -214,6 +214,8 @@ namespace IFCS
 
             if (RequestToChangeTitle)
             {
+                // TODO: chinese project path?
+                // glfwSetWindowTitle(Window, "這是中文");
                 glfwSetWindowTitle(Window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
                 RequestToChangeTitle = false;
             }

@@ -31,6 +31,19 @@ namespace IFCS
 
         bool InsensitiveStringCompare(const std::string& InStr1, const std::string& InStr2);
 
+        // std::wstring ToWString(const std::string& InString);
+        //
+        // std::wstring ToWString(const char* InChars);
+        
+        // https://stackoverflow.com/a/59617138
+        std::string ConvertWideToANSI(const std::wstring& wstr);
+        std::wstring ConvertAnsiToWide(const std::string& str);
+        std::string ConvertWideToUtf8(const std::wstring& wstr);
+        std::wstring ConvertUtf8ToWide(const std::string& str);
+        
+        // std::string ToUString(const std::string& InString);
+        // std::string ToUString(const char* InChars);
+
         void AddSimpleTooltip(const char* Desc, float WrapSize = 35.0f, float Offset = 0.f);
 
         // copy from https://github.com/ocornut/imgui/issues/2718#issuecomment-591057202   NOT WORKING... flashed and return to uneditable format...

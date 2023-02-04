@@ -1488,8 +1488,6 @@ namespace IFCS
         ofs << Out.c_str();
         ofs.close();
 
-        ModelName.clear();
-
         // delete epoch_XXX.pt in weights folder to save space?
         for (auto entry : std::filesystem::directory_iterator(
                  Setting::Get().ProjectPath + "/Models/" + ModelName + "/weights/"))
@@ -1499,6 +1497,9 @@ namespace IFCS
                 std::filesystem::remove(entry.path());
             }
         }
+
+        
+        ModelName.clear();
     }
 
     void Train::UpdateTrainScript()

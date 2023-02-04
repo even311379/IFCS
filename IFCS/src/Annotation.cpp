@@ -11,6 +11,8 @@
 #include <IconFontCppHeaders/IconsFontAwesome5.h>
 #include "yaml-cpp/yaml.h"
 
+
+
 namespace IFCS
 {
     static bool NeedSave = false;
@@ -48,6 +50,25 @@ namespace IFCS
         IsImage = true;
         // imread and update info
         cv::Mat Img = cv::imread(DataBrowser::Get().SelectedImageInfo.ImagePath);
+
+        if (Img.empty())
+        {
+            // Solution to unicode path in opencv: https://stackoverflow.com/a/43369056
+            std::wstring wpath = Utils::ConvertUtf8ToWide(DataBrowser::Get().SelectedImageInfo.ImagePath);
+            
+            std::ifstream f(wpath, std::iostream::binary);
+            // Get its size
+            std::filebuf* pbuf = f.rdbuf();
+            size_t size = pbuf->pubseekoff(0, f.end, f.in);
+            pbuf->pubseekpos(0, f.in);
+
+            // Put it in a vector
+            std::vector<uchar> buffer(size);
+            pbuf->sgetn((char*)buffer.data(), size);
+
+            // Decode the vector
+            Img = cv::imdecode(buffer, cv::IMREAD_COLOR);
+        }
         DataBrowser::Get().SelectedImageInfo.Update(Img.cols, Img.rows);
         cv::cvtColor(Img, Img, cv::COLOR_BGR2RGB);
         cv::resize(Img, Img, cv::Size((int)WorkArea.x, (int)WorkArea.y));

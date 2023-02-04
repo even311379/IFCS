@@ -200,7 +200,7 @@ namespace IFCS
             }
         }
 
-        if (Tick > 120)
+        if (Tick > 30)
         {
             Tick = 0;
             // Update img ann to display...
