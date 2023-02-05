@@ -14,7 +14,7 @@ namespace IFCS
 {
     // TODO: count in images is missing...
 
-    
+
     void CategoryManagement::Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose)
     {
         Panel::Setup(InName, InShouldOpen, InFlags, InCanClose);
@@ -219,21 +219,54 @@ namespace IFCS
             if (ImGui::Button("OK", ImVec2(120, 0)))
             {
                 // Can never "delete" element!! only rebuild it!!!
-                YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
+                YAML::Node DataNode = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
                 YAML::Node NewNode;
-                for (YAML::const_iterator it = Node.begin(); it != Node.end(); ++it)
+                for (YAML::const_iterator it = DataNode.begin(); it != DataNode.end(); ++it)
                 {
-                    auto Clip = it->first.as<std::string>();
+                    auto FileName = it->first.as<std::string>();
                     auto CNode = it->second.as<YAML::Node>();
-                    for (YAML::const_iterator f = CNode.begin(); f != CNode.end(); ++f)
+                    // TODO: crash due to image data is treated as array?
+                    if (CNode.IsSequence())
                     {
-                        auto Frame = f->first.as<std::string>();
-                        auto FNode = f->second.as<YAML::Node>();
+                        auto FNode = CNode[0];
+                        bool RemainAnyAnnotation = false;
                         for (YAML::const_iterator ANN = FNode.begin(); ANN != FNode.end(); ++ANN)
                         {
+                            if (ANN->first.as<std::string>() == "UpdateTime") continue;
+                            if (ANN->first.as<std::string>() == "IsReady") continue;
                             if (ANN->second["CategoryID"].as<uint64_t>() != SelectedCatID)
                             {
-                                NewNode[Clip][Frame][ANN->first] = ANN->second;
+                                RemainAnyAnnotation = true;
+                                NewNode[FileName]["0"][ANN->first] = ANN->second;
+                            }
+                        }
+                        if (RemainAnyAnnotation)
+                        {
+                            NewNode[FileName]["0"]["UpdateTime"] = Utils::GetCurrentTimeString();
+                            NewNode[FileName]["0"]["IsReady"] = false;
+                        }
+                    }
+                    else
+                    {
+                        for (YAML::const_iterator f = CNode.begin(); f != CNode.end(); ++f)
+                        {
+                            bool RemainAnyAnnotation = false;
+                            auto Frame = f->first.as<std::string>();
+                            auto FNode = f->second.as<YAML::Node>();
+                            for (YAML::const_iterator ANN = FNode.begin(); ANN != FNode.end(); ++ANN)
+                            {
+                                if (ANN->first.as<std::string>() == "UpdateTime") continue;
+                                if (ANN->first.as<std::string>() == "IsReady") continue;
+                                if (ANN->second["CategoryID"].as<uint64_t>() != SelectedCatID)
+                                {
+                                    RemainAnyAnnotation = true;
+                                    NewNode[FileName][Frame][ANN->first] = ANN->second;
+                                }
+                            }
+                            if (RemainAnyAnnotation)
+                            {
+                                NewNode[FileName][Frame]["UpdateTime"] = Utils::GetCurrentTimeString();
+                                NewNode[FileName][Frame]["IsReady"] = false;
                             }
                         }
                     }
@@ -244,8 +277,11 @@ namespace IFCS
                 ofs << Out.c_str();
                 ofs.close();
 
+                // remove data in categories.yaml
                 Data.erase(SelectedCatID);
                 SelectedCatID = Data.begin()->first;
+                NeedSave = true;
+                
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SetItemDefaultFocus();
@@ -278,7 +314,7 @@ namespace IFCS
     {
         Data.clear();
         YAML::Node Node = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Categories.yaml"));
-        
+
         for (YAML::const_iterator it = Node.begin(); it != Node.end(); ++it)
         {
             Data[UUID(it->first.as<uint64_t>())] = FCategory(it->second.as<YAML::Node>());
@@ -322,17 +358,17 @@ namespace IFCS
         {
             // if (File->second.IsMap())
             // {
-                const YAML::Node& Frames = File->second;
-                for (YAML::const_iterator Fit = Frames.begin(); Fit != Frames.end(); ++Fit)
+            const YAML::Node& Frames = File->second;
+            for (YAML::const_iterator Fit = Frames.begin(); Fit != Frames.end(); ++Fit)
+            {
+                const YAML::Node& Frame = Fit->second;
+                for (YAML::const_iterator i = Frame.begin(); i != Frame.end(); ++i)
                 {
-                    const YAML::Node& Frame = Fit->second;
-                    for (YAML::const_iterator i = Frame.begin(); i != Frame.end(); ++i)
-                    {
-                        if (i->first.as<std::string>() == "IsReady" || i->first.as<std::string>() == "UpdateTime")
-                            continue;
-                        Data[i->second["CategoryID"].as<uint64_t>()].TotalUsedCount += 1;
-                    }
+                    if (i->first.as<std::string>() == "IsReady" || i->first.as<std::string>() == "UpdateTime")
+                        continue;
+                    Data[i->second["CategoryID"].as<uint64_t>()].TotalUsedCount += 1;
                 }
+            }
             // }
             // else
             // {

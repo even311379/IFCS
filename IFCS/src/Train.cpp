@@ -950,11 +950,11 @@ namespace IFCS
         std::string SplitName[3] = {"train", "valid", "test"};
         std::string TypeName[2] = {"images", "labels"};
         CategoryExportedID.clear();
-        size_t i = 0;
+        size_t TempID = 0;
         for (const auto& [CID, V] : CategoriesExportCounts)
         {
-            CategoryExportedID[CID] = i;
-            i++;
+            CategoryExportedID[CID] = TempID;
+            TempID++;
         }
         for (const auto& s : SplitName)
         {
