@@ -159,7 +159,7 @@ namespace IFCS
 
     void Modals::RenderWelcome()
     {
-        ImGui::SetNextWindowPos(Center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowPos(Center + ImVec2(0, 200), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
         if (ImGui::BeginPopupModal("Welcome", NULL, ImGuiWindowFlags_AlwaysAutoResize))
         {
             Markdown(LoadMDFile("Welcome"));
@@ -277,7 +277,7 @@ namespace IFCS
             if (ImGui::Button("OK", ImVec2(240, 0)))
             {
                 Setting::Get().Project = TempProjectName;
-                Setting::Get().ProjectPath = std::string(TempProjectLocation) + "/" + Setting::Get().Project;
+                Setting::Get().ProjectPath = std::string(TempProjectLocation) + TempProjectName;
                 Setting::Get().CreateStartup();
                 ImGui::CloseCurrentPopup();
                 IsModalOpen_NewProject = false;

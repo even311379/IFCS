@@ -48,7 +48,8 @@ namespace IFCS
         {
             for (std::size_t i = 0; i < EditorIni["RecentProjects"].size(); i++)
             {
-                RecentProjects.insert(EditorIni["RecentProjects"][i].as<std::string>());
+                if (std::filesystem::exists(EditorIni["RecentProjects"][i].as<std::string>()))
+                    RecentProjects.insert(EditorIni["RecentProjects"][i].as<std::string>());
             }
         }
         LoadUserIni();
@@ -138,6 +139,7 @@ namespace IFCS
         DataBrowser::Get().PostChangeProject();
         
         App->RequestToChangeTitle = true;
+        JustSetup = true;
     }
 
     void Setting::SetWorkspace(EWorkspace NewWorkspace)

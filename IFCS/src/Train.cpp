@@ -866,7 +866,7 @@ namespace IFCS
         std::vector<std::string> IncludedImgs;
         for (const auto& IF : IncludedImageFolders)
         {
-            for (const auto& p : std::filesystem::directory_iterator(IF))
+            for (const auto& p : std::filesystem::directory_iterator(Utils::ConvertUtf8ToWide(IF)))
             {
                 if (p.is_directory()) continue;
                 std::string FullPath = p.path().u8string();
