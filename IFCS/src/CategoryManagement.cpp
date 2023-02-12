@@ -7,6 +7,8 @@
 #include "Implot/implot.h"
 #include <yaml-cpp/yaml.h>
 
+#include "Annotation.h"
+
 // #include "TrainingSetGenerator.h"
 
 
@@ -218,64 +220,27 @@ namespace IFCS
             ImGui::Separator();
             if (ImGui::Button("OK", ImVec2(120, 0)))
             {
-                // Can never "delete" element!! only rebuild it!!!
-                YAML::Node DataNode = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
-                YAML::Node NewNode;
-                for (YAML::const_iterator it = DataNode.begin(); it != DataNode.end(); ++it)
+                bool HasDeleteAny = false;
+                for (auto [FileName, FrameSave] : Annotation::Get().Data)
                 {
-                    auto FileName = it->first.as<std::string>();
-                    auto CNode = it->second.as<YAML::Node>();
-                    // TODO: crash due to image data is treated as array?
-                    if (CNode.IsSequence())
+                    for (auto [FrameNum, Save] : FrameSave)
                     {
-                        auto FNode = CNode[0];
-                        bool RemainAnyAnnotation = false;
-                        for (YAML::const_iterator ANN = FNode.begin(); ANN != FNode.end(); ++ANN)
+                        for (auto it = Save.AnnotationData.cbegin(); it != Save.AnnotationData.cend();)
                         {
-                            if (ANN->first.as<std::string>() == "UpdateTime") continue;
-                            if (ANN->first.as<std::string>() == "IsReady") continue;
-                            if (ANN->second["CategoryID"].as<uint64_t>() != SelectedCatID)
+                            if (it->second.CategoryID == SelectedCatID)
                             {
-                                RemainAnyAnnotation = true;
-                                NewNode[FileName]["0"][ANN->first] = ANN->second;
+                                HasDeleteAny = true;
+                                Save.AnnotationData.erase(it++);
                             }
-                        }
-                        if (RemainAnyAnnotation)
-                        {
-                            NewNode[FileName]["0"]["UpdateTime"] = Utils::GetCurrentTimeString();
-                            NewNode[FileName]["0"]["IsReady"] = false;
-                        }
-                    }
-                    else
-                    {
-                        for (YAML::const_iterator f = CNode.begin(); f != CNode.end(); ++f)
-                        {
-                            bool RemainAnyAnnotation = false;
-                            auto Frame = f->first.as<std::string>();
-                            auto FNode = f->second.as<YAML::Node>();
-                            for (YAML::const_iterator ANN = FNode.begin(); ANN != FNode.end(); ++ANN)
+                            else
                             {
-                                if (ANN->first.as<std::string>() == "UpdateTime") continue;
-                                if (ANN->first.as<std::string>() == "IsReady") continue;
-                                if (ANN->second["CategoryID"].as<uint64_t>() != SelectedCatID)
-                                {
-                                    RemainAnyAnnotation = true;
-                                    NewNode[FileName][Frame][ANN->first] = ANN->second;
-                                }
-                            }
-                            if (RemainAnyAnnotation)
-                            {
-                                NewNode[FileName][Frame]["UpdateTime"] = Utils::GetCurrentTimeString();
-                                NewNode[FileName][Frame]["IsReady"] = false;
+                                ++it;
                             }
                         }
                     }
                 }
-                YAML::Emitter Out;
-                Out << NewNode;
-                std::ofstream ofs(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
-                ofs << Out.c_str();
-                ofs.close();
+                if (HasDeleteAny)
+                    Annotation::Get().NeedSaveFile = true;
 
                 // remove data in categories.yaml
                 Data.erase(SelectedCatID);
@@ -353,32 +318,15 @@ namespace IFCS
         }
         for (auto [UID, Cat] : Data)
             Cat.TotalUsedCount = 0;
-        YAML::Node AllNodes = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
-        for (YAML::const_iterator File = AllNodes.begin(); File != AllNodes.end(); ++File)
+        for (const auto& [FileName, FrameSave] : Annotation::Get().Data)
         {
-            // if (File->second.IsMap())
-            // {
-            const YAML::Node& Frames = File->second;
-            for (YAML::const_iterator Fit = Frames.begin(); Fit != Frames.end(); ++Fit)
+            for (const auto& [FrameNum, Save] : FrameSave)
             {
-                const YAML::Node& Frame = Fit->second;
-                for (YAML::const_iterator i = Frame.begin(); i != Frame.end(); ++i)
+                for (const auto& [UID, Ann] : Save.AnnotationData )
                 {
-                    if (i->first.as<std::string>() == "IsReady" || i->first.as<std::string>() == "UpdateTime")
-                        continue;
-                    Data[i->second["CategoryID"].as<uint64_t>()].TotalUsedCount += 1;
+                    Data[Ann.CategoryID].TotalUsedCount += 1;
                 }
             }
-            // }
-            // else
-            // {
-            //     for (YAML::const_iterator i = File->second[0].begin(); i != File->second[0].end(); ++i)
-            //     {
-            //         if (i->first.as<std::string>() == "IsReady" || i->first.as<std::string>() == "UpdateTime")
-            //             continue;
-            //         Data[i->second["CategoryID"].as<uint64_t>()].TotalUsedCount += 1;
-            //     }
-            // }
         }
     }
 }

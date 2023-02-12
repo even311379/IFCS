@@ -204,6 +204,41 @@ namespace IFCS
         return OutString;
     }
 
+    FAnnotationSave::FAnnotationSave(YAML::Node InputNode)
+    {
+        Deserialize(InputNode);
+    }
+
+    void FAnnotationSave::Deserialize(YAML::Node InputNode)
+    {
+        AnnotationData.clear();
+        for (YAML::const_iterator it=InputNode.begin(); it!=InputNode.end(); ++it)
+        {
+            if (it->first.as<std::string>() == "UpdateTime")
+            {
+                UpdateTime = it->second.as<std::string>();
+            }
+            else if (it->first.as<std::string>() == "IsReady")
+            {
+                IsReady = it->second.as<bool>();
+            }
+            else
+            {
+                AnnotationData[it->first.as<uint64_t>()] = FAnnotation(it->second);
+            }
+        }
+    }
+
+    YAML::Node FAnnotationSave::Serialize() const
+    {
+        YAML::Node Out;
+        Out["UpdateTime"] = UpdateTime;
+        Out["IsReady"] = IsReady;
+        for (auto [UID, Ann] : AnnotationData)
+            Out[uint64_t(UID)] = Ann.Serialize();
+        return Out;
+    }
+
     FTrainingSetDescription::FTrainingSetDescription(const std::string& InName, const YAML::Node& InputNode)
     {
         Deserialize(InName, InputNode);

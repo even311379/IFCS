@@ -23,6 +23,10 @@ void IFCS::MainMenu::Render()
 {
     if (ImGui::BeginMainMenuBar())
     {
+        if (ImGui::MenuItem("Save", nullptr, false, Annotation::Get().NeedSaveFile))
+        {
+            Annotation::Get().SaveDataFile();
+        }
         if (ImGui::BeginMenu(LOCTEXT("ToolbarMenu.Project")))
         {
             if (ImGui::BeginMenu("Open"))

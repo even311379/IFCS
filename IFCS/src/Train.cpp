@@ -10,6 +10,7 @@
 #include <string>
 #include <regex>
 
+#include "Annotation.h"
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
 #include "yaml-cpp/yaml.h"
@@ -828,7 +829,9 @@ namespace IFCS
 
     void Train::UpdateGenerartorInfo()
     {
-        YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
+        Annotation::Get().SaveData();
+        auto Data = Annotation::Get().Data;
+        // YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
         auto CatData = CategoryManagement::Get().Data;
         auto CatChecker = CategoryManagement::Get().GeneratorCheckData;
         CategoriesExportCounts.clear();
@@ -838,29 +841,26 @@ namespace IFCS
         NumIncludedImages = 0;
         for (const auto& C : IncludedClips)
         {
-            for (YAML::const_iterator Frame = Data[C].begin(); Frame != Data[C].end(); ++Frame)
+            for (auto [FrameNum, Save] : Data[C])
             {
-                YAML::Node ANode = Frame->second.as<YAML::Node>();
-                if (IncludeReadyOnly && !ANode["IsReady"].as<bool>()) continue;
+                if (IncludeReadyOnly && !Save.IsReady) continue;
                 bool ContainsExportedCategory = false;
-                for (YAML::const_iterator A = ANode.begin(); A != ANode.end(); ++A)
+                for (const auto& [UID, Ann] : Save.AnnotationData)
                 {
-                    if (A->first.as<std::string>() == "UpdateTime" || A->first.as<std::string>() == "IsReady")
-                        continue;
-
-                    UUID CID = A->second["CategoryID"].as<uint64_t>();
-                    if (CatChecker[CID])
+                    if (CatChecker[Ann.CategoryID])
                     {
-                        if (!CategoriesExportCounts.count(CID))
-                            CategoriesExportCounts[CID] = 1;
+                        if (!CategoriesExportCounts.count(Ann.CategoryID))
+                            CategoriesExportCounts[Ann.CategoryID] = 1;
                         else
-                            CategoriesExportCounts[CID] += 1;
+                            CategoriesExportCounts[Ann.CategoryID] += 1;
+
                         NumIncludedAnnotations++;
                         ContainsExportedCategory = true;
                     }
                 }
                 if (ContainsExportedCategory) NumIncludedFrames += 1;
             }
+            
         }
         // handle images
         std::vector<std::string> IncludedImgs;
@@ -877,16 +877,13 @@ namespace IFCS
 
         for (const auto& Img : IncludedImgs)
         {
-            if (!Data[Img]) continue;
-            YAML::Node ANode = Data[Img][0];
-            if (IncludeReadyOnly && !ANode["IsReady"].as<bool>()) continue;
+            if (!Data.count(Img)) continue;
+            FAnnotationSave ImgSave = Data[Img][0];
+            if (IncludeReadyOnly && !ImgSave.IsReady) continue;
             bool ContainsExportedCategory = false;
-            for (YAML::const_iterator A = ANode.begin(); A != ANode.end(); ++A)
+            for (const auto& [UID, Ann] : ImgSave.AnnotationData)
             {
-                if (A->first.as<std::string>() == "UpdateTime" || A->first.as<std::string>() == "IsReady")
-                    continue;
-
-                UUID CID = A->second["CategoryID"].as<uint64_t>();
+                UUID CID = Ann.CategoryID;
                 if (CatChecker[CID])
                 {
                     if (!CategoriesExportCounts.count(CID))
@@ -899,7 +896,6 @@ namespace IFCS
             }
             if (ContainsExportedCategory) NumIncludedImages += 1;
         }
-
 
         TotalExportImages = NumIncludedFrames + NumIncludedImages;
         SplitImgs[0] = int(SplitPercent[0] * 0.01f * TotalExportImages);

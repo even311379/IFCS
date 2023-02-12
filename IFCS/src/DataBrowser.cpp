@@ -203,20 +203,15 @@ namespace IFCS
         if (Tick > 30)
         {
             Tick = 0;
-            // Update img ann to display...
             ImgAnnotationsToDisplay.clear();
-            YAML::Node AnnData = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
-            for (YAML::const_iterator it = AnnData.begin(); it != AnnData.end(); ++it)
+            for (auto [FilePath, FrameSave] : Annotation::Get().Data)
             {
-                for (const std::string& Format : AcceptedImageFormat)
+                for (const auto& Format : AcceptedImageFormat)
                 {
-                    std::string FilePath = it->first.as<std::string>();
-                    if (FilePath.empty()) continue;
                     if (Utils::InsensitiveStringCompare(FilePath.substr(FilePath.size() - 4), Format))
                     {
-                        ImgAnnotationsToDisplay[FilePath] =
-                            FAnnotationToDisplay((int)it->second[0].size() - 2, it->second[0]["IsReady"].as<bool>());
-                        break;
+                        FAnnotationSave Save = FrameSave[0];
+                        ImgAnnotationsToDisplay[FilePath] = FAnnotationToDisplay(Save.AnnotationData.size(), Save.IsReady);
                     }
                 }
             }
@@ -301,7 +296,7 @@ namespace IFCS
                         if (NeedReviewedOnly && v.IsReady) continue;
                         char buff[128];
                         const char* Icon = v.IsReady ? ICON_FA_CHECK : "";
-                        sprintf(buff, "%d ...... (%d) %s", k, v.Count, Icon);
+                        sprintf(buff, "%d ...... (%d) %s", k, int(v.Count), Icon);
                         if (ImGui::Selectable(buff, k == Annotation::Get().CurrentFrame))
                         {
                             Annotation::Get().MoveFrame(k);
@@ -372,7 +367,7 @@ namespace IFCS
                     if (NeedReviewedOnly && AD.IsReady) continue;
                     char buff[128];
                     const char* Icon = AD.IsReady ? ICON_FA_CHECK : "";
-                    sprintf(buff, "%s ...... (%d) %s", ImageName.c_str(), AD.Count, Icon);
+                    sprintf(buff, "%s ...... (%d) %s", ImageName.c_str(), int(AD.Count), Icon);
                     LabelName = buff;
                 }
                 else

@@ -65,6 +65,19 @@ namespace IFCS
         Theme = static_cast<ETheme>(UserIni["Theme"].as<int>());
         PythonPath = UserIni["PythonPath"].as<std::string>();
         YoloV7Path = UserIni["YoloV7Path"].as<std::string>();
+        if (UserIni["bEnableGuideLine"])
+        {
+            bEnableGuideLine = UserIni["bEnableGuideLine"].as<bool>();
+            const std::vector<float> VGuidelineColor = UserIni["GuideLineColor"].as<std::vector<float>>();
+            GuidelineColor[0] = VGuidelineColor[0];
+            GuidelineColor[1] = VGuidelineColor[1];
+            GuidelineColor[2] = VGuidelineColor[2];
+        }
+        if (UserIni["bEnableAutoSave"])
+        {
+            bEnableAutoSave = UserIni["bEnableAutoSave"].as<bool>();
+            AutoSaveInterval = UserIni["AutoSaveInterval"].as<int>();
+        }
         Style::ApplyTheme(Theme);
         Modals::Get().Sync();
         ProjectIsLoaded = true;
@@ -98,6 +111,14 @@ namespace IFCS
         OutNode["Theme"] = static_cast<int>(Theme);
         OutNode["PythonPath"] = PythonPath;
         OutNode["YoloV7Path"] = YoloV7Path;
+        OutNode["bEnableGuideLine"] = bEnableGuideLine;
+        std::vector<float> VGuideLineColor;
+        VGuideLineColor.push_back(GuidelineColor[0]);
+        VGuideLineColor.push_back(GuidelineColor[1]);
+        VGuideLineColor.push_back(GuidelineColor[2]);
+        OutNode["GuideLineColor"] = VGuideLineColor;
+        OutNode["bEnableAutoSave"] = bEnableAutoSave;
+        OutNode["AutoSaveInterval"] = AutoSaveInterval;
         user_out << OutNode;
 
         // save as local file

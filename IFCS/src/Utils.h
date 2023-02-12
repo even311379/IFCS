@@ -89,6 +89,8 @@ namespace IFCS
 
         void GetAbsRectMinMax(ImVec2 p0, ImVec2 p1, ImVec2& OutMin, ImVec2& OutMax);
 
+        bool IsPointInsideRect(const ImVec2& ToCheck, const ImVec2& RectP0, const ImVec2& RectP1);
+
         // opencv to opengl helper
     }
 }

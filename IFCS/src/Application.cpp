@@ -26,6 +26,13 @@
 #include "stb_image.h"
 #include "IconFontCppHeaders/IconsFontAwesome5.h"
 
+
+/*
+ * TODO: fix exported format to real yaml... rather than something wierd??
+ * and create a helper script to fix previous failures
+ */
+
+
 namespace IFCS
 {
     Application::Application()
@@ -122,6 +129,8 @@ namespace IFCS
         // load static images?
     }
 
+    int UnSaveFileTick = 99999999;
+
     void Application::run()
     {
         // setup third party stuff
@@ -135,6 +144,7 @@ namespace IFCS
         LogPanel::Get().Setup("Log", false, 0);
         DataBrowser::Get().Setup("Data Browser", true, 0);
         Annotation::Get().Setup("Annotation", true, 0);
+        Annotation::Get().SetApp(this);
         Train::Get().Setup("Model Generator", true, 0);
         Detection::Get().Setup("Prediction", true, 0);
         if (Setting::Get().ProjectIsLoaded)
@@ -200,6 +210,14 @@ namespace IFCS
                 Setting::Get().Tick1();
             }
 
+            if (Setting::Get().bEnableAutoSave && tick  > UnSaveFileTick + Setting::Get().AutoSaveInterval*60  && Annotation::Get().NeedSaveFile)
+            {
+                // spdlog::info("tick: {0}, tick + interval *60: {1}, UnSaveFileTick: {2}", tick, tick + Setting::Get().AutoSaveInterval * 60, UnSaveFileTick);
+                Annotation::Get().SaveDataFile();
+                UnSaveFileTick = 99999999;
+                
+            }
+
             // end of render content
             // Rendering
             ImGui::Render();
@@ -216,7 +234,11 @@ namespace IFCS
             {
                 // TODO: chinese project path?
                 // glfwSetWindowTitle(Window, "這是中文");
-                glfwSetWindowTitle(Window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
+                spdlog::info("change title is triggered...");
+                if (Annotation::Get().NeedSaveFile)
+                    UnSaveFileTick = tick;
+                std::string NeedSaveMark = Annotation::Get().NeedSaveFile? "*" : "";
+                glfwSetWindowTitle(Window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ") " + NeedSaveMark).c_str());
                 RequestToChangeTitle = false;
             }
 

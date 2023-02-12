@@ -9,6 +9,8 @@
 #include "UUID.h"
 #include "Imspinner/imspinner.h"
 #include <IconFontCppHeaders/IconsFontAwesome5.h>
+
+#include "Application.h"
 #include "yaml-cpp/yaml.h"
 
 
@@ -24,6 +26,12 @@ namespace IFCS
     static ImVec2 WorkStartPos;
     static bool IsPlaying;
     static int FrameJumpSize = 1;
+
+    void Annotation::Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose)
+    {
+        Panel::Setup(InName, InShouldOpen, InFlags, InCanClose);
+        LoadDataFile();
+    }
 
     void Annotation::DisplayFrame(int NewFrameNum)
     {
@@ -73,8 +81,7 @@ namespace IFCS
         cv::cvtColor(Img, Img, cv::COLOR_BGR2RGB);
         cv::resize(Img, Img, cv::Size((int)WorkArea.x, (int)WorkArea.y));
         DataBrowser::Get().MatToGL(Img);
-        // SaveData();
-        LoadData();
+        GrabData();
     }
 
 
@@ -84,8 +91,7 @@ namespace IFCS
         // show frame 1 and update info
         CurrentFrame = 0;
         StartFrame = 0;
-        // SaveData();
-        LoadData();
+        GrabData();
         cv::Mat Frame;
         cv::VideoCapture cap(DataBrowser::Get().SelectedClipInfo.ClipPath);
         int Width = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
@@ -188,9 +194,9 @@ namespace IFCS
     std::map<int, FAnnotationToDisplay> Annotation::GetAnnotationToDisplay()
     {
         std::map<int, FAnnotationToDisplay> Out;
-        for (const auto& [F, M] : Data)
+        for (const auto& [F, S] : Data_Frame)
         {
-            Out[F] = FAnnotationToDisplay((int)M.size(), CheckData[F].IsReady);
+            Out[F] = FAnnotationToDisplay(int(S.AnnotationData.size()), S.IsReady);
         }
         return Out;
     }
@@ -226,9 +232,8 @@ namespace IFCS
             if (NumCoreFinished == 4) IsLoadingVideo = false;
         }
 
-        if (Tick > 60)
+        if (Tick > 15)
         {
-            Tick = 0;
             if (NeedSave) // check need save every 300 frame?
             {
                 SaveData();
@@ -239,6 +244,7 @@ namespace IFCS
                     NeedUpdateCategoryStatics = false;
                 }
             }
+            Tick = 0;
         }
         Tick++;
     }
@@ -284,7 +290,7 @@ namespace IFCS
             ImGui::SetNextItemWidth(120);
             if (ImGui::BeginCombo("##ClipFrame", std::to_string(CurrentFrame).c_str()))
             {
-                for (const auto& [F, Map] : Data)
+                for (const auto& [F, Map] : Data_Frame)
                 {
                     if (ImGui::Selectable(std::to_string(F).c_str(), F == CurrentFrame))
                     {
@@ -315,16 +321,26 @@ namespace IFCS
         ImGui::GetWindowDrawList()->AddImage((void*)(intptr_t)DataBrowser::Get().LoadedFramePtr,
                                              WorkStartPos + PanAmount,
                                              WorkStartPos + PanAmount + GetZoom() * WorkArea); // image
+        if (Setting::Get().bEnableGuideLine)
+        {
+            ImVec2 MousePos = ImGui::GetMousePos();
+            if (Utils::IsPointInsideRect(MousePos, WorkStartPos, WorkStartPos + WorkArea))
+            {
+                const ImU32 GuideCol = ImGui::ColorConvertFloat4ToU32({ Setting::Get().GuidelineColor[0], Setting::Get().GuidelineColor[1], Setting::Get().GuidelineColor[2], 1.0f});
+                ImGui::GetWindowDrawList()->AddLine({MousePos.x, WorkStartPos.y}, {MousePos.x, WorkStartPos.y + WorkArea.y}, GuideCol, 1);
+                ImGui::GetWindowDrawList()->AddLine({WorkStartPos.x, MousePos.y}, {WorkStartPos.x + WorkArea.x, MousePos.y}, GuideCol, 1);
+            }
+        }
         static UUID ToDeleteAnnID = 0;
         std::unordered_map<UUID, FAnnotation>* DataToDisplay = nullptr;
         if (IsImage)
         {
-            DataToDisplay = &Data_Img;
+            DataToDisplay = &Data_Img.AnnotationData;
         }
         else
         {
-            if (Data.count(CurrentFrame))
-                DataToDisplay = &Data[CurrentFrame];
+            if (Data_Frame.count(CurrentFrame))
+                DataToDisplay = &Data_Frame[CurrentFrame].AnnotationData;
         }
         // render things from data
         if (DataToDisplay)
@@ -366,9 +382,9 @@ namespace IFCS
                         ImVec2 Delta = ImGui::GetIO().MouseDelta / GetZoom();
                         A.Pan({Delta.x, Delta.y});
                         if (IsImage)
-                            UpdateTime_Img = Utils::GetCurrentTimeString();
+                            Data_Img.UpdateTime = Utils::GetCurrentTimeString();
                         else
-                            CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                            Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
                         NeedSave = true;
                     }
                     // resize top left
@@ -392,9 +408,9 @@ namespace IFCS
                             {
                                 A.CategoryID = UID;
                                 if (IsImage)
-                                    UpdateTime_Img = Utils::GetCurrentTimeString();
+                                    Data_Img.UpdateTime = Utils::GetCurrentTimeString();
                                 else
-                                    CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                                    Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
                                 NeedUpdateCategoryStatics = true;
                                 NeedSave = true;
                             }
@@ -403,9 +419,9 @@ namespace IFCS
                         {
                             ToDeleteAnnID = ID;
                             if (IsImage)
-                                UpdateTime_Img = Utils::GetCurrentTimeString();
+                                Data_Img.UpdateTime = Utils::GetCurrentTimeString();
                             else
-                                CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                                Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
                         }
                         ImGui::EndCombo();
                     }
@@ -417,9 +433,9 @@ namespace IFCS
         if (ToDeleteAnnID != 0)
         {
             if (IsImage)
-                Data_Img.erase(ToDeleteAnnID);
+                Data_Img.AnnotationData.erase(ToDeleteAnnID);
             else
-                Data[CurrentFrame].erase(ToDeleteAnnID);
+                Data_Frame[CurrentFrame].AnnotationData.erase(ToDeleteAnnID);
 
             ToDeleteAnnID = 0;
             NeedSave = true;
@@ -504,13 +520,13 @@ namespace IFCS
             std::array<float, 4> NewXYWH = MouseRectToXYWH(AbsMin, AbsMax);
             if (IsImage)
             {
-                Data_Img[UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
-                UpdateTime_Img = Utils::GetCurrentTimeString();
+                Data_Img.AnnotationData[UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
+                Data_Img.UpdateTime = Utils::GetCurrentTimeString();
             }
             else
             {
-                Data[CurrentFrame][UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
-                CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                Data_Frame[CurrentFrame].AnnotationData[UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
+                Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
             }
             CategoryManagement::Get().AddCount();
             NeedSave = true;
@@ -704,7 +720,6 @@ namespace IFCS
                 if (IsImage)
                 {
                     std::vector<std::string> AllImgs = DataBrowser::Get().GetAllImages();
-                    YAML::Node AnnData = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
                     std::string LastFoundImg;
                     for (const auto& ImgPath : AllImgs)
                     {
@@ -712,7 +727,7 @@ namespace IFCS
                         {
                             break;
                         }
-                        if (AnnData[ImgPath]) LastFoundImg = ImgPath;
+                        if (Data.count(ImgPath)) LastFoundImg = ImgPath;
                     }
                     if (!LastFoundImg.empty())
                     {
@@ -724,7 +739,7 @@ namespace IFCS
                 {
                     for (int i = CurrentFrame - 1; i > -1; i--)
                     {
-                        if (Data.count(i))
+                        if (Data_Frame.count(i))
                         {
                             MoveFrame(i);
                             break;
@@ -739,12 +754,11 @@ namespace IFCS
                 if (IsImage)
                 {
                     std::vector<std::string> AllImgs = DataBrowser::Get().GetAllImages();
-                    YAML::Node AnnData = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
                     std::string NextFoundImg;
                     bool ReachedCurrent = false;
                     for (const auto& ImgPath : AllImgs)
                     {
-                        if (AnnData[ImgPath] && ReachedCurrent)
+                        if (Data.count(ImgPath) && ReachedCurrent)
                         {
                             NextFoundImg = ImgPath;
                             break;
@@ -763,7 +777,7 @@ namespace IFCS
                 {
                     for (int i = CurrentFrame + 1; i < DataBrowser::Get().SelectedClipInfo.FrameCount - 1; i++)
                     {
-                        if (Data.count(i))
+                        if (Data_Frame.count(i))
                         {
                             MoveFrame(i);
                             break;
@@ -776,9 +790,9 @@ namespace IFCS
             if (ImGui::Button(ICON_FA_TIMES, BtnSize))
             {
                 if (IsImage)
-                    Data_Img.clear();
+                    Data_Img.AnnotationData.clear();
                 else
-                    Data.erase(CurrentFrame);
+                    Data_Frame.erase(CurrentFrame);
                 NeedSave = true;
             }
             Utils::AddSimpleTooltip("Delete all annotations in this frame/image");
@@ -795,118 +809,118 @@ namespace IFCS
 
         if (IsImage)
         {
-            if (!Data_Img.empty())
+            if (!Data_Img.IsEmpty())
             {
                 ImGui::SameLine(ImGui::GetContentRegionAvail().x - 100);
-                if (ImGui::Checkbox("Is ready?", &IsReady_Img))
+                if (ImGui::Checkbox("Is ready?", &Data_Img.IsReady))
                 {
-                    UpdateTime_Img = Utils::GetCurrentTimeString();
+                    Data_Img.UpdateTime = Utils::GetCurrentTimeString();
                     NeedSave = true;
                 }
             }
         }
         else
         {
-            if (Data.count(CurrentFrame))
+            if (Data_Frame.count(CurrentFrame))
             {
                 ImGui::SameLine(ImGui::GetContentRegionAvail().x - 100);
-                if (ImGui::Checkbox("Is ready?", &CheckData[CurrentFrame].IsReady))
+                if (ImGui::Checkbox("Is ready?", &Data_Frame[CurrentFrame].IsReady))
                 {
-                    CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                    Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
                     NeedSave = true;
                 }
+            }
+        }
+    }
+
+    void Annotation::SaveDataFile()
+    {
+        YAML::Node ToSave;
+        for (auto [FileName, FrameSave ] : Data)
+        {
+            for (auto [FrameNum, SaveData] : FrameSave)
+            {
+                // must save as string.. not int!!!
+                ToSave[FileName][std::to_string(FrameNum)] = SaveData.Serialize();
+            }
+        }
+        YAML::Emitter Out;
+        Out << ToSave;
+        std::ofstream Fout(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"));
+        Fout << Out.c_str();
+        spdlog::info("Data file is saved...");
+        NeedSaveFile = false;
+        App->RequestToChangeTitle = true;
+    }
+
+    void Annotation::LoadDataFile()
+    {
+        Data.clear();
+        YAML::Node FileData = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
+        for (YAML::const_iterator it = FileData.begin(); it!= FileData.end(); ++it)
+        {
+            auto FileName = it->first.as<std::string>();
+            if (FileName.empty()) continue;
+            auto CNode = it->second.as<YAML::Node>();
+            for (YAML::const_iterator f = CNode.begin(); f != CNode.end(); ++f)
+            {
+                auto Frame = f->first.as<int>();
+                FAnnotationSave NewSave;
+                auto FNode = f->second.as<YAML::Node>();
+                for (YAML::const_iterator ANN = FNode.begin(); ANN != FNode.end(); ++ANN)
+                {
+                    if (ANN->first.as<std::string>() == "UpdateTime")
+                    {
+                        NewSave.UpdateTime = ANN->second.as<std::string>();
+                    }
+                    else if (ANN->first.as<std::string>() == "IsReady")
+                    {
+                        NewSave.IsReady = ANN->second.as<bool>();
+                    }
+                    else
+                    {
+                        NewSave.AnnotationData[ANN->first.as<uint64_t>()] = FAnnotation(ANN->second);
+                    }
+                }
+                Data[FileName][Frame] = NewSave;
             }
         }
     }
 
     void Annotation::SaveData()
     {
-        YAML::Node Origin = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"));
         if (IsImage)
         {
-            if (Data_Img.empty())
+            const std::string ImgPath = DataBrowser::Get().SelectedImageInfo.ImagePath;
+            if (Data_Img.IsEmpty())
             {
-                Origin.remove(DataBrowser::Get().SelectedImageInfo.ImagePath);
+                Data.erase(ImgPath);
             }
             else
             {
-                YAML::Node ImgNode;
-                ImgNode["IsReady"] = IsReady_Img;
-                ImgNode["UpdateTime"] = UpdateTime_Img;
-                for (const auto& [ID, Ann] : Data_Img)
-                {
-                    ImgNode[std::to_string(ID)] = Ann.Serialize();
-                }
-                Origin[DataBrowser::Get().SelectedImageInfo.ImagePath]["0"] = ImgNode;
+                Data[ImgPath][0] = Data_Img; 
             }
         }
         else
         {
-            YAML::Node ClipNode;
-            for (const auto& [F, Map] : Data)
-            {
-                for (const auto& [ID, Ann] : Map)
-                {
-                    ClipNode[F][std::to_string(ID)] = Ann.Serialize();
-                }
-            }
-            for (const auto& [F, C] : CheckData)
-            {
-                ClipNode[F]["IsReady"] = C.IsReady;
-                ClipNode[F]["UpdateTime"] = C.UpdateTime;
-            }
-            Origin[DataBrowser::Get().SelectedClipInfo.ClipPath] = ClipNode;
+            Data[DataBrowser::Get().SelectedClipInfo.ClipPath] = Data_Frame;
         }
-
-        YAML::Emitter Out;
-        Out << Origin;
-        std::ofstream Fout(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"));
-        Fout << Out.c_str();
+        NeedSaveFile = true;
+        spdlog::info("Save data is called...");
+        App->RequestToChangeTitle = true;
     }
 
-    void Annotation::LoadData()
+    void Annotation::GrabData()
     {
-        YAML::Node AllAnnData = YAML::LoadFile(Setting::Get().ProjectPath + std::string("/Data/Annotations.yaml"));
         if (IsImage)
         {
-            Data_Img.clear();
-            IsReady_Img = false;
-            if (!AllAnnData[DataBrowser::Get().SelectedImageInfo.ImagePath]) return;
-            YAML::Node ImgNode = AllAnnData[DataBrowser::Get().SelectedImageInfo.ImagePath][0];
-            for (YAML::const_iterator it = ImgNode.begin(); it != ImgNode.end(); ++it)
-            {
-                if (it->first.as<std::string>() == "UpdateTime")
-                    UpdateTime_Img = it->second.as<std::string>();
-                else if (it->first.as<std::string>() == "IsReady")
-                    IsReady_Img = it->second.as<bool>();
-                else
-                    Data_Img[it->first.as<uint64_t>()] = FAnnotation(it->second);
-            }
+            if (!Data.count(DataBrowser::Get().SelectedImageInfo.ImagePath)) return;
+            Data_Img = Data[DataBrowser::Get().SelectedImageInfo.ImagePath][0];
         }
         else
         {
-            Data.clear();
-            CheckData.clear();
-            YAML::Node ClipData = AllAnnData[DataBrowser::Get().SelectedClipInfo.ClipPath];
-            for (YAML::const_iterator it = ClipData.begin(); it != ClipData.end(); ++it)
-            {
-                CheckData[it->first.as<int>()] = FCheck();
-                for (YAML::const_iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2)
-                {
-                    if (it2->first.as<std::string>() == "UpdateTime")
-                    {
-                        CheckData[it->first.as<int>()].UpdateTime = it2->second.as<std::string>();
-                    }
-                    else if (it2->first.as<std::string>() == "IsReady")
-                    {
-                        CheckData[it->first.as<int>()].IsReady = it2->second.as<bool>();
-                    }
-                    else
-                    {
-                        Data[it->first.as<int>()][it2->first.as<uint64_t>()] = FAnnotation(it2->second);
-                    }
-                }
-            }
+            if (!Data.count(DataBrowser::Get().SelectedClipInfo.ClipPath)) return;
+            Data_Frame = Data[DataBrowser::Get().SelectedClipInfo.ClipPath];
         }
     }
 
@@ -986,9 +1000,9 @@ namespace IFCS
             const ImVec2 Delta = ImGui::GetIO().MouseDelta / GetZoom();
             Ann.Resize(WhichCorner, {Delta.x, Delta.y});
             if (IsImage)
-                UpdateTime_Img = Utils::GetCurrentTimeString();
+                Data_Img.UpdateTime = Utils::GetCurrentTimeString();
             else
-                CheckData[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
             NeedSave = true;
         }
     }

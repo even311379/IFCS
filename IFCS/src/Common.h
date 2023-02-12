@@ -124,18 +124,12 @@ namespace IFCS
         TopRight = 3
     };
 
-    struct FCheck
-    {
-        bool IsReady;
-        std::string UpdateTime;
-    };
-        
     struct FAnnotationToDisplay
     {
         FAnnotationToDisplay()=default;
-        FAnnotationToDisplay(const int& InCount, const bool& InReady)
+        FAnnotationToDisplay(const size_t& InCount, const bool& InReady)
             :Count(InCount), IsReady(InReady) {}
-        int Count;
+        size_t Count;
         bool IsReady;
     };
     
@@ -151,6 +145,18 @@ namespace IFCS
         void Pan(std::array<float, 2> Changed);
         void Resize(EBoxCorner WhichCorner, std::array<float, 2> Changed);
         std::string GetExportTxt(size_t CID) const;
+    };
+
+    struct FAnnotationSave
+    {
+        FAnnotationSave() = default;
+        FAnnotationSave(YAML::Node InputNode);
+        std::unordered_map<UUID, FAnnotation> AnnotationData;
+        std::string UpdateTime;
+        bool IsReady;
+        YAML::Node Serialize() const;
+        void Deserialize(YAML::Node InputNode);
+        bool IsEmpty() const {return int(AnnotationData.size()) == 0; } 
     };
 
     struct FTrainingSetDescription

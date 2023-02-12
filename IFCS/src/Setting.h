@@ -27,23 +27,33 @@ namespace IFCS
         void Tick1();
         void CreateStartup();
         void StartFromPreviousProject();
+
+        // setting options
+        // appearance
+        ETheme Theme = ETheme::Light;
+        // editor
+        bool bEnableAutoSave = true;
+        int AutoSaveInterval = 30; // sec
+        bool bEnableGuideLine = true;
+        float GuidelineColor[3] = {0.f, 0.f, 0.f};
+        // Core Path
+        std::string PythonPath;
+        std::string YoloV7Path;
+
         std::string ProjectPath;
         std::set<std::string> RecentProjects;
         std::string Project;
         EWorkspace ActiveWorkspace = EWorkspace::Data;
         ESupportedLanguage PreferredLanguage = ESupportedLanguage::English;
-        ETheme Theme = ETheme::Light;
         bool ProjectIsLoaded = false;
-
         ImFont* DefaultFont;
+        
         ImFont* TitleFont;
         ImFont* H1;
         ImFont* H2;
         ImFont* H3;
         void SetWorkspace(EWorkspace NewWorkspace);
 
-        std::string PythonPath;
-        std::string YoloV7Path;
         bool IsEnvSet() const;
         bool JustSetup = false;
 

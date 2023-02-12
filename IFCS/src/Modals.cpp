@@ -652,75 +652,69 @@ namespace IFCS
         ImGui::SetNextWindowPos(Center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
         if (ImGui::BeginPopupModal("Setting", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            ImGui::BulletText("Choose Theme:");
-            ImGui::SameLine();
-            if (ImGui::RadioButton("Light", &ThemeToUse, 0))
+            if (ImGui::TreeNodeEx("Appearance", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                Setting::Get().Theme = ETheme::Light;
-                Style::ApplyTheme(ETheme::Light);
-            }
-            ImGui::SameLine();
-            if (ImGui::RadioButton("Dark", &ThemeToUse, 1))
-            {
-                Setting::Get().Theme = ETheme::Dark;
-                Style::ApplyTheme(ETheme::Dark);
-            }
-            /*// TODO: finish localization thing?
-            ImGui::TextDisabled("Localization not implement yet!");
-            ImGui::BulletText("Prefered Language:");
-            ImGui::SameLine();
-            // TODO: this is a static way... not considering future expansion yet...
-            const static char* LanguageOptions[] = {"English", "Traditional Chinese"};
-            ImGui::SetNextItemWidth(240.f);
-            ImGui::Combo("##Language_options", &LanguageToUse, LanguageOptions, IM_ARRAYSIZE(LanguageOptions));
-            const static char* AppSizeOptions[] = {
-                "FHD (1920 x 1080)", "2K (2560 x 1440)", "4k (3840 x 2160)", "Custom"
-            };
-            // TODO: finish app sizing?
-            ImGui::TextDisabled("app sizing... not impl yet...");
-            ImGui::BulletText("App size: ");
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(240.f);
-            ImGui::Combo("##AppSize", &AppSizeToUse, AppSizeOptions, IM_ARRAYSIZE(AppSizeOptions));
-            if (AppSizeToUse == 3)
-            {
-                ImGui::Separator();
-                ImGui::Indent();
-                ImGui::BeginGroup();
+                ImGui::BulletText("Choose Theme:");
+                ImGui::SameLine();
+                if (ImGui::RadioButton("Light", &ThemeToUse, 0))
                 {
-                    ImGui::BulletText("Custom App size: ");
-                    ImGui::SetNextItemWidth(120.f);
-                    ImGui::SliderInt("Width", &CustomWidth, 1280, 3840);
-                    ImGui::SameLine();
-                    ImGui::SetNextItemWidth(120.f);
-                    ImGui::SliderInt("Height", &CustomHeight, 720, 2160);
-                    ImGui::BulletText("Size Adjustment: ");
-                    ImGui::SetNextItemWidth(120.f);
-                    ImGui::DragFloat("Widgets", &WidgetResizeScale, 0.2f, 0.1f, 10.f);
-                    ImGui::SameLine();
-                    ImGui::SetNextItemWidth(120.f);
-                    ImGui::DragFloat("Font", &GlobalFontScaling, 0.2f, 0.1f, 5.0f);
+                    Setting::Get().Theme = ETheme::Light;
+                    Style::ApplyTheme(ETheme::Light);
                 }
-                ImGui::EndGroup();
-                ImGui::Unindent();
-            }*/
-            ImGui::Separator();
-            ImGui::BulletText("Yolo v7 Environment");
-            ImGui::InputText("Python path", TempPythonPath, IM_ARRAYSIZE(TempPythonPath), ImGuiInputTextFlags_ReadOnly);
-            ImGui::SameLine();
-            if (ImGui::Button("Choose"))
-            {
-                IsChoosingFolder = true;
-                ifd::FileDialog::Instance().Open("ChoosePythonPath", "Choose python path", "");
+                ImGui::SameLine();
+                if (ImGui::RadioButton("Dark", &ThemeToUse, 1))
+                {
+                    Setting::Get().Theme = ETheme::Dark;
+                    Style::ApplyTheme(ETheme::Dark);
+                }
+                ImGui::TreePop();
             }
-            ImGui::InputText("Yolo v7 path", TempYoloV7Path, IM_ARRAYSIZE(TempYoloV7Path),
-                             ImGuiInputTextFlags_ReadOnly);
-            ImGui::SameLine();
-            if (ImGui::Button("Choose Yolo V7 Folder"))
+            if (ImGui::TreeNodeEx("Editor", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                IsChoosingFolder = true;
-                ifd::FileDialog::Instance().Open("ChooseYoloV7Path", "Choose yolo V7 path", "");
+                ImGui::Checkbox("Auto Save", &Setting::Get().bEnableAutoSave);
+                if (Setting::Get().bEnableAutoSave)
+                {
+                    ImGui::SameLine();
+                    ImGui::Text(" (every ");
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(100.f);
+                    if (ImGui::InputInt(" seconds)", &Setting::Get().AutoSaveInterval))
+                    {
+                        if (Setting::Get().AutoSaveInterval < 5)
+                            Setting::Get().AutoSaveInterval = 5;
+                        else if (Setting::Get().AutoSaveInterval > 300)
+                            Setting::Get().AutoSaveInterval = 300;
+                    }
+                }
+                ImGui::Checkbox("Enable guide line", &Setting::Get().bEnableGuideLine);
+                if (Setting::Get().bEnableGuideLine)
+                {
+                    ImGui::ColorEdit3("Guide line color", Setting::Get().GuidelineColor);
+                }
+                Utils::AddSimpleTooltip("Show guide line in annotation workspace?");
+                ImGui::TreePop();
             }
+            if (ImGui::TreeNodeEx("Core path", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::BulletText("Yolo v7 Environment");
+                ImGui::InputText("Python path", TempPythonPath, IM_ARRAYSIZE(TempPythonPath), ImGuiInputTextFlags_ReadOnly);
+                ImGui::SameLine();
+                if (ImGui::Button("Choose"))
+                {
+                    IsChoosingFolder = true;
+                    ifd::FileDialog::Instance().Open("ChoosePythonPath", "Choose python path", "");
+                }
+                ImGui::InputText("Yolo v7 path", TempYoloV7Path, IM_ARRAYSIZE(TempYoloV7Path),
+                                 ImGuiInputTextFlags_ReadOnly);
+                ImGui::SameLine();
+                if (ImGui::Button("Choose Yolo V7 Folder"))
+                {
+                    IsChoosingFolder = true;
+                    ifd::FileDialog::Instance().Open("ChooseYoloV7Path", "Choose yolo V7 path", "");
+                }
+                ImGui::TreePop();
+            }
+            
             if (ImGui::Button("OK", ImVec2(ImGui::GetWindowWidth() * 0.2f, ImGui::GetFontSize() * 1.5f)))
             {
                 ImGui::CloseCurrentPopup();
@@ -808,11 +802,14 @@ namespace IFCS
         {
             if (ifd::FileDialog::Instance().HasResult())
             {
+                // TODO: Need test.. the emitter has some issue that saved the file as raw format... why??
                 std::string ExportDir = ifd::FileDialog::Instance().GetResult().string();
                 YAML::Node OutNode;
                 OutNode["SourceProject"] = Setting::Get().ProjectPath;
-                OutNode["Annotations"] = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
-                OutNode["Categories"] = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Categories.yaml");
+                YAML::Node AnnNode = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
+                YAML::Node CatNode = YAML::LoadFile(Setting::Get().ProjectPath + "/Data.Categories.yaml");
+                OutNode["Annotations"] = AnnNode;
+                OutNode["Categories"] = CatNode;
                 YAML::Emitter Out;
                 Out << OutNode;
                 std::ofstream Fout(ExportDir + "/" + Setting::Get().Project + "_Exported.yaml");

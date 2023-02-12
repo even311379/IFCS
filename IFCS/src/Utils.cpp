@@ -109,7 +109,7 @@ namespace IFCS
 
         std::string ConvertWideToANSI(const std::wstring& wstr)
         {
-            int count = WideCharToMultiByte(CP_ACP, 0, wstr.c_str(), wstr.length(), NULL, 0, NULL, NULL);
+            int count = WideCharToMultiByte(CP_ACP, 0, wstr.c_str(), int(wstr.length()), NULL, 0, NULL, NULL);
             std::string str(count, 0);
             WideCharToMultiByte(CP_ACP, 0, wstr.c_str(), -1, &str[0], count, NULL, NULL);
             return str;
@@ -117,15 +117,15 @@ namespace IFCS
 
         std::wstring ConvertAnsiToWide(const std::string& str)
         {
-            int count = MultiByteToWideChar(CP_ACP, 0, str.c_str(), str.length(), NULL, 0);
+            int count = MultiByteToWideChar(CP_ACP, 0, str.c_str(), int(str.length()), NULL, 0);
             std::wstring wstr(count, 0);
-            MultiByteToWideChar(CP_ACP, 0, str.c_str(), str.length(), &wstr[0], count);
+            MultiByteToWideChar(CP_ACP, 0, str.c_str(), int(str.length()), &wstr[0], count);
             return wstr;
         }
 
         std::string ConvertWideToUtf8(const std::wstring& wstr)
         {
-            int count = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), wstr.length(), NULL, 0, NULL, NULL);
+            int count = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), int(wstr.length()), NULL, 0, NULL, NULL);
             std::string str(count, 0);
             WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, &str[0], count, NULL, NULL);
             return str;
@@ -133,24 +133,11 @@ namespace IFCS
 
         std::wstring ConvertUtf8ToWide(const std::string& str)
         {
-            int count = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), str.length(), NULL, 0);
+            int count = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), int(str.length()), NULL, 0);
             std::wstring wstr(count, 0);
-            MultiByteToWideChar(CP_UTF8, 0, str.c_str(), str.length(), &wstr[0], count);
+            MultiByteToWideChar(CP_UTF8, 0, str.c_str(), int(str.length()), &wstr[0], count);
             return wstr;
         }
-
-        // std::string ToUString(const std::string& InString)
-        // {
-        //     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-        //     return converter.to_bytes(InString);
-        // }
-
-        // std::string ToUString(const char* InChars)
-        // {
-        //     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-        //     return converter.to_bytes((wchar_t*)InChars);
-        //     // return ToUString(std::string(InChars));
-        // }
 
         void AddSimpleTooltip(const char* Desc, float WrapSize, float Offset)
         {
@@ -318,6 +305,13 @@ namespace IFCS
             OutMin.y = std::min(p0.y, p1.y);
             OutMax.x = std::max(p0.x, p1.x);
             OutMax.y = std::max(p0.y, p1.y);
+        }
+
+        bool IsPointInsideRect(const ImVec2& ToCheck, const ImVec2& RectP0, const ImVec2& RectP1)
+        {
+            ImVec2 AbsMin, AbsMax;
+            GetAbsRectMinMax(RectP0, RectP1, AbsMin, AbsMax);
+            return ToCheck.x >= AbsMin.x && ToCheck.x <= AbsMax.x && ToCheck.y >= AbsMin.y && ToCheck.y <= AbsMax.y;
         }
     }
 }
