@@ -265,6 +265,7 @@ namespace IFCS
                 ImGui::SetNextItemWidth(120.f);
                 if (ImGui::DragInt("##PlayStart", &StartFrame, 1, 0, EndFrame - 1))
                 {
+                    if (StartFrame < 0) StartFrame = 0;
                     if (StartFrame > EndFrame) StartFrame = EndFrame - 1;
                     if (CurrentFrame < StartFrame) CurrentFrame = StartFrame;
                 }
@@ -277,6 +278,7 @@ namespace IFCS
                 if (ImGui::DragInt("##PlayEnd", &EndFrame, 1, StartFrame + 1, TotalClipFrameSize))
                 {
                     CurrentFrame = StartFrame;
+                    if (EndFrame > TotalClipFrameSize) EndFrame = TotalClipFrameSize;
                     // if (CurrentFrame > EndFrame) CurrentFrame = EndFrame;
                     // if (EndFrame < StartFrame) EndFrame = StartFrame + 1;
                 }
@@ -447,8 +449,6 @@ namespace IFCS
 
     void Detection::UpdateFrameImpl(cv::Mat Data)
     {
-        UpdateCurrentCatCount();
-        UpdateAccumulatedPasses();
         glGenTextures(1, &LoadedFramePtr_Analysis);
         glBindTexture(GL_TEXTURE_2D, LoadedFramePtr_Analysis);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -566,6 +566,7 @@ namespace IFCS
 
         if (IndividualData.empty()) return;
 
+        UpdateAccumulatedPasses();
         static ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV |
             ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable;
 
@@ -875,6 +876,7 @@ namespace IFCS
             ImGui::SameLine();
             ImGui::ColorEdit3("##hint", (float*)&HintColor, ImGuiColorEditFlags_NoInputs);
         }
+        UpdateCurrentCatCount();
         static ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV |
             ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable;
 

@@ -234,7 +234,6 @@ namespace IFCS
             {
                 // TODO: chinese project path?
                 // glfwSetWindowTitle(Window, "這是中文");
-                spdlog::info("change title is triggered...");
                 if (Annotation::Get().NeedSaveFile)
                     UnSaveFileTick = tick;
                 std::string NeedSaveMark = Annotation::Get().NeedSaveFile? "*" : "";
@@ -245,12 +244,15 @@ namespace IFCS
             if (RequestToQuit)
             {
                 glfwDestroyWindow(Window);
+
             }
 
             tick ++;
         }
         Detection::Get().ClearCacheIndividuals();
         Setting::Get().Save();
+        if (Annotation::Get().NeedSaveFile)
+            Annotation::Get().SaveDataFile();
     }
 
     void Application::CreateFileDialog()

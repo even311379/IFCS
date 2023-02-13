@@ -415,15 +415,17 @@ namespace IFCS
                                 NeedSave = true;
                             }
                         }
-                        if (ImGui::Selectable("Delete"))
-                        {
-                            ToDeleteAnnID = ID;
-                            if (IsImage)
-                                Data_Img.UpdateTime = Utils::GetCurrentTimeString();
-                            else
-                                Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
-                        }
                         ImGui::EndCombo();
+                    }
+                    ImVec2 DelPos = TR + ImVec2(PanControlRadius, 0);
+                    ImGui::SetCursorScreenPos(DelPos);
+                    if (ImGui::Button(ICON_FA_TIMES_CIRCLE))
+                    {
+                        ToDeleteAnnID = ID;
+                        if (IsImage)
+                            Data_Img.UpdateTime = Utils::GetCurrentTimeString();
+                        else
+                            Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
                     }
                     ImGui::PopStyleColor();
                 }
@@ -816,6 +818,10 @@ namespace IFCS
                 {
                     Data_Img.UpdateTime = Utils::GetCurrentTimeString();
                     NeedSave = true;
+                    if (Data_Img.IsReady && DataBrowser::Get().NeedReviewedOnly )
+                    {
+                        // TODO: jump to next one which need review (too tedious..., leave for future update? )
+                    }
                 }
             }
         }
@@ -828,6 +834,10 @@ namespace IFCS
                 {
                     Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
                     NeedSave = true;
+                    if (Data_Img.IsReady && DataBrowser::Get().NeedReviewedOnly )
+                    {
+                        // TODO: jump to next one which need review (too tedious..., leave for future update? )
+                    }
                 }
             }
         }
@@ -906,7 +916,6 @@ namespace IFCS
             Data[DataBrowser::Get().SelectedClipInfo.ClipPath] = Data_Frame;
         }
         NeedSaveFile = true;
-        spdlog::info("Save data is called...");
         App->RequestToChangeTitle = true;
     }
 

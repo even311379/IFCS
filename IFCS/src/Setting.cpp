@@ -158,7 +158,8 @@ namespace IFCS
         CategoryManagement::Get().UpdateCategoryStatics();
         CategoryManagement::Get().SelectedCatID = 0;
         DataBrowser::Get().PostChangeProject();
-        
+
+        Annotation::Get().LoadDataFile();
         App->RequestToChangeTitle = true;
         JustSetup = true;
     }

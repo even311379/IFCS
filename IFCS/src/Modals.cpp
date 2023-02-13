@@ -807,7 +807,7 @@ namespace IFCS
                 YAML::Node OutNode;
                 OutNode["SourceProject"] = Setting::Get().ProjectPath;
                 YAML::Node AnnNode = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
-                YAML::Node CatNode = YAML::LoadFile(Setting::Get().ProjectPath + "/Data.Categories.yaml");
+                YAML::Node CatNode = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Categories.yaml");
                 OutNode["Annotations"] = AnnNode;
                 OutNode["Categories"] = CatNode;
                 YAML::Emitter Out;

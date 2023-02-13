@@ -39,6 +39,8 @@ namespace IFCS
 
         const std::array<std::string, 6> AcceptedClipsFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"};
         const std::array<std::string, 3> AcceptedImageFormat = {".jpg", ".jpeg", ".png"};
+        
+        bool NeedReviewedOnly;
     protected:
         void RenderContent() override;
 
@@ -52,7 +54,6 @@ namespace IFCS
         bool HasAnyClip = false;
         bool HasAnyImage = false;
         std::unordered_map<std::string, FAnnotationToDisplay> ImgAnnotationsToDisplay;
-        bool NeedReviewedOnly;
 
         bool ShouldViewDetail = false;
         std::string SelectedTrainingSet;
