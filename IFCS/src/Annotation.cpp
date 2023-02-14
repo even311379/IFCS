@@ -871,6 +871,7 @@ namespace IFCS
 
     void Annotation::LoadDataFile()
     {
+        if (!Setting::Get().ProjectIsLoaded) return;
         Data.clear();
         YAML::Node FileData = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
         for (YAML::const_iterator it = FileData.begin(); it!= FileData.end(); ++it)
