@@ -55,7 +55,7 @@ namespace IFCS
         int ZoomLevel = 0;
         float GetZoom(int InZoomLevel);
         float GetZoom();
-        std::array<float, 4> MouseRectToXYWH(ImVec2 RectMin, ImVec2 RectMax);
+        std::array<float, 4> MouseRectToXYWH(ImVec2 RectMin, ImVec2 RectMax, bool& bSuccess);
         std::array<float, 4> TransformXYWH(const std::array<float, 4> InXYWH);
         void ResizeImpl(EBoxCorner WhichCorner, const ImVec2& InPos, ImU32 InColor, bool IsDragging, FAnnotation& Ann);
 

@@ -419,6 +419,7 @@ namespace IFCS
                     }
                     ImVec2 DelPos = TR + ImVec2(PanControlRadius, 0);
                     ImGui::SetCursorScreenPos(DelPos);
+                    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.f);
                     if (ImGui::Button(ICON_FA_TIMES_CIRCLE))
                     {
                         ToDeleteAnnID = ID;
@@ -427,6 +428,7 @@ namespace IFCS
                         else
                             Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
                     }
+                    ImGui::PopStyleVar();
                     ImGui::PopStyleColor();
                 }
                 ImGui::PopID();
@@ -519,19 +521,23 @@ namespace IFCS
             IsAdding = false;
             ImVec2 AbsMin, AbsMax;
             Utils::GetAbsRectMinMax(AddPointStart, ImGui::GetMousePos(), AbsMin, AbsMax);
-            std::array<float, 4> NewXYWH = MouseRectToXYWH(AbsMin, AbsMax);
-            if (IsImage)
+            bool WasSuccess;
+            std::array<float, 4> NewXYWH = MouseRectToXYWH(AbsMin, AbsMax, WasSuccess);
+            if (WasSuccess)
             {
-                Data_Img.AnnotationData[UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
-                Data_Img.UpdateTime = Utils::GetCurrentTimeString();
+                if (IsImage)
+                {
+                    Data_Img.AnnotationData[UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
+                    Data_Img.UpdateTime = Utils::GetCurrentTimeString();
+                }
+                else
+                {
+                    Data_Frame[CurrentFrame].AnnotationData[UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
+                    Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                }
+                CategoryManagement::Get().AddCount();
+                NeedSave = true;
             }
-            else
-            {
-                Data_Frame[CurrentFrame].AnnotationData[UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
-                Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
-            }
-            CategoryManagement::Get().AddCount();
-            NeedSave = true;
         }
     }
 
@@ -923,6 +929,7 @@ namespace IFCS
     {
         if (IsImage)
         {
+            Data_Img.AnnotationData.clear();
             if (!Data.count(DataBrowser::Get().SelectedImageInfo.ImagePath)) return;
             Data_Img = Data[DataBrowser::Get().SelectedImageInfo.ImagePath][0];
         }
@@ -954,8 +961,9 @@ namespace IFCS
         return GetZoom(ZoomLevel);
     }
 
-    std::array<float, 4> Annotation::MouseRectToXYWH(ImVec2 RectMin, ImVec2 RectMax)
+    std::array<float, 4> Annotation::MouseRectToXYWH(ImVec2 RectMin, ImVec2 RectMax, bool& bSuccess)
     {
+        bSuccess = true;
         ImVec2 RawRectDiff = RectMax - RectMin;
         RectMin = (RectMin - WorkStartPos - PanAmount) / GetZoom();
         RectMax = RectMin + RawRectDiff / GetZoom();
@@ -963,6 +971,8 @@ namespace IFCS
         if (RectMin.y <= 0) RectMin.y = 0;
         if (RectMax.x >= WorkArea.x) RectMax.x = WorkArea.x;
         if (RectMax.y >= WorkArea.y) RectMax.y = WorkArea.y;
+        if (RectMax.x < 0.f || RectMin.x > WorkArea.x || RectMax.y < 0.f || RectMin.y > WorkArea.y)
+            bSuccess = false;
         return {
             (RectMax.x + RectMin.x) / 2,
             (RectMax.y + RectMin.y) / 2,

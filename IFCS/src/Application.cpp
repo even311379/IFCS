@@ -151,7 +151,7 @@ namespace IFCS
         {
             // TODO: chinese project path?
             // glfwSetWindowTitle(Window, "這是中文");
-            glfwSetWindowTitle(Window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
+            glfwSetWindowTitle(Window, (std::string("IFCS (v1.0)   ") + "(" + Setting::Get().ProjectPath + ")").c_str());
             CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
         }
         else
@@ -176,7 +176,7 @@ namespace IFCS
             {
                 // TODO: chinese project path?
                 // glfwSetWindowTitle(Window, "這是中文");
-                glfwSetWindowTitle(Window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
+                glfwSetWindowTitle(Window, (std::string("IFCS (v1.0)    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
                 CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
                 Setting::Get().JustSetup = false;
             }
@@ -237,7 +237,7 @@ namespace IFCS
                 if (Annotation::Get().NeedSaveFile)
                     UnSaveFileTick = tick;
                 std::string NeedSaveMark = Annotation::Get().NeedSaveFile? "*" : "";
-                glfwSetWindowTitle(Window, (std::string("IFCS    ") + "(" + Setting::Get().ProjectPath + ") " + NeedSaveMark).c_str());
+                glfwSetWindowTitle(Window, (std::string("IFCS (v1.0)   ") + "(" + Setting::Get().ProjectPath + ") " + NeedSaveMark).c_str());
                 RequestToChangeTitle = false;
             }
 
