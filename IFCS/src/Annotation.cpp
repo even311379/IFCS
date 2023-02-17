@@ -281,6 +281,7 @@ namespace IFCS
                     {
                         DataBrowser::Get().SelectedImageInfo.ImagePath = ""; // Deselect image...
                         DataBrowser::Get().SelectedClipInfo.ClipPath = C;
+                        spdlog::info("inside combo {}", DataBrowser::Get().SelectedClipInfo.ClipPath);
                         PrepareVideo();
                     }
                 }
@@ -928,7 +929,11 @@ namespace IFCS
         }
         else
         {
-            if (!Data.count(DataBrowser::Get().SelectedClipInfo.ClipPath)) return;
+            if (!Data.count(DataBrowser::Get().SelectedClipInfo.ClipPath))
+            {
+                Data_Frame.clear();
+                return;
+            }
             Data_Frame = Data[DataBrowser::Get().SelectedClipInfo.ClipPath];
         }
     }
