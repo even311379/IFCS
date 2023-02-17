@@ -9,8 +9,6 @@
 
 #include "Annotation.h"
 
-// #include "TrainingSetGenerator.h"
-
 
 namespace IFCS
 {
