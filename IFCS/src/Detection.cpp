@@ -360,6 +360,15 @@ namespace IFCS
         {
             for (const FLabelData& L : LoadedLabels[DB.CurrentFrame])
             {
+                if (bSetROI)
+                {
+                    if (L.X < std::min(RoiRegion[0], RoiRegion[2]) || L.X > std::max(RoiRegion[0], RoiRegion[2]) ||
+                        L.Y < std::min(RoiRegion[1], RoiRegion[3]) || L.Y > std::max(RoiRegion[1], RoiRegion[3]))
+                    {
+                        continue;
+                    }
+                }
+                
                 ImVec2 P1 = StartPos;
                 ImVec2 P2 = StartPos;
                 P1.x += (L.X - L.Width * 0.5f) * WorkArea.x;
@@ -998,7 +1007,11 @@ namespace IFCS
             {
                 std::string TxtName = Entry.path().filename().u8string();
                 std::smatch m;
-                std::regex_search(TxtName, m, std::regex("_(\\d+)."));
+
+                // TODO: this regex make this bad...
+                std::regex_search(TxtName, m, std::regex("_(\\d+).txt"));
+
+                
                 int FrameCount = std::stoi(m.str(1));
 
                 std::ifstream TxtFile(Entry.path().u8string());
@@ -1040,7 +1053,6 @@ namespace IFCS
 
     void Detection::OnAnalyzeFinished()
     {
-        UpdateRoiScreenData();
         IsAnalyzing = false;
         DB.VideoFrames.clear();
         DB.CurrentFrame = 0;
@@ -1057,8 +1069,11 @@ namespace IFCS
         cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y)); // 16 : 9 // no need to resize?
         cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
         cap.release();
-        DB.MatToGL(Frame);
 
+        // call this later since clip param not set yet...
+        UpdateRoiScreenData();
+        
+        DB.MatToGL(Frame);
         DB.LoadingVideoBlock(IsLoadingVideo, 0, DetectionClip);
 
     }
