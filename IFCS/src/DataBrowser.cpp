@@ -7,6 +7,7 @@
 #include "IconFontCppHeaders/IconsFontAwesome5.h"
 #include <spdlog/spdlog.h>
 #include <shellapi.h>
+#include <fstream>
 #include <yaml-cpp/yaml.h>
 #include "opencv2/opencv.hpp"
 #include "backends/imgui_impl_glfw.h"
@@ -109,9 +110,140 @@ namespace IFCS
         return AllImageFolders;
     }
 
-    void DataBrowser::LoadVideoFrame(int FrameNumber)
+    void DataBrowser::DisplayFrame(int NewFrameNum, const std::string& ParticularClip)
     {
-        MatToGL(VideoFrames[FrameNumber]);
+        CurrentFrame = NewFrameNum;
+        if (!VideoFrames.count(CurrentFrame))
+        {
+            cv::VideoCapture Cap;
+            if (ParticularClip.empty())
+                Cap.open(SelectedClipInfo.ClipPath);
+            else
+            {
+                Cap.open(ParticularClip);
+            }
+            cv::Mat Frame;
+            Cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
+            Cap >> Frame;
+            cv::resize(Frame, Frame, cv::Size(1280, 720)); // 16 : 9
+            cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+            Cap.release();
+            MatToGL(Frame);
+        }
+        else
+        {
+            MatToGL(VideoFrames[NewFrameNum]);
+        }
+    }
+
+    void DataBrowser::DisplayImage()
+    {
+        IsImageDisplayed = true;
+        // release memory for video frames
+        VideoFrames.clear();
+        
+        // imread and update info
+        cv::Mat Img = cv::imread(DataBrowser::Get().SelectedImageInfo.ImagePath);
+
+        if (Img.empty())
+        {
+            // Solution to unicode path in opencv: https://stackoverflow.com/a/43369056
+            std::wstring wpath = Utils::ConvertUtf8ToWide(DataBrowser::Get().SelectedImageInfo.ImagePath);
+            
+            std::ifstream f(wpath, std::iostream::binary);
+            // Get its size
+            std::filebuf* pbuf = f.rdbuf();
+            size_t size = pbuf->pubseekoff(0, f.end, f.in);
+            pbuf->pubseekpos(0, f.in);
+
+            // Put it in a vector
+            std::vector<uchar> buffer(size);
+            pbuf->sgetn((char*)buffer.data(), size);
+
+            // Decode the vector
+            Img = cv::imdecode(buffer, cv::IMREAD_COLOR);
+        }
+        SelectedImageInfo.Update(Img.cols, Img.rows);
+        cv::cvtColor(Img, Img, cv::COLOR_BGR2RGB);
+        cv::resize(Img, Img, cv::Size((int)WorkArea.x, (int)WorkArea.y));
+        MatToGL(Img);
+        Annotation::Get().GrabData();
+    }
+
+    void DataBrowser::PrepareVideo(bool& InLoadingStatus)
+    {
+        IsImageDisplayed = false;
+        // show frame 1 and update info
+        CurrentFrame = 0;
+        VideoStartFrame = 0;
+        Annotation::Get().GrabData();
+        cv::Mat Frame;
+        cv::VideoCapture cap(SelectedClipInfo.ClipPath);
+        int Width = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
+        int Height = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+        float FPS = (float)cap.get(cv::CAP_PROP_FPS);
+        int FrameCount = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
+        VideoEndFrame = FrameCount - 1;
+        SelectedClipInfo.Update(FrameCount, FPS, Width, Height);
+        cap >> Frame;
+        cv::resize(Frame, Frame, cv::Size(1280, 720)); // 16 : 9
+        cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+        cap.release();
+        MatToGL(Frame);
+        VideoFrames.clear();
+        LoadingVideoBlock(InLoadingStatus, 0);
+    }
+
+    void DataBrowser::LoadingVideoBlock(bool& InLoadingStatus, int CurrentFrameNum, const std::string& ParticularClip)
+    {
+        // check which block to load and which to erase
+        if (InLoadingStatus) return;
+        if (VideoFrames.count(CurrentFrameNum)) return;
+        InLoadingStatus = true;
+        VideoFrames.clear();
+        const int NewBlockStartIdx = CurrentFrameNum / Setting::Get().MaxCachedFramesSize;
+        // async load frame with multi core?
+        auto LoadVideo = [=](int Ith)
+        {
+            cv::VideoCapture Cap;
+            if (ParticularClip.empty())
+            {
+                Cap.open(SelectedClipInfo.ClipPath);
+            }
+            else
+            {
+                Cap.open(ParticularClip);
+            }
+            int NumFramesToLoad = std::min(Setting::Get().MaxCachedFramesSize, (int)Cap.get(cv::CAP_PROP_FRAME_COUNT));
+            int PerCoreSize = NumFramesToLoad / Setting::Get().CoresToUse;
+            int Start = NewBlockStartIdx * NumFramesToLoad + Ith * PerCoreSize;
+            int End =  Ith == Setting::Get().CoresToUse - 1?  (NewBlockStartIdx + 1) * NumFramesToLoad: Start + PerCoreSize + 1;
+            Cap.set(cv::CAP_PROP_POS_FRAMES, Start);
+            while (1)
+            {
+                if (Start > End)
+                {
+                    break;
+                }
+                cv::Mat Frame;
+                Cap.read(Frame);
+                if (Frame.empty())
+                {
+                    break;
+                }
+                cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y));
+                cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+                VideoFrames[Start] = Frame;
+                Start++;
+                // spdlog::info("Loading in thread {}", Ith);
+            }
+            Cap.release();
+        };
+        LoadingVideoTasks.clear();
+        for (int T = 0; T < Setting::Get().CoresToUse; T++)
+        {
+            LoadingVideoTasks.emplace_back(std::async(std::launch::async, LoadVideo, T));
+        }
     }
 
     static int Tick = 0;
@@ -265,7 +397,7 @@ namespace IFCS
                     LastSelectedAssetType = EAssetType::Clip;
                     if (Setting::Get().ActiveWorkspace == EWorkspace::Data)
                     {
-                        Annotation::Get().PrepareVideo();
+                        PrepareVideo(Annotation::Get().IsLoadingVideo);
                     }
                     else // only update info
                     {
@@ -297,9 +429,9 @@ namespace IFCS
                         char buff[128];
                         const char* Icon = v.IsReady ? ICON_FA_CHECK : "";
                         sprintf(buff, "%d ...... (%d) %s", k, int(v.Count), Icon);
-                        if (ImGui::Selectable(buff, k == Annotation::Get().CurrentFrame))
+                        if (ImGui::Selectable(buff, k == CurrentFrame))
                         {
-                            Annotation::Get().MoveFrame(k);
+                            MoveFrame(k);
                         }
                     }
                     ImGui::Unindent();
@@ -385,7 +517,7 @@ namespace IFCS
                         LastSelectedAssetType = EAssetType::Image;
                         if (Setting::Get().ActiveWorkspace == EWorkspace::Data)
                         {
-                            Annotation::Get().DisplayImage();
+                            DisplayImage();
                         }
                         else // only update info...
                         {
@@ -531,5 +663,14 @@ namespace IFCS
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Frame.cols, Frame.rows, 0, GL_RGB,
                      GL_UNSIGNED_BYTE, Frame.data);
+    }
+
+    void DataBrowser::MoveFrame(int NewFrame)
+    {
+        if (!IsSelectAnyClipOrImg()) return;
+        CurrentFrame = NewFrame;
+        if (CurrentFrame < VideoStartFrame)  DataBrowser::Get().CurrentFrame = VideoStartFrame;
+        if (CurrentFrame > VideoEndFrame) DataBrowser::Get().CurrentFrame = VideoEndFrame;
+        DisplayFrame(DataBrowser::Get().CurrentFrame);
     }
 }

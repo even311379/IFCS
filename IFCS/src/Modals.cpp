@@ -1,5 +1,6 @@
 ﻿#include "Modals.h"
 
+#include <thread>
 #include <fstream>
 #include <shellapi.h>
 #include "ImFileDialog/ImFileDialog.h"
@@ -671,6 +672,7 @@ namespace IFCS
             }
             if (ImGui::TreeNodeEx("Editor", ImGuiTreeNodeFlags_DefaultOpen))
             {
+
                 ImGui::Checkbox("Auto Save", &Setting::Get().bEnableAutoSave);
                 if (Setting::Get().bEnableAutoSave)
                 {
@@ -692,6 +694,21 @@ namespace IFCS
                     ImGui::ColorEdit3("Guide line color", Setting::Get().GuidelineColor);
                 }
                 Utils::AddSimpleTooltip("Show guide line in annotation workspace?");
+                if (ImGui::TreeNode("Advanced"))
+                {
+                    static int NumMaxCores = std::thread::hardware_concurrency();
+                    if (ImGui::InputInt("Cores to load video", &Setting::Get().CoresToUse))
+                    {
+                        const int CoresToUse = Setting::Get().CoresToUse;
+                        if (CoresToUse < 1) Setting::Get().CoresToUse = 1;
+                        if (CoresToUse > NumMaxCores) Setting::Get().CoresToUse = NumMaxCores;
+                    }
+                    ImGui::Text("(Max number of cores in this machine: %d)", NumMaxCores);
+                    ImGui::InputInt("Cached video frame size", &Setting::Get().MaxCachedFramesSize);
+                    // per frame may use 2.64 mb of memory!
+                    ImGui::Text("(May use %.1f GB memory from your total %.1f GB)", Setting::Get().MaxCachedFramesSize * 2.64f / 1024.f, Setting::Get().GetSystemMemorySize());
+                    ImGui::TreePop();
+                }
                 ImGui::TreePop();
             }
             if (ImGui::TreeNodeEx("Core path", ImGuiTreeNodeFlags_DefaultOpen))

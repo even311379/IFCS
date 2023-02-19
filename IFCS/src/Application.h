@@ -21,6 +21,10 @@ namespace IFCS
         
         bool RequestToQuit = false;
 
+        void InitWindowTransform();
+
+        int WindowPosX, WindowPosY, WindowWidth, WindowHeight;
+
 
     private:
         GLFWwindow* Window;

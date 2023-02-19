@@ -33,7 +33,6 @@ namespace IFCS
     public:
         MAKE_SINGLETON(Detection)
         void Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose = true) override;
-        void ClearCacheIndividuals();
     protected:
 
         void RenderContent() override;
@@ -66,24 +65,15 @@ namespace IFCS
         float ClipFPS = 30.0f;
         int ClipWidth;
         int ClipHeight;
-        unsigned int LoadedFramePtr_Analysis;
         void RenderDetectionBox(ImVec2 StartPos);
-        // void UpdateFrame(int FrameNumber, bool UpdateClipInfo = false);
         void ProcessingVideoPlay();
-        void UpdateFrameImpl(cv::Mat Data);
         bool IsPlaying = false;
-        bool JustPlayed = false;
-        bool JustPaused = false;
-        
-        // int SelectedDetection;
-        
-        int CurrnetPlayPosition = 0;
-        int PlayOffset = 0;
+        bool IsLoadingVideo = false;
 
         void DrawPlayRange();
-        int StartFrame = 0;
-        int EndFrame = 100;
-        int CurrentFrame = 0;
+        // int StartFrame = 0;
+        // int EndFrame = 100;
+        // int CurrentFrame = 0;
         int TotalClipFrameSize = 100;
         bool DisplayHelperLines = true;
         ImVec4 HintColor = Style::RED();
@@ -114,11 +104,10 @@ namespace IFCS
         void Analysis(const std::string& DName, const YAML::Node& DataNode);
         bool IsAnalyzing = false;
         std::future<void> AnalyzeFuture;
+        void OnAnalyzeFinished();
         // std::vector<cv::Mat> VideoFrames;
 
-        void LoadingVideoBlock();
-        std::array<std::future<void>, 4> Tasks;
-        void DisplayFrame(int NewFrameNum);
+        // void DisplayFrame(int NewFrameNum);
         
     };
 }

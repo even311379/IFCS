@@ -18,24 +18,17 @@
 #include "opencv2/opencv.hpp"
 #include <GLFW/glfw3.h>
 
+#define DB DataBrowser::Get()
 
 namespace IFCS
 {
     static std::array<bool, 8> Devices;
-    static int BlockSize = 500;
-    static bool IsLoadingVideo = false;
 
     void Detection::Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose)
     {
         Panel::Setup(InName, InShouldOpen, InFlags, InCanClose);
         Devices[0] = true;
     }
-
-    // TODO: this is just a cool feature? not sure whether it is 100% required...
-    void Detection::ClearCacheIndividuals()
-    {
-    }
-
 
     void Detection::RenderContent()
     {
@@ -220,8 +213,8 @@ namespace IFCS
                     ImSpinner::SpinnerBarsScaleMiddle("Spinner2", 6, ImColor(Style::BLUE(400, Setting::Get().Theme)));
                     if (AnalyzeFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
                     {
-                        UpdateRoiScreenData();
-                        IsAnalyzing = false;
+
+                        OnAnalyzeFinished();
                     }
                 }
                 // if not select... no need to render other stuff
@@ -244,10 +237,10 @@ namespace IFCS
                 }
                 ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 1280) * 0.5f);
                 ImVec2 StartPos = ImGui::GetCursorScreenPos();
-                ImGui::Image((void*)(intptr_t)LoadedFramePtr_Analysis, ImVec2(1280, 720));
+                ImGui::Image((void*)(intptr_t)DB.LoadedFramePtr, ImVec2(1280, 720));
                 RenderDetectionBox(StartPos);
                 static char* PlayIcon;
-                if (CurrentFrame == EndFrame)
+                if (DB.DB.CurrentFrame == DB.VideoEndFrame)
                     PlayIcon = ICON_FA_SYNC;
                 else if (IsPlaying)
                     PlayIcon = ICON_FA_PAUSE;
@@ -255,19 +248,19 @@ namespace IFCS
                     PlayIcon = ICON_FA_PLAY;
                 if (ImGui::Button(PlayIcon, {120, 32}))
                 {
-                    if (CurrentFrame == EndFrame)
-                        CurrentFrame = StartFrame;
+                    if (DB.CurrentFrame == DB.VideoEndFrame)
+                        DB.CurrentFrame = DB.VideoStartFrame;
                     IsPlaying = !IsPlaying;
                 }
                 ImGui::SameLine();
                 static ImVec2 NewFramePad(4, (32 - ImGui::GetFontSize()) / 2);
                 ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, NewFramePad);
                 ImGui::SetNextItemWidth(120.f);
-                if (ImGui::DragInt("##PlayStart", &StartFrame, 1, 0, EndFrame - 1))
+                if (ImGui::DragInt("##PlayStart", &DB.VideoStartFrame, 1, 0, DB.VideoEndFrame - 1))
                 {
-                    if (StartFrame < 0) StartFrame = 0;
-                    if (StartFrame > EndFrame) StartFrame = EndFrame - 1;
-                    if (CurrentFrame < StartFrame) CurrentFrame = StartFrame;
+                    if (DB.VideoStartFrame < 0) DB.VideoStartFrame = 0;
+                    if (DB.VideoStartFrame > DB.VideoEndFrame) DB.VideoStartFrame = DB.VideoEndFrame - 1;
+                    if (DB.CurrentFrame < DB.VideoStartFrame) DB.CurrentFrame = DB.VideoStartFrame;
                 }
                 ImGui::PopStyleVar();
                 ImGui::SameLine();
@@ -275,12 +268,10 @@ namespace IFCS
                 ImGui::SameLine();
                 ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, NewFramePad);
                 ImGui::SetNextItemWidth(120.f);
-                if (ImGui::DragInt("##PlayEnd", &EndFrame, 1, StartFrame + 1, TotalClipFrameSize))
+                if (ImGui::DragInt("##PlayEnd", &DB.VideoEndFrame, 1, DB.VideoStartFrame + 1, TotalClipFrameSize))
                 {
-                    CurrentFrame = StartFrame;
-                    if (EndFrame > TotalClipFrameSize) EndFrame = TotalClipFrameSize;
-                    // if (CurrentFrame > EndFrame) CurrentFrame = EndFrame;
-                    // if (EndFrame < StartFrame) EndFrame = StartFrame + 1;
+                    DB.CurrentFrame = DB.VideoStartFrame;
+                    if (DB.VideoEndFrame > TotalClipFrameSize) DB.VideoEndFrame = TotalClipFrameSize;
                 }
                 ImGui::PopStyleVar();
                 if (IsLoadingVideo)
@@ -288,14 +279,14 @@ namespace IFCS
                     ImSpinner::SpinnerBarsScaleMiddle("Spinner3", 6, ImColor(Style::BLUE(400, Setting::Get().Theme)));
                     ImGui::Text("Video Loading...");
                     int NumCoreFinished = 0;
-                    for (size_t T = 0; T < 4; T++)
+                    for (size_t T = 0; T < Setting::Get().CoresToUse; T++)
                     {
-                        if (Tasks[T].wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
+                        if (DataBrowser::Get().LoadingVideoTasks[T].wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
                         {
                             NumCoreFinished++;
                         }
                     }
-                    if (NumCoreFinished == 4) IsLoadingVideo = false;
+                    if (NumCoreFinished == Setting::Get().CoresToUse) IsLoadingVideo = false;
                 }
                 // TODO: add export video?
                 if (SelectedAnalysisType == 0)
@@ -365,9 +356,9 @@ namespace IFCS
 
     void Detection::RenderDetectionBox(ImVec2 StartPos)
     {
-        if (LoadedLabels.count(CurrentFrame))
+        if (LoadedLabels.count(DB.CurrentFrame))
         {
-            for (const FLabelData& L : LoadedLabels[CurrentFrame])
+            for (const FLabelData& L : LoadedLabels[DB.CurrentFrame])
             {
                 ImVec2 P1 = StartPos;
                 ImVec2 P2 = StartPos;
@@ -438,25 +429,13 @@ namespace IFCS
         TimePassed += (1.0f / ImGui::GetIO().Framerate);
         if (TimePassed < (1 / ClipFPS)) return;
         TimePassed = 0.f;
-        DisplayFrame(CurrentFrame);
-        CurrentFrame += 1;
-        LoadingVideoBlock();
-        if (CurrentFrame == EndFrame)
+        DB.DisplayFrame(DB.CurrentFrame, DetectionClip);
+        DB.CurrentFrame += 1;
+        DB.LoadingVideoBlock(IsLoadingVideo, DB.CurrentFrame, DetectionClip);
+        if (DB.CurrentFrame == DB.VideoEndFrame)
         {
             IsPlaying = false;
         }
-    }
-
-    void Detection::UpdateFrameImpl(cv::Mat Data)
-    {
-        glGenTextures(1, &LoadedFramePtr_Analysis);
-        glBindTexture(GL_TEXTURE_2D, LoadedFramePtr_Analysis);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Data.cols, Data.rows, 0, GL_RGB,
-                     GL_UNSIGNED_BYTE, Data.data);
     }
 
     void Detection::DrawPlayRange()
@@ -469,14 +448,14 @@ namespace IFCS
         ImVec2 RectEnd = RectStart + ImVec2(Width, 5);
         ImGui::GetWindowDrawList()->AddRectFilled(RectStart, RectEnd, Color, 20.f);
         ImVec2 RectPlayStart = RectStart + ImVec2(0, -10);
-        ImVec2 RectPlayEnd = RectStart + ImVec2(float(CurrentFrame - StartFrame) / float(EndFrame - StartFrame) * Width,
+        ImVec2 RectPlayEnd = RectStart + ImVec2(float(DB.CurrentFrame - DB.VideoStartFrame) / float(DB.VideoEndFrame - DB.VideoStartFrame) * Width,
                                                 10);
         ImGui::GetWindowDrawList()->AddRectFilled(RectPlayStart, RectPlayEnd, PlayColor);
         // draw current frame text?
         if (RectPlayEnd.x > RectPlayStart.x + 30)
         {
             char FrameTxt[8];
-            sprintf(FrameTxt, "%d", CurrentFrame);
+            sprintf(FrameTxt, "%d", DB.CurrentFrame);
             ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), 16,
                                                 RectPlayEnd + ImVec2(strlen(FrameTxt) * -16.f, -18.f), Color, FrameTxt);
         }
@@ -486,16 +465,17 @@ namespace IFCS
         {
             ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
             const int FrameAtPosition = int(
-                (ImGui::GetMousePos().x - RectStart.x) / Width * (float)(EndFrame - StartFrame)) + StartFrame;
+                (ImGui::GetMousePos().x - RectStart.x) / Width * (float)(DB.VideoEndFrame - DB.VideoStartFrame)) + DB.VideoStartFrame;
             ImGui::SetTooltip("%d", FrameAtPosition);
         }
         if (ImGui::IsItemClicked(0))
         {
-            CurrentFrame = int((ImGui::GetMousePos().x - RectStart.x) / Width * (float)(EndFrame - StartFrame)) +
-                StartFrame;
-            if (CurrentFrame < StartFrame) CurrentFrame = StartFrame;
+            DB.CurrentFrame = int((ImGui::GetMousePos().x - RectStart.x) / Width * (float)(DB.VideoEndFrame - DB.VideoStartFrame)) +
+                DB.VideoStartFrame;
+            if (DB.CurrentFrame < DB.VideoStartFrame) DB.CurrentFrame = DB.VideoStartFrame;
             IsPlaying = false;
-            DisplayFrame(CurrentFrame);
+            DB.DisplayFrame(DB.CurrentFrame, DetectionClip);
+            DB.LoadingVideoBlock(IsLoadingVideo, DB.CurrentFrame, DetectionClip);
         }
     }
 
@@ -575,7 +555,7 @@ namespace IFCS
             ImGui::TableSetupColumn("Category", ImGuiTableColumnFlags_WidthFixed, 75.0f);
             ImGui::TableSetupColumn("Total Pass", ImGuiTableColumnFlags_WidthFixed, 75.0f);
             char buf[64];
-            sprintf(buf, "Accumulated Passes (Frame %d to %d)", StartFrame, CurrentFrame);
+            sprintf(buf, "Accumulated Passes (Frame %d to %d)", DB.VideoStartFrame, DB.CurrentFrame);
             ImGui::TableSetupColumn(buf);
             ImGui::TableHeadersRow();
             for (const auto& [Cat, Pass] : CurrentPass)
@@ -844,7 +824,7 @@ namespace IFCS
         {
             if (!Data.IsCompleted) continue;
             const int LeaveFrame = Data.GetLeaveFrame();
-            if (LeaveFrame <= CurrentFrame && LeaveFrame >= StartFrame)
+            if (LeaveFrame <= DB.CurrentFrame && LeaveFrame >= DB.VideoStartFrame)
             {
                 CurrentPass[Data.GetName()] += 1;
             }
@@ -913,7 +893,7 @@ namespace IFCS
                 ImGui::Text("%d", MaxD);
                 ImGui::TableSetColumnIndex(2);
                 // TODO: drag rect will crash when set roi frequently... maybe draw the line myself!
-                // HX1 = CurrentFrame; HY1 = MaxD; HX2 = CurrentFrame + 0.5f; HY2 = 0;
+                // HX1 = DB.CurrentFrame; HY1 = MaxD; HX2 = DB.CurrentFrame + 0.5f; HY2 = 0;
                 ImPlot::PushStyleVar(ImPlotStyleVar_PlotPadding, ImVec2(0, 0));
                 if (ImPlot::BeginPlot(id, ImVec2(-1, 35), ImPlotFlags_CanvasOnly | ImPlotFlags_NoChild))
                 {
@@ -986,9 +966,9 @@ namespace IFCS
         {
             CurrentCatCount[k] = 0;
         }
-        if (LoadedLabels.count(CurrentFrame))
+        if (LoadedLabels.count(DB.CurrentFrame))
         {
-            for (const FLabelData& L : LoadedLabels[CurrentFrame])
+            for (const FLabelData& L : LoadedLabels[DB.CurrentFrame])
             {
                 if (bSetROI)
                 {
@@ -1042,7 +1022,6 @@ namespace IFCS
                         std::stof(D[5])
                     ));
                 }
-                // spdlog::info("label with size {} add to loaded labels ", Labels.size());
                 LoadedLabels[FrameCount] = Labels;
             }
             Categories.clear();
@@ -1057,13 +1036,18 @@ namespace IFCS
         };
         IsAnalyzing = true;
         AnalyzeFuture = std::async(std::launch::async, LoadLabels);
+    }
 
-        DataBrowser::Get().VideoFrames.clear();
-
+    void Detection::OnAnalyzeFinished()
+    {
+        UpdateRoiScreenData();
+        IsAnalyzing = false;
+        DB.VideoFrames.clear();
+        DB.CurrentFrame = 0;
         cv::Mat Frame;
         cv::VideoCapture cap(DetectionClip);
         TotalClipFrameSize = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
-        EndFrame = TotalClipFrameSize;
+        DB.VideoEndFrame = TotalClipFrameSize;
         ClipFPS = (float)cap.get(cv::CAP_PROP_FPS);
         ClipWidth = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
         FIndividualData::Width = ClipWidth;
@@ -1073,106 +1057,9 @@ namespace IFCS
         cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y)); // 16 : 9 // no need to resize?
         cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
         cap.release();
-        UpdateFrameImpl(Frame);
+        DB.MatToGL(Frame);
 
-        DataBrowser::Get().VideoFrames.clear();
-        IsLoadingVideo = true;
-        auto LoadVideo = [this](int Ith)
-        {
-            cv::VideoCapture Cap;
-            Cap.open(DetectionClip);
-            const int FramesToLoad = std::min(TotalClipFrameSize, BlockSize * 3);
-            int i = int(float(Ith) * float(FramesToLoad) / 4.f);
-            int End = int(float(Ith + 1) / 4.f * float(FramesToLoad));
-            Cap.set(cv::CAP_PROP_POS_FRAMES, i);
-            while (1)
-            {
-                if (i > End)
-                {
-                    break;
-                }
-                cv::Mat Frame;
-                Cap >> Frame;
-                if (Frame.empty())
-                {
-                    break;
-                }
-                cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y));
-                cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
-                DataBrowser::Get().VideoFrames[i] = Frame;
-                i++;
-            }
-            Cap.release();
-        };
-        for (int T = 0; T < 4; T++)
-        {
-            Tasks[T] = std::async(std::launch::async, LoadVideo, T);
-        }
-    }
+        DB.LoadingVideoBlock(IsLoadingVideo, 0, DetectionClip);
 
-    void Detection::LoadingVideoBlock()
-    {
-        // check which block to load and which to erase
-        if (IsLoadingVideo) return;
-        if (CurrentFrame + BlockSize * 2 > TotalClipFrameSize) return;
-        if (DataBrowser::Get().VideoFrames.count(CurrentFrame + BlockSize * 2)) return;
-        IsLoadingVideo = true;
-        const int OldBlockStart = (CurrentFrame / BlockSize - 1) * BlockSize;
-        for (int i = OldBlockStart; i < OldBlockStart + BlockSize; i++)
-        {
-            DataBrowser::Get().VideoFrames.erase(i);
-        }
-        int NewBlockStart = ((CurrentFrame / BlockSize) + 2) * BlockSize;
-        // async load frame with multi core?
-        auto LoadVideo = [=](int Ith)
-        {
-            cv::VideoCapture Cap;
-            Cap.open(DetectionClip);
-            int i = NewBlockStart + int(float(Ith) * float(BlockSize) / 4.f);
-            int End = NewBlockStart + int(float(Ith + 1) / 4.f * float(BlockSize));
-            Cap.set(cv::CAP_PROP_POS_FRAMES, i);
-            while (1)
-            {
-                if (i > End)
-                {
-                    break;
-                }
-                cv::Mat Frame;
-                Cap.read(Frame);
-                if (Frame.empty())
-                {
-                    break;
-                }
-                cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y));
-                cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
-                DataBrowser::Get().VideoFrames[i] = Frame;
-                i++;
-            }
-            Cap.release();
-        };
-        for (int T = 0; T < 4; T++)
-        {
-            Tasks[T] = std::async(std::launch::async, LoadVideo, T);
-        }
-    }
-
-    void Detection::DisplayFrame(int NewFrameNum)
-    {
-        CurrentFrame = NewFrameNum;
-        if (!DataBrowser::Get().VideoFrames.count(CurrentFrame))
-        {
-            cv::VideoCapture cap(DetectionClip);
-            cv::Mat Frame;
-            cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
-            cap >> Frame;
-            cv::resize(Frame, Frame, cv::Size(1280, 720)); // 16 : 9
-            cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
-            cap.release();
-            UpdateFrameImpl(Frame);
-        }
-        else
-        {
-            UpdateFrameImpl(DataBrowser::Get().VideoFrames[NewFrameNum]);
-        }
     }
 }

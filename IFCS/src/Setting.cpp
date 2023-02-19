@@ -53,6 +53,14 @@ namespace IFCS
             }
         }
         LoadUserIni();
+
+        // should move to a better position for these code?
+        /// Get total memory for that machine
+        MEMORYSTATUSEX status;
+        status.dwLength = sizeof(status);
+        GlobalMemoryStatusEx(&status);
+        SystemMemorySize = status.ullTotalPhys / 1024 / 1024 / 1024.f;
+        ///
     }
 
     void Setting::LoadUserIni()
@@ -78,6 +86,11 @@ namespace IFCS
             bEnableAutoSave = UserIni["bEnableAutoSave"].as<bool>();
             AutoSaveInterval = UserIni["AutoSaveInterval"].as<int>();
         }
+        if (UserIni["CoresToUse"])
+        {
+            CoresToUse = UserIni["CoresToUse"].as<int>();
+            MaxCachedFramesSize = UserIni["MaxCachedFrameSize"].as<int>();
+        }
         Style::ApplyTheme(Theme);
         Modals::Get().Sync();
         ProjectIsLoaded = true;
@@ -96,6 +109,13 @@ namespace IFCS
         {
             editor_out << p;
         }
+        editor_out << YAML::EndSeq;
+        editor_out << YAML::Key << "Window";
+        editor_out << YAML::BeginSeq;
+        editor_out << App->WindowPosX;
+        editor_out << App->WindowPosY;
+        editor_out << App->WindowWidth;
+        editor_out << App->WindowHeight;
         editor_out << YAML::EndSeq;
 
         std::ofstream fout("Config/Editor.ini");
@@ -119,6 +139,8 @@ namespace IFCS
         OutNode["GuideLineColor"] = VGuideLineColor;
         OutNode["bEnableAutoSave"] = bEnableAutoSave;
         OutNode["AutoSaveInterval"] = AutoSaveInterval;
+        OutNode["CoresToUse"] = CoresToUse;
+        OutNode["MaxCachedFrameSize"] = MaxCachedFramesSize;
         user_out << OutNode;
 
         // save as local file

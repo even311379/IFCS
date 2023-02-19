@@ -13,16 +13,17 @@
 #include "Application.h"
 #include "yaml-cpp/yaml.h"
 
-
+// use this macro to reduce typing...
+#define DB DataBrowser::Get()
 
 namespace IFCS
 {
     static bool NeedSave = false;
     static bool NeedUpdateCategoryStatics = false;
     static int Tick = 0;
-    static int StartFrame;
-    static int EndFrame;
-    static int BlockSize = 500;
+    // static int StartFrame;
+    // static int EndFrame;
+    // static int BlockSize = 500;
     static ImVec2 WorkStartPos;
     static bool IsPlaying;
     static int FrameJumpSize = 1;
@@ -33,163 +34,49 @@ namespace IFCS
         LoadDataFile();
     }
 
-    void Annotation::DisplayFrame(int NewFrameNum)
-    {
-        CurrentFrame = NewFrameNum;
-        if (!DataBrowser::Get().VideoFrames.count(CurrentFrame))
-        {
-            cv::VideoCapture cap(DataBrowser::Get().SelectedClipInfo.ClipPath);
-            cv::Mat Frame;
-            cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
-            cap >> Frame;
-            cv::resize(Frame, Frame, cv::Size(1280, 720)); // 16 : 9
-            cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
-            cap.release();
-            DataBrowser::Get().MatToGL(Frame);
-        }
-        else
-        {
-            DataBrowser::Get().LoadVideoFrame(NewFrameNum);
-        }
-    }
+    // void Annotation::DisplayFrame(int NewFrameNum)
+    // {
+    //     CurrentFrame = NewFrameNum;
+    //     if (!DB.VideoFrames.count(CurrentFrame))
+    //     {
+    //         cv::VideoCapture cap(DB.SelectedClipInfo.ClipPath);
+    //         cv::Mat Frame;
+    //         cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
+    //         cap >> Frame;
+    //         cv::resize(Frame, Frame, cv::Size(1280, 720)); // 16 : 9
+    //         cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+    //         cap.release();
+    //         DB.MatToGL(Frame);
+    //     }
+    //     else
+    //     {
+    //         DB.LoadVideoFrame(NewFrameNum);
+    //     }
+    // }
 
-    void Annotation::DisplayImage()
-    {
-        IsImage = true;
-        // imread and update info
-        cv::Mat Img = cv::imread(DataBrowser::Get().SelectedImageInfo.ImagePath);
-
-        if (Img.empty())
-        {
-            // Solution to unicode path in opencv: https://stackoverflow.com/a/43369056
-            std::wstring wpath = Utils::ConvertUtf8ToWide(DataBrowser::Get().SelectedImageInfo.ImagePath);
-            
-            std::ifstream f(wpath, std::iostream::binary);
-            // Get its size
-            std::filebuf* pbuf = f.rdbuf();
-            size_t size = pbuf->pubseekoff(0, f.end, f.in);
-            pbuf->pubseekpos(0, f.in);
-
-            // Put it in a vector
-            std::vector<uchar> buffer(size);
-            pbuf->sgetn((char*)buffer.data(), size);
-
-            // Decode the vector
-            Img = cv::imdecode(buffer, cv::IMREAD_COLOR);
-        }
-        DataBrowser::Get().SelectedImageInfo.Update(Img.cols, Img.rows);
-        cv::cvtColor(Img, Img, cv::COLOR_BGR2RGB);
-        cv::resize(Img, Img, cv::Size((int)WorkArea.x, (int)WorkArea.y));
-        DataBrowser::Get().MatToGL(Img);
-        GrabData();
-    }
-
-
-    void Annotation::PrepareVideo()
-    {
-        IsImage = false;
-        // show frame 1 and update info
-        CurrentFrame = 0;
-        StartFrame = 0;
-        GrabData();
-        cv::Mat Frame;
-        cv::VideoCapture cap(DataBrowser::Get().SelectedClipInfo.ClipPath);
-        int Width = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
-        int Height = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
-        float FPS = (float)cap.get(cv::CAP_PROP_FPS);
-        int FrameCount = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
-        EndFrame = FrameCount - 1;
-        DataBrowser::Get().SelectedClipInfo.Update(FrameCount, FPS, Width, Height);
-        cap >> Frame;
-        cv::resize(Frame, Frame, cv::Size(1280, 720)); // 16 : 9
-        cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
-        cap.release();
-        DataBrowser::Get().MatToGL(Frame);
-
-        if (IsLoadingVideo) return;
-        DataBrowser::Get().VideoFrames.clear();
-        IsLoadingVideo = true;
-        // async load frame with 4 core?
-        // TODO: sometimes it will still hand there... but it's pretty robust now?
-        auto LoadVideo = [this](int Ith)
-        {
-            cv::VideoCapture Cap;
-            Cap.open(DataBrowser::Get().SelectedClipInfo.ClipPath);
-            const int FramesToLoad = std::min(DataBrowser::Get().SelectedClipInfo.FrameCount, BlockSize * 3);
-            int i = int(float(Ith) * float(FramesToLoad) / 4.f);
-            int End = int(float(Ith + 1) / 4.f * float(FramesToLoad));
-            Cap.set(cv::CAP_PROP_POS_FRAMES, i);
-            while (1)
-            {
-                if (i > End)
-                {
-                    break;
-                }
-                cv::Mat Frame;
-                Cap >> Frame;
-                if (Frame.empty())
-                {
-                    break;
-                }
-                cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y));
-                cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
-                DataBrowser::Get().VideoFrames[i] = Frame;
-                i++;
-            }
-            Cap.release();
-        };
-        for (int T = 0; T < 4; T++)
-        {
-            Tasks[T] = std::async(std::launch::async, LoadVideo, T);
-        }
-    }
-
-    void Annotation::LoadingVideoBlock()
-    {
-        // check which block to load and which to erase
-        if (IsLoadingVideo) return;
-        if (CurrentFrame + BlockSize * 2 > DataBrowser::Get().SelectedClipInfo.FrameCount) return;
-        if (DataBrowser::Get().VideoFrames.count(CurrentFrame + BlockSize * 2)) return;
-        IsLoadingVideo = true;
-        const int OldBlockStart = (CurrentFrame / BlockSize - 1) * BlockSize;
-        for (int i = OldBlockStart; i < OldBlockStart + BlockSize; i++)
-        {
-            DataBrowser::Get().VideoFrames.erase(i);
-        }
-        int NewBlockStart = ((CurrentFrame / BlockSize) + 2) * BlockSize;
-        // async load frame with multi core?
-        auto LoadVideo = [=](int Ith)
-        {
-            cv::VideoCapture Cap;
-            Cap.open(DataBrowser::Get().SelectedClipInfo.ClipPath);
-            int i = NewBlockStart + int(float(Ith) * float(BlockSize) / 4.f);
-            int End = NewBlockStart + int(float(Ith + 1) / 4.f * float(BlockSize));
-            Cap.set(cv::CAP_PROP_POS_FRAMES, i);
-            while (1)
-            {
-                if (i > End)
-                {
-                    break;
-                }
-                cv::Mat Frame;
-                Cap.read(Frame);
-                if (Frame.empty())
-                {
-                    break;
-                }
-                cv::resize(Frame, Frame, cv::Size((int)WorkArea.x, (int)WorkArea.y));
-                cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
-                DataBrowser::Get().VideoFrames[i] = Frame;
-                i++;
-            }
-            Cap.release();
-        };
-        for (int T = 0; T < 4; T++)
-        {
-            Tasks[T] = std::async(std::launch::async, LoadVideo, T);
-        }
-    }
-
+    // void Annotation::PrepareVideo()
+    // {
+    //     IsImage = false;
+    //     // show frame 1 and update info
+    //     CurrentFrame = 0;
+    //     StartFrame = 0;
+    //     GrabData();
+    //     cv::Mat Frame;
+    //     cv::VideoCapture cap(DB.SelectedClipInfo.ClipPath);
+    //     int Width = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
+    //     int Height = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+    //     float FPS = (float)cap.get(cv::CAP_PROP_FPS);
+    //     int FrameCount = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
+    //     EndFrame = FrameCount - 1;
+    //     DB.SelectedClipInfo.Update(FrameCount, FPS, Width, Height);
+    //     cap >> Frame;
+    //     cv::resize(Frame, Frame, cv::Size(1280, 720)); // 16 : 9
+    //     cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
+    //     cap.release();
+    //     DB.MatToGL(Frame);
+    //     DB.VideoFrames.clear();
+    //     DB.LoadingVideoBlock(IsLoadingVideo,0);
+    // }
 
     std::map<int, FAnnotationToDisplay> Annotation::GetAnnotationToDisplay()
     {
@@ -209,7 +96,7 @@ namespace IFCS
         RenderAnnotationWork();
 
         ImGui::Dummy({0, ImGui::GetTextLineHeightWithSpacing()});
-        if (!DataBrowser::Get().SelectedClipInfo.ClipPath.empty())
+        if (!DB.SelectedClipInfo.ClipPath.empty())
         {
             RenderVideoControls();
             ImGui::Dummy({0, ImGui::GetTextLineHeightWithSpacing() * 0.5f});
@@ -222,14 +109,14 @@ namespace IFCS
                                               ImColor(Style::BLUE(400, Setting::Get().Theme)));
             ImGui::Text("Video loading...");
             int NumCoreFinished = 0;
-            for (size_t T = 0; T < 4; T++)
+            for (size_t T = 0; T < Setting::Get().CoresToUse; T++)
             {
-                if (Tasks[T].wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
+                if (DB.LoadingVideoTasks[T].wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
                 {
                     NumCoreFinished++;
                 }
             }
-            if (NumCoreFinished == 4) IsLoadingVideo = false;
+            if (NumCoreFinished == Setting::Get().CoresToUse) IsLoadingVideo = false;
         }
 
         if (Tick > 15)
@@ -253,18 +140,18 @@ namespace IFCS
     void Annotation::RenderSelectCombo()
     {
         ImGui::SetNextItemWidth(480);
-        if (IsImage)
+        if (DB.IsImageDisplayed)
         {
             const size_t RelOffset = Setting::Get().ProjectPath.size() + 8;
-            if (ImGui::BeginCombo("##ImageSelect", DataBrowser::Get().SelectedImageInfo.GetRelativePath().c_str()))
+            if (ImGui::BeginCombo("##ImageSelect", DB.SelectedImageInfo.GetRelativePath().c_str()))
             {
-                for (const std::string& Img : DataBrowser::Get().GetAllImages())
+                for (const std::string& Img : DB.GetAllImages())
                 {
                     if (ImGui::Selectable(Img.substr(RelOffset).c_str()))
                     {
-                        DataBrowser::Get().SelectedClipInfo.ClipPath = ""; // Deselect Clip
-                        DataBrowser::Get().SelectedImageInfo.ImagePath = Img;
-                        DisplayImage();
+                        DB.SelectedClipInfo.ClipPath = ""; // Deselect Clip
+                        DB.SelectedImageInfo.ImagePath = Img;
+                        DB.DisplayImage();
                     }
                 }
                 ImGui::EndCombo();
@@ -273,36 +160,35 @@ namespace IFCS
         else
         {
             const size_t RelOffset = Setting::Get().ProjectPath.size() + 7;
-            if (ImGui::BeginCombo("##ClipSelect", DataBrowser::Get().SelectedClipInfo.GetRelativePath().c_str()))
+            if (ImGui::BeginCombo("##ClipSelect", DB.SelectedClipInfo.GetRelativePath().c_str()))
             {
-                for (const std::string& C : DataBrowser::Get().GetAllClips())
+                for (const std::string& C : DB.GetAllClips())
                 {
                     if (ImGui::Selectable(C.substr(RelOffset).c_str()))
                     {
-                        DataBrowser::Get().SelectedImageInfo.ImagePath = ""; // Deselect image...
-                        DataBrowser::Get().SelectedClipInfo.ClipPath = C;
-                        spdlog::info("inside combo {}", DataBrowser::Get().SelectedClipInfo.ClipPath);
-                        PrepareVideo();
+                        DB.SelectedImageInfo.ImagePath = ""; // Deselect image...
+                        DB.SelectedClipInfo.ClipPath = C;
+                        DB.PrepareVideo(IsLoadingVideo);
                     }
                 }
                 ImGui::EndCombo();
             }
             ImGui::SameLine();
             ImGui::SetNextItemWidth(120);
-            if (ImGui::BeginCombo("##ClipFrame", std::to_string(CurrentFrame).c_str()))
+            if (ImGui::BeginCombo("##ClipFrame", std::to_string(DB.CurrentFrame).c_str()))
             {
                 for (const auto& [F, Map] : Data_Frame)
                 {
-                    if (ImGui::Selectable(std::to_string(F).c_str(), F == CurrentFrame))
+                    if (ImGui::Selectable(std::to_string(F).c_str(), F == DB.CurrentFrame))
                     {
-                        MoveFrame(F);
+                        DB.MoveFrame(F);
                     }
                 }
                 ImGui::EndCombo();
             }
         }
         ImGui::SameLine(ImGui::GetContentRegionAvail().x - 60);
-        if (IsImage)
+        if (DB.IsImageDisplayed)
         {
             ImGui::Text(ICON_FA_IMAGE);
         }
@@ -319,7 +205,7 @@ namespace IFCS
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - WorkArea.x) * 0.5f);
         ImGui::BeginChild("AnnotaitonWork", WorkArea, false);
         ImGui::GetWindowDrawList()->AddRectFilled(WorkStartPos, WorkStartPos + WorkArea, BgColor); // draw bg
-        ImGui::GetWindowDrawList()->AddImage((void*)(intptr_t)DataBrowser::Get().LoadedFramePtr,
+        ImGui::GetWindowDrawList()->AddImage((void*)(intptr_t)DB.LoadedFramePtr,
                                              WorkStartPos + PanAmount,
                                              WorkStartPos + PanAmount + GetZoom() * WorkArea); // image
         if (Setting::Get().bEnableGuideLine)
@@ -334,14 +220,14 @@ namespace IFCS
         }
         static UUID ToDeleteAnnID = 0;
         std::unordered_map<UUID, FAnnotation>* DataToDisplay = nullptr;
-        if (IsImage)
+        if (DB.IsImageDisplayed)
         {
             DataToDisplay = &Data_Img.AnnotationData;
         }
         else
         {
-            if (Data_Frame.count(CurrentFrame))
-                DataToDisplay = &Data_Frame[CurrentFrame].AnnotationData;
+            if (Data_Frame.count(DB.CurrentFrame))
+                DataToDisplay = &Data_Frame[DB.CurrentFrame].AnnotationData;
         }
         // render things from data
         if (DataToDisplay)
@@ -382,10 +268,10 @@ namespace IFCS
                     {
                         ImVec2 Delta = ImGui::GetIO().MouseDelta / GetZoom();
                         A.Pan({Delta.x, Delta.y});
-                        if (IsImage)
+                        if (DB.IsImageDisplayed)
                             Data_Img.UpdateTime = Utils::GetCurrentTimeString();
                         else
-                            Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                            Data_Frame[DB.CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
                         NeedSave = true;
                     }
                     // resize top left
@@ -408,10 +294,10 @@ namespace IFCS
                             if (ImGui::Selectable((std::string("Change to ") + Cat.DisplayName).c_str()))
                             {
                                 A.CategoryID = UID;
-                                if (IsImage)
+                                if (DB.IsImageDisplayed)
                                     Data_Img.UpdateTime = Utils::GetCurrentTimeString();
                                 else
-                                    Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                                    Data_Frame[DB.CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
                                 NeedUpdateCategoryStatics = true;
                                 NeedSave = true;
                             }
@@ -424,10 +310,10 @@ namespace IFCS
                     if (ImGui::Button(ICON_FA_TIMES_CIRCLE))
                     {
                         ToDeleteAnnID = ID;
-                        if (IsImage)
+                        if (DB.IsImageDisplayed)
                             Data_Img.UpdateTime = Utils::GetCurrentTimeString();
                         else
-                            Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                            Data_Frame[DB.CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
                     }
                     ImGui::PopStyleVar();
                     ImGui::PopStyleColor();
@@ -437,10 +323,10 @@ namespace IFCS
         }
         if (ToDeleteAnnID != 0)
         {
-            if (IsImage)
+            if (DB.IsImageDisplayed)
                 Data_Img.AnnotationData.erase(ToDeleteAnnID);
             else
-                Data_Frame[CurrentFrame].AnnotationData.erase(ToDeleteAnnID);
+                Data_Frame[DB.CurrentFrame].AnnotationData.erase(ToDeleteAnnID);
 
             ToDeleteAnnID = 0;
             NeedSave = true;
@@ -474,7 +360,7 @@ namespace IFCS
                 ImVec2 ImgPos = (ZoomPos - PanAmount) / GetZoom(OldZoomLevel);
                 PanAmount = ZoomPos - ImgPos * GetZoom();
             }
-            if (EditMode == EAnnotationEditMode::Add && ImGui::IsMouseClicked(0) && DataBrowser::Get().
+            if (EditMode == EAnnotationEditMode::Add && ImGui::IsMouseClicked(0) && DB.
                 IsSelectAnyClipOrImg())
             {
                 if (CategoryManagement::Get().GetSelectedCategory())
@@ -483,11 +369,15 @@ namespace IFCS
                     AddPointStart = ImGui::GetMousePos();
                 }
             }
+        }
 
-            /////////////////
-            // HOTKEYS
-            ////////////////
-
+        /////////////////
+        // HOTKEYS
+        ////////////////
+        // Make hotkey all avail on ann workspace...
+        if (Utils::IsPointInsideRect(ImGui::GetMousePos(),
+            ImGui::GetWindowPos(), ImGui::GetWindowPos() + ImGui::GetWindowSize()))
+        {
             if (ImGui::IsKeyPressed(ImGuiKey_W))
             {
                 EditMode = EAnnotationEditMode::Add;
@@ -496,27 +386,27 @@ namespace IFCS
             {
                 EditMode = EAnnotationEditMode::Edit;
             }
-            // TODO: it's better off not add these hotkeys... it will conflict with ImGui default hotkeys...
-            if (!IsImage)
+            if (!DB.IsImageDisplayed)
             {
                 if (ImGui::IsKeyPressed(ImGuiKey_A))
                 {
-                    if (CurrentFrame == EndFrame)
-                        CurrentFrame = StartFrame;
+                    if (DB.CurrentFrame == DB.VideoEndFrame)
+                        DB.CurrentFrame = DB.VideoStartFrame;
                     IsPlaying = !IsPlaying;
                 }
                 if (ImGui::IsKeyPressed(ImGuiKey_S))
                 {
                     if (!IsPlaying)
-                        MoveFrame(CurrentFrame - FrameJumpSize);
+                        DB.MoveFrame(DB.CurrentFrame - FrameJumpSize);
                 }
                 if (ImGui::IsKeyPressed(ImGuiKey_D))
                 {
                     if (!IsPlaying)
-                        MoveFrame(CurrentFrame + FrameJumpSize);
+                        DB.MoveFrame(DB.CurrentFrame + FrameJumpSize);
                 }
             }
         }
+        
         if (ImGui::IsMouseReleased(0) && IsAdding)
         {
             IsAdding = false;
@@ -526,15 +416,15 @@ namespace IFCS
             std::array<float, 4> NewXYWH = MouseRectToXYWH(AbsMin, AbsMax, WasSuccess);
             if (WasSuccess)
             {
-                if (IsImage)
+                if (DB.IsImageDisplayed)
                 {
                     Data_Img.AnnotationData[UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
                     Data_Img.UpdateTime = Utils::GetCurrentTimeString();
                 }
                 else
                 {
-                    Data_Frame[CurrentFrame].AnnotationData[UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
-                    Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                    Data_Frame[DB.CurrentFrame].AnnotationData[UUID()] = FAnnotation(CategoryManagement::Get().SelectedCatID, NewXYWH);
+                    Data_Frame[DB.CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
                 }
                 CategoryManagement::Get().AddCount();
                 NeedSave = true;
@@ -545,7 +435,7 @@ namespace IFCS
     void Annotation::RenderVideoControls()
     {
         static char* PlayIcon;
-        if (CurrentFrame == EndFrame)
+        if (DB.CurrentFrame == DB.VideoEndFrame)
             PlayIcon = ICON_FA_SYNC;
         else if (IsPlaying)
             PlayIcon = ICON_FA_PAUSE;
@@ -553,8 +443,8 @@ namespace IFCS
             PlayIcon = ICON_FA_PLAY;
         if (ImGui::Button(PlayIcon, {120, 32}))
         {
-            if (CurrentFrame == EndFrame)
-                CurrentFrame = StartFrame;
+            if (DB.CurrentFrame == DB.VideoEndFrame)
+                DB.CurrentFrame = DB.VideoStartFrame;
             IsPlaying = !IsPlaying;
         }
         Utils::AddSimpleTooltip("Play (A)");
@@ -562,13 +452,13 @@ namespace IFCS
         static ImVec2 NewFramePad(4, (32 - ImGui::GetFontSize()) / 2);
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, NewFramePad);
         ImGui::SetNextItemWidth(120.f);
-        if (ImGui::DragInt("##PlayStart", &StartFrame, 1, 0, EndFrame - 1))
+        if (ImGui::DragInt("##PlayStart", &DB.VideoStartFrame, 1, 0, DB.VideoEndFrame - 1))
         {
-            if (CurrentFrame < StartFrame) CurrentFrame = StartFrame;
-            if (StartFrame > EndFrame)
+            if (DB.CurrentFrame < DB.VideoStartFrame) DB.CurrentFrame = DB.VideoStartFrame;
+            if (DB.VideoStartFrame > DB.VideoEndFrame)
             {
-                StartFrame = EndFrame - 1;
-                CurrentFrame = StartFrame;
+                DB.VideoStartFrame = DB.VideoEndFrame - 1;
+                DB.CurrentFrame = DB.VideoStartFrame;
             }
         }
         ImGui::PopStyleVar();
@@ -581,14 +471,14 @@ namespace IFCS
         ImVec2 RectEnd = RectStart + ImVec2(Width, 5);
         ImGui::GetWindowDrawList()->AddRectFilled(RectStart, RectEnd, Color, 20.f);
         ImVec2 RectPlayStart = RectStart + ImVec2(0, -10);
-        ImVec2 RectPlayEnd = RectStart + ImVec2(float(CurrentFrame - StartFrame) / float(EndFrame - StartFrame) * Width,
+        ImVec2 RectPlayEnd = RectStart + ImVec2(float(DB.CurrentFrame - DB.VideoStartFrame) / float(DB.VideoEndFrame - DB.VideoStartFrame) * Width,
                                                 10);
         ImGui::GetWindowDrawList()->AddRectFilled(RectPlayStart, RectPlayEnd, PlayColor);
         // draw current frame text?
         if (RectPlayEnd.x > RectPlayStart.x + 30)
         {
             char FrameTxt[8];
-            sprintf(FrameTxt, "%d", CurrentFrame);
+            sprintf(FrameTxt, "%d", DB.CurrentFrame);
             ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), 16,
                                                 RectPlayEnd + ImVec2(strlen(FrameTxt) * -16.f, -18.f), Color, FrameTxt);
         }
@@ -598,31 +488,32 @@ namespace IFCS
         {
             ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
             const int FrameAtPosition = int(
-                (ImGui::GetMousePos().x - RectStart.x) / Width * (float)(EndFrame - StartFrame)) + StartFrame;
+                (ImGui::GetMousePos().x - RectStart.x) / Width * (float)(DB.VideoEndFrame - DB.VideoStartFrame)) + DB.VideoStartFrame;
             ImGui::SetTooltip("%d", FrameAtPosition);
         }
-        if (ImGui::IsItemClicked(0))
+        if (ImGui::IsItemClicked(0) && !IsLoadingVideo)
         {
-            int NewFramePos = int((ImGui::GetMousePos().x - RectStart.x) / Width * (float)(EndFrame - StartFrame)) +
-                StartFrame;
-            MoveFrame(NewFramePos);
+            int NewFramePos = int((ImGui::GetMousePos().x - RectStart.x) / Width * (float)(DB.VideoEndFrame - DB.VideoStartFrame)) +
+                DB.VideoStartFrame;
+            DB.MoveFrame(NewFramePos);
             IsPlaying = false;
-            DisplayFrame(CurrentFrame);
+            DB.DisplayFrame(DB.CurrentFrame);
+            DB.LoadingVideoBlock(IsLoadingVideo, DB.CurrentFrame);
         }
 
         ImGui::SameLine();
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, NewFramePad);
         ImGui::SetNextItemWidth(120.f);
-        int MaxFrame = DataBrowser::Get().SelectedClipInfo.FrameCount - 1;
-        if (ImGui::DragInt("##PlayEnd", &EndFrame, 1, StartFrame + 1, MaxFrame))
+        int MaxFrame = DB.SelectedClipInfo.FrameCount - 1;
+        if (ImGui::DragInt("##PlayEnd", &DB.VideoEndFrame, 1, DB.VideoStartFrame + 1, MaxFrame))
         {
-            if (CurrentFrame > EndFrame) CurrentFrame = EndFrame;
-            if (EndFrame < StartFrame)
+            if (DB.CurrentFrame > DB.VideoEndFrame) DB.CurrentFrame = DB.VideoEndFrame;
+            if (DB.VideoEndFrame < DB.VideoStartFrame)
             {
-                EndFrame = StartFrame + 1;
-                CurrentFrame = StartFrame;
+                DB.VideoEndFrame = DB.VideoStartFrame + 1;
+                DB.CurrentFrame = DB.VideoStartFrame;
             }
-            if (EndFrame > MaxFrame) EndFrame = MaxFrame;
+            if (DB.VideoEndFrame > MaxFrame) DB.VideoEndFrame = MaxFrame;
         }
         ImGui::PopStyleVar();
 
@@ -638,7 +529,7 @@ namespace IFCS
             if (ImGui::Button(buf, BtnSize))
             {
                 if (!IsPlaying)
-                    MoveFrame(CurrentFrame - FrameJumpSize);
+                    DB.MoveFrame(DB.CurrentFrame - FrameJumpSize);
             }
             Utils::AddSimpleTooltip("Jump backward frames (S)");
             ImGui::SameLine();
@@ -647,7 +538,7 @@ namespace IFCS
             if (ImGui::Button(buf1, BtnSize))
             {
                 if (!IsPlaying)
-                    MoveFrame(CurrentFrame + FrameJumpSize);
+                    DB.MoveFrame(DB.CurrentFrame + FrameJumpSize);
             }
             Utils::AddSimpleTooltip("Jump forward frames (D)");
             ImGui::SameLine();
@@ -660,8 +551,8 @@ namespace IFCS
             ImGui::SameLine();
             if (ImGui::Button(ICON_FA_EXPAND, BtnSize))
             {
-                StartFrame = 0;
-                EndFrame = MaxFrame;
+                DB.VideoStartFrame = 0;
+                DB.VideoEndFrame = MaxFrame;
             }
             Utils::AddSimpleTooltip("Reset play start and end");
         }
@@ -672,13 +563,13 @@ namespace IFCS
         if (!IsPlaying) return;
         static float TimePassed = 0.f;
         TimePassed += (1.0f / ImGui::GetIO().Framerate);
-        if (TimePassed < (1 / DataBrowser::Get().SelectedClipInfo.FPS)) return;
+        if (TimePassed < (1 / DB.SelectedClipInfo.FPS)) return;
         TimePassed = 0.f;
-        DisplayFrame(CurrentFrame);
-        CurrentFrame += 1;
-        LoadingVideoBlock();
+        DB.DisplayFrame(DB.CurrentFrame);
+        DB.CurrentFrame += 1;
+        DB.LoadingVideoBlock(IsLoadingVideo, DB.CurrentFrame);
         //check should release cap and stop play
-        if (CurrentFrame == EndFrame)
+        if (DB.CurrentFrame == DB.VideoEndFrame)
         {
             IsPlaying = false;
         }
@@ -722,17 +613,17 @@ namespace IFCS
                 PanAmount = ImVec2(0, 0);
                 ZoomLevel = 0;
             }
-            Utils::AddSimpleTooltip("Reset zoon and pan");
+            Utils::AddSimpleTooltip("Reset zoom and pan");
             ImGui::SameLine();
             if (ImGui::Button(ICON_FA_CHEVRON_LEFT, BtnSize))
             {
-                if (IsImage)
+                if (DB.IsImageDisplayed)
                 {
-                    std::vector<std::string> AllImgs = DataBrowser::Get().GetAllImages();
+                    std::vector<std::string> AllImgs = DB.GetAllImages();
                     std::string LastFoundImg;
                     for (const auto& ImgPath : AllImgs)
                     {
-                        if (DataBrowser::Get().SelectedImageInfo.ImagePath == ImgPath)
+                        if (DB.SelectedImageInfo.ImagePath == ImgPath)
                         {
                             break;
                         }
@@ -740,17 +631,17 @@ namespace IFCS
                     }
                     if (!LastFoundImg.empty())
                     {
-                        DataBrowser::Get().SelectedImageInfo.ImagePath = LastFoundImg;
-                        DisplayImage();
+                        DB.SelectedImageInfo.ImagePath = LastFoundImg;
+                        DB.DisplayImage();
                     }
                 }
                 else
                 {
-                    for (int i = CurrentFrame - 1; i > -1; i--)
+                    for (int i = DB.CurrentFrame - 1; i > -1; i--)
                     {
                         if (Data_Frame.count(i))
                         {
-                            MoveFrame(i);
+                            DB.MoveFrame(i);
                             break;
                         }
                     }
@@ -760,9 +651,9 @@ namespace IFCS
             ImGui::SameLine();
             if (ImGui::Button(ICON_FA_CHEVRON_RIGHT, BtnSize))
             {
-                if (IsImage)
+                if (DB.IsImageDisplayed)
                 {
-                    std::vector<std::string> AllImgs = DataBrowser::Get().GetAllImages();
+                    std::vector<std::string> AllImgs = DB.GetAllImages();
                     std::string NextFoundImg;
                     bool ReachedCurrent = false;
                     for (const auto& ImgPath : AllImgs)
@@ -773,22 +664,22 @@ namespace IFCS
                             break;
                         }
                         if (!ReachedCurrent)
-                            if (DataBrowser::Get().SelectedImageInfo.ImagePath == ImgPath)
+                            if (DB.SelectedImageInfo.ImagePath == ImgPath)
                                 ReachedCurrent = true;
                     }
                     if (!NextFoundImg.empty())
                     {
-                        DataBrowser::Get().SelectedImageInfo.ImagePath = NextFoundImg;
-                        DisplayImage();
+                        DB.SelectedImageInfo.ImagePath = NextFoundImg;
+                        DB.DisplayImage();
                     }
                 }
                 else
                 {
-                    for (int i = CurrentFrame + 1; i < DataBrowser::Get().SelectedClipInfo.FrameCount - 1; i++)
+                    for (int i = DB.CurrentFrame + 1; i < DB.SelectedClipInfo.FrameCount - 1; i++)
                     {
                         if (Data_Frame.count(i))
                         {
-                            MoveFrame(i);
+                            DB.MoveFrame(i);
                             break;
                         }
                     }
@@ -798,10 +689,10 @@ namespace IFCS
             ImGui::SameLine();
             if (ImGui::Button(ICON_FA_TIMES, BtnSize))
             {
-                if (IsImage)
+                if (DB.IsImageDisplayed)
                     Data_Img.AnnotationData.clear();
                 else
-                    Data_Frame.erase(CurrentFrame);
+                    Data_Frame.erase(DB.CurrentFrame);
                 NeedSave = true;
             }
             Utils::AddSimpleTooltip("Delete all annotations in this frame/image");
@@ -816,7 +707,7 @@ namespace IFCS
             ShouldChangeEditMode = false;
         }
 
-        if (IsImage)
+        if (DB.IsImageDisplayed)
         {
             if (!Data_Img.IsEmpty())
             {
@@ -825,7 +716,7 @@ namespace IFCS
                 {
                     Data_Img.UpdateTime = Utils::GetCurrentTimeString();
                     NeedSave = true;
-                    if (Data_Img.IsReady && DataBrowser::Get().NeedReviewedOnly )
+                    if (Data_Img.IsReady && DB.NeedReviewedOnly )
                     {
                         // TODO: jump to next one which need review (too tedious..., leave for future update? )
                     }
@@ -834,14 +725,14 @@ namespace IFCS
         }
         else
         {
-            if (Data_Frame.count(CurrentFrame))
+            if (Data_Frame.count(DB.CurrentFrame))
             {
                 ImGui::SameLine(ImGui::GetContentRegionAvail().x - 100);
-                if (ImGui::Checkbox("Is ready?", &Data_Frame[CurrentFrame].IsReady))
+                if (ImGui::Checkbox("Is ready?", &Data_Frame[DB.CurrentFrame].IsReady))
                 {
-                    Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                    Data_Frame[DB.CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
                     NeedSave = true;
-                    if (Data_Img.IsReady && DataBrowser::Get().NeedReviewedOnly )
+                    if (Data_Img.IsReady && DB.NeedReviewedOnly )
                     {
                         // TODO: jump to next one which need review (too tedious..., leave for future update? )
                     }
@@ -907,9 +798,9 @@ namespace IFCS
 
     void Annotation::SaveData()
     {
-        if (IsImage)
+        if (DB.IsImageDisplayed)
         {
-            const std::string ImgPath = DataBrowser::Get().SelectedImageInfo.ImagePath;
+            const std::string ImgPath = DB.SelectedImageInfo.ImagePath;
             if (Data_Img.IsEmpty())
             {
                 Data.erase(ImgPath);
@@ -921,7 +812,7 @@ namespace IFCS
         }
         else
         {
-            Data[DataBrowser::Get().SelectedClipInfo.ClipPath] = Data_Frame;
+            Data[DB.SelectedClipInfo.ClipPath] = Data_Frame;
         }
         NeedSaveFile = true;
         App->RequestToChangeTitle = true;
@@ -929,20 +820,20 @@ namespace IFCS
 
     void Annotation::GrabData()
     {
-        if (IsImage)
+        if (DB.IsImageDisplayed)
         {
             Data_Img.AnnotationData.clear();
-            if (!Data.count(DataBrowser::Get().SelectedImageInfo.ImagePath)) return;
-            Data_Img = Data[DataBrowser::Get().SelectedImageInfo.ImagePath][0];
+            if (!Data.count(DB.SelectedImageInfo.ImagePath)) return;
+            Data_Img = Data[DB.SelectedImageInfo.ImagePath][0];
         }
         else
         {
-            if (!Data.count(DataBrowser::Get().SelectedClipInfo.ClipPath))
+            if (!Data.count(DB.SelectedClipInfo.ClipPath))
             {
                 Data_Frame.clear();
                 return;
             }
-            Data_Frame = Data[DataBrowser::Get().SelectedClipInfo.ClipPath];
+            Data_Frame = Data[DB.SelectedClipInfo.ClipPath];
         }
     }
 
@@ -1024,20 +915,14 @@ namespace IFCS
         {
             const ImVec2 Delta = ImGui::GetIO().MouseDelta / GetZoom();
             Ann.Resize(WhichCorner, {Delta.x, Delta.y});
-            if (IsImage)
+            if (DB.IsImageDisplayed)
                 Data_Img.UpdateTime = Utils::GetCurrentTimeString();
             else
-                Data_Frame[CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
+                Data_Frame[DB.CurrentFrame].UpdateTime = Utils::GetCurrentTimeString();
             NeedSave = true;
         }
     }
 
 
-    void Annotation::MoveFrame(int NewFrame)
-    {
-        CurrentFrame = NewFrame;
-        if (CurrentFrame < StartFrame) StartFrame = CurrentFrame;
-        if (CurrentFrame > EndFrame) EndFrame = CurrentFrame;
-        DisplayFrame(CurrentFrame);
-    }
+
 }

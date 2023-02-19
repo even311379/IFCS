@@ -33,9 +33,6 @@ namespace IFCS
     };
 
     std::vector<int> Model6Indices = {1, 2, 3, 5};
-    // static const char* HypOptions[] = {
-    //     "p5", "p6", "tiny", "custom"
-    // };
 
     void Train::Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose)
     {
@@ -819,6 +816,7 @@ namespace IFCS
                 if (std::string(NewTrainingSetName) == Node.first.as<std::string>()) return;
             }
             IsGeneratingSet = true;
+            // TODO: multi thread here??
             auto func = [this]()
             {
                 GenerateTrainingSet();

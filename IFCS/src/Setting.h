@@ -32,6 +32,8 @@ namespace IFCS
         // appearance
         ETheme Theme = ETheme::Light;
         // editor
+        int CoresToUse = 4;
+        int MaxCachedFramesSize = 1500;
         bool bEnableAutoSave = true;
         int AutoSaveInterval = 30; // sec
         bool bEnableGuideLine = true;
@@ -62,7 +64,13 @@ namespace IFCS
             App = InApp;
         }
 
+        float GetSystemMemorySize() const
+        {
+            return SystemMemorySize;
+        }
+
     private:
         class Application* App;
+        float SystemMemorySize;
     };
 }

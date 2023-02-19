@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <array>
 #include <filesystem>
+#include <future>
 #include <map>
 #include "Panel.h"
 
@@ -11,8 +12,8 @@ namespace IFCS
     public:
         MAKE_SINGLETON(DataBrowser)
         void Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose = true) override;
-        void LoadOtherFrame(bool IsNext); // ture for next, false for previous
-        void LoadFrame(int FrameNumber); // if frame num < 0 .. load first extracted frame
+        // void LoadOtherFrame(bool IsNext); // ture for next, false for previous
+        // void LoadFrame(int FrameNumber); // if frame num < 0 .. load first extracted frame
         // TODO: make access of opencv clip info centric to here...
         std::vector<std::string> GetAllClips() const;
         std::vector<std::string> GetAllImages() const;
@@ -31,16 +32,30 @@ namespace IFCS
             SelectedClipInfo.ClipPath.clear();
             SelectedImageInfo.ImagePath.clear();
             ShouldViewDetail = false;
-        };
+        }
+
+        // All frame/image loading should be here!!
+        int VideoStartFrame;
+        int CurrentFrame;
+        int VideoEndFrame;
         unsigned int LoadedFramePtr;
         std::map<int, cv::Mat> VideoFrames;
-        void LoadVideoFrame(int FrameNumber);
+        void DisplayFrame(int NewFrameNum, const std::string& ParticularClip = "");
+        void DisplayImage();
+        void PrepareVideo(bool& InLoadingStatus);
+        bool IsImageDisplayed = false;
+        void LoadingVideoBlock(bool& InLoadingStatus, int CurrentFrameNum, const std::string& ParticularClip="");
+        std::vector<std::future<void>> LoadingVideoTasks;
         void MatToGL(const cv::Mat& Frame);
+        void MoveFrame(int NewFrame);
+        
+        
 
         const std::array<std::string, 6> AcceptedClipsFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"};
         const std::array<std::string, 3> AcceptedImageFormat = {".jpg", ".jpeg", ".png"};
         
         bool NeedReviewedOnly;
+        
     protected:
         void RenderContent() override;
 

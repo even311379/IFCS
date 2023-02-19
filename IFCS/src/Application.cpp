@@ -8,6 +8,7 @@
 
 #include <cstdio>
 #include <spdlog/spdlog.h>
+#include "yaml-cpp/yaml.h"
 
 #include "Setting.h"
 #include "Annotation.h"
@@ -35,6 +36,9 @@
 
 namespace IFCS
 {
+    int UnSaveFileTick = 99999999;
+
+    
     Application::Application()
         : Window(nullptr)
     {
@@ -67,6 +71,7 @@ namespace IFCS
         // TODO: set window size by config file 
         Window = glfwCreateWindow(1920, 1080, "IFCS", NULL, NULL);
         if (Window == NULL) return;
+        InitWindowTransform();
         glfwMakeContextCurrent(Window);
         glfwSwapInterval(1); // enable vsync
 
@@ -129,8 +134,6 @@ namespace IFCS
         // load static images?
     }
 
-    int UnSaveFileTick = 99999999;
-
     void Application::run()
     {
         // setup third party stuff
@@ -151,7 +154,7 @@ namespace IFCS
         {
             // TODO: chinese project path?
             // glfwSetWindowTitle(Window, "這是中文");
-            glfwSetWindowTitle(Window, (std::string("IFCS (v1.0)   ") + "(" + Setting::Get().ProjectPath + ")").c_str());
+            glfwSetWindowTitle(Window, (std::string("IFCS (v1.01)   ") + "(" + Setting::Get().ProjectPath + ")").c_str());
             CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
         }
         else
@@ -176,7 +179,7 @@ namespace IFCS
             {
                 // TODO: chinese project path?
                 // glfwSetWindowTitle(Window, "這是中文");
-                glfwSetWindowTitle(Window, (std::string("IFCS (v1.0)    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
+                glfwSetWindowTitle(Window, (std::string("IFCS (v1.01)    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
                 CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
                 Setting::Get().JustSetup = false;
             }
@@ -215,7 +218,6 @@ namespace IFCS
                 // spdlog::info("tick: {0}, tick + interval *60: {1}, UnSaveFileTick: {2}", tick, tick + Setting::Get().AutoSaveInterval * 60, UnSaveFileTick);
                 Annotation::Get().SaveDataFile();
                 UnSaveFileTick = 99999999;
-                
             }
 
             // end of render content
@@ -229,6 +231,8 @@ namespace IFCS
             glClear(GL_COLOR_BUFFER_BIT);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
             glfwSwapBuffers(Window);
+            glfwGetWindowPos(Window, &WindowPosX, &WindowPosY);
+            glfwGetWindowSize(Window, &WindowWidth, &WindowHeight);
 
             if (RequestToChangeTitle)
             {
@@ -237,22 +241,31 @@ namespace IFCS
                 if (Annotation::Get().NeedSaveFile)
                     UnSaveFileTick = tick;
                 std::string NeedSaveMark = Annotation::Get().NeedSaveFile? "*" : "";
-                glfwSetWindowTitle(Window, (std::string("IFCS (v1.0)   ") + "(" + Setting::Get().ProjectPath + ") " + NeedSaveMark).c_str());
+                glfwSetWindowTitle(Window, (std::string("IFCS (v1.01)   ") + "(" + Setting::Get().ProjectPath + ") " + NeedSaveMark).c_str());
                 RequestToChangeTitle = false;
             }
 
             if (RequestToQuit)
             {
                 glfwDestroyWindow(Window);
-
             }
 
             tick ++;
         }
-        Detection::Get().ClearCacheIndividuals();
         Setting::Get().Save();
         if (Annotation::Get().NeedSaveFile)
             Annotation::Get().SaveDataFile();
+    }
+
+    void Application::InitWindowTransform()
+    {
+        YAML::Node EditorIni = YAML::LoadFile("Config/Editor.ini");
+        if (EditorIni["Window"])
+        {
+            std::vector<int> WT = EditorIni["Window"].as<std::vector<int>>();
+            glfwSetWindowPos(Window, WT[0], WT[1]);
+            glfwSetWindowSize(Window, WT[2], WT[3]);
+        }
     }
 
     void Application::CreateFileDialog()

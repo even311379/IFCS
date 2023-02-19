@@ -11,13 +11,7 @@ namespace IFCS
     public:
         MAKE_SINGLETON(Annotation)
         void Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose = true) override;
-        int CurrentFrame;
-        void DisplayFrame(int NewFrameNum);
-        void DisplayImage();
-        void PrepareVideo();
-        bool IsImage = false;
         std::map<int, FAnnotationToDisplay> GetAnnotationToDisplay();
-        void MoveFrame(int NewFrame);
         void ClearData()
         {
             Data_Img = FAnnotationSave();
@@ -38,10 +32,11 @@ namespace IFCS
         std::map<int, FAnnotationSave> Data_Frame;
         FAnnotationSave Data_Img;
         
+        // video play controls
+        bool IsLoadingVideo;
     protected:
         void RenderContent() override;
     private:
-        void LoadingVideoBlock();
         void RenderSelectCombo();
         void RenderAnnotationWork();
         void RenderVideoControls();
@@ -60,10 +55,7 @@ namespace IFCS
         void ResizeImpl(EBoxCorner WhichCorner, const ImVec2& InPos, ImU32 InColor, bool IsDragging, FAnnotation& Ann);
 
 
-    private:
-        // video play controls
-        bool IsLoadingVideo;
-        std::array<std::future<void>, 4> Tasks;
+
         
     };
 }
