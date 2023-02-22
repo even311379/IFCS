@@ -338,6 +338,7 @@ namespace IFCS
             ImgAnnotationsToDisplay.clear();
             for (auto [FilePath, FrameSave] : Annotation::Get().Data)
             {
+                if (FilePath.empty()) continue;
                 for (const auto& Format : AcceptedImageFormat)
                 {
                     if (Utils::InsensitiveStringCompare(FilePath.substr(FilePath.size() - 4), Format))

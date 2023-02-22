@@ -829,7 +829,6 @@ namespace IFCS
     {
         Annotation::Get().SaveData();
         auto Data = Annotation::Get().Data;
-        // YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
         auto CatData = CategoryManagement::Get().Data;
         auto CatChecker = CategoryManagement::Get().GeneratorCheckData;
         CategoriesExportCounts.clear();

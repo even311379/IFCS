@@ -812,7 +812,8 @@ namespace IFCS
         }
         else
         {
-            Data[DB.SelectedClipInfo.ClipPath] = Data_Frame;
+            if (!DB.SelectedClipInfo.ClipPath.empty())
+                Data[DB.SelectedClipInfo.ClipPath] = Data_Frame;
         }
         NeedSaveFile = true;
         App->RequestToChangeTitle = true;
