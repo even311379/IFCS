@@ -41,6 +41,7 @@ namespace IFCS
         void GenerateImgTxt(cv::VideoCapture& Cap, int FrameNum,const std::vector<FAnnotation>& InAnnotations,
             const char* GenName, bool IsOriginal, const char* SplitName);
         std::future<void> GenerateSet_Future;
+        int CurrentImgGenerated = 0;
 
 
         // training
@@ -53,6 +54,8 @@ namespace IFCS
         void OpenTensorBoard();
         void OnTrainingFinished();
 
+        bool bTrainOnExisitingModel = false;
+        FModelDescription SelectedExistingModel;
         bool bApplyTransferLearning = true;
         int Epochs = 40;
         int BatchSize = 16;

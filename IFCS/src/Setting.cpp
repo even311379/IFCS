@@ -175,7 +175,9 @@ namespace IFCS
     void Setting::StartFromPreviousProject()
     {
         RecentProjects.insert(ProjectPath);
+        EWorkspace CachedWorkspace = ActiveWorkspace;
         LoadUserIni();
+        ActiveWorkspace = CachedWorkspace;
         Annotation::Get().ClearData();
         CategoryManagement::Get().UpdateCategoryStatics();
         CategoryManagement::Get().SelectedCatID = 0;

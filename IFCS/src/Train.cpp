@@ -33,6 +33,7 @@ namespace IFCS
     };
 
     std::vector<int> Model6Indices = {1, 2, 3, 5};
+    std::vector<std::string> Model6Names = {"yolov7-d6", "yolov7-e6", "yolov7-e6e", "yolov7-w6"};
 
     void Train::Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose)
     {
@@ -43,6 +44,8 @@ namespace IFCS
 
     bool IsGeneratingSet = false;
     char NewTrainingSetName[64];
+    std::string ErrorMessage;
+    std::string SuccessMessage;
 
     void Train::RenderContent()
     {
@@ -52,13 +55,28 @@ namespace IFCS
             {
                 if (IsGeneratingSet)
                 {
+                    ImGui::PushStyleColor(ImGuiCol_PlotHistogram, Style::BLUE(400, Setting::Get().Theme));
+                    ImGui::ProgressBar(float(CurrentImgGenerated) / TotalExportImages, {256.f, 0});
+                    ImGui::PopStyleColor();
+                    ImGui::SameLine(0, 32);
                     ImSpinner::SpinnerBarsScaleMiddle("Spinner_GeneratingSet", 6,
                                                       ImColor(Style::BLUE(400, Setting::Get().Theme)));
                     ImGui::Text("Generating training set...");
                     if (GenerateSet_Future.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
                     {
-                        NewTrainingSetName[0] = '\0';
+                        ErrorMessage.clear();
+                        SuccessMessage.clear();
                         IsGeneratingSet = false;
+                        if (CurrentImgGenerated == TotalExportImages)
+                        {
+                            SuccessMessage = std::string(NewTrainingSetName) + " was successfully generated!";
+                        }
+                        else
+                        {
+                            ErrorMessage = std::string("Something was wrong... only ") + std::to_string(CurrentImgGenerated) + "/" +
+                                std::to_string(TotalExportImages) + " was generated!";
+                        }
+                        NewTrainingSetName[0] = '\0';
                     }
                 }
                 else
@@ -101,6 +119,8 @@ namespace IFCS
                     RenderTrainingSetExportWidget();
 
                     ImGui::Unindent();
+                    ImGui::TextColored(Style::RED(), ErrorMessage.c_str());
+                    ImGui::TextColored(Style::BLUE(), SuccessMessage.c_str());
                 }
                 ImGui::EndTabItem();
             }
@@ -121,6 +141,8 @@ namespace IFCS
                 {
                     ImSpinner::SpinnerBarsScaleMiddle("Spinner_Training", 6,
                                                       ImColor(Style::BLUE(400, Setting::Get().Theme)));
+                    
+
                     ImGui::Text("Training...");
                     if (TrainingFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
                     {
@@ -815,7 +837,9 @@ namespace IFCS
             {
                 if (std::string(NewTrainingSetName) == Node.first.as<std::string>()) return;
             }
+            CurrentImgGenerated = 0;
             IsGeneratingSet = true;
+            
             // TODO: multi thread here??
             auto func = [this]()
             {
@@ -838,7 +862,7 @@ namespace IFCS
         NumIncludedImages = 0;
         for (const auto& C : IncludedClips)
         {
-            for (auto [FrameNum, Save] : Data[C])
+            for (auto [FrameNum, Save] : Data[C.substr(Setting::Get().ProjectPath.length())])
             {
                 if (IncludeReadyOnly && !Save.IsReady) continue;
                 bool ContainsExportedCategory = false;
@@ -874,8 +898,9 @@ namespace IFCS
 
         for (const auto& Img : IncludedImgs)
         {
-            if (!Data.count(Img)) continue;
-            FAnnotationSave ImgSave = Data[Img][0];
+            std::string RelImg = Img.substr(Setting::Get().ProjectPath.length());
+            if (!Data.count(RelImg)) continue;
+            FAnnotationSave ImgSave = Data[RelImg][0];
             if (IncludeReadyOnly && !ImgSave.IsReady) continue;
             bool ContainsExportedCategory = false;
             for (const auto& [UID, Ann] : ImgSave.AnnotationData)
@@ -1066,7 +1091,8 @@ namespace IFCS
         for (const std::string& Clip : IncludedClips)
         {
             cv::VideoCapture Cap(Clip);
-            for (YAML::const_iterator it = Data[Clip].begin(); it != Data[Clip].end(); ++it)
+            std::string RelClip = Clip.substr(Setting::Get().ProjectPath.length());
+            for (YAML::const_iterator it = Data[RelClip].begin(); it != Data[RelClip].end(); ++it)
             {
                 if (it->second.size() == 0) continue;
                 if (IncludeReadyOnly && !it->second["IsReady"].as<bool>()) continue;
@@ -1101,7 +1127,12 @@ namespace IFCS
             }
             Cap.release();
         }
+
         // handle images
+        // TODO: chinese path will still block img generation here???
+        /*
+         * write different logic... that directory_iterator runsd on the top img folder... otherwise it will just crash...
+         */
         std::vector<std::string> IncludedImgs;
         for (const auto& IF : IncludedImageFolders)
         {
@@ -1110,11 +1141,14 @@ namespace IFCS
                 if (p.is_directory()) continue;
                 std::string FullPath = p.path().u8string();
                 std::replace(FullPath.begin(), FullPath.end(), '\\', '/');
-                if (!Data[FullPath]) continue;
-                if (IncludeReadyOnly && !Data[FullPath][0]["IsReady"].as<bool>()) continue;
+                std::string RelPath = FullPath.substr(Setting::Get().ProjectPath.length());
+                if (!Data[RelPath]) continue;
+                if (IncludeReadyOnly && !Data[RelPath][0]["IsReady"].as<bool>()) continue;
                 IncludedImgs.push_back(FullPath);
             }
         }
+
+        
         for (const std::string& Img : IncludedImgs)
         {
             std::string SplitName;
@@ -1131,6 +1165,25 @@ namespace IFCS
             const std::string OutTxtName = Setting::Get().ProjectPath + "/Data/" + NewTrainingSetName + "/" + SplitName
                 + "/labels/" + GenName + ".txt";
             cv::Mat ImgData = cv::imread(Img);
+            if (ImgData.empty())
+            {
+                // Solution to unicode path in opencv: https://stackoverflow.com/a/43369056
+                std::wstring wpath = Utils::ConvertUtf8ToWide(Img);
+                
+                std::ifstream f(wpath, std::iostream::binary);
+                // Get its size
+                std::filebuf* pbuf = f.rdbuf();
+                size_t size = pbuf->pubseekoff(0, f.end, f.in);
+                pbuf->pubseekpos(0, f.in);
+
+                // Put it in a vector
+                std::vector<uchar> buffer(size);
+                pbuf->sgetn((char*)buffer.data(), size);
+
+                // Decode the vector
+                ImgData = cv::imdecode(buffer, cv::IMREAD_COLOR);
+            }
+            
             cv::resize(ImgData, ImgData, cv::Size(ExportedImageSize[0], ExportedImageSize[1]));
             cv::imwrite(OutImgName, ImgData);
 
@@ -1166,6 +1219,7 @@ namespace IFCS
                 }
             }
             ofs.close();
+            CurrentImgGenerated += 1;
             N++;
         }
     }
@@ -1206,6 +1260,7 @@ namespace IFCS
             }
         }
         ofs.close();
+        CurrentImgGenerated += 1;
     }
 
     bool ModelNameIsDuplicated = false;
@@ -1213,13 +1268,6 @@ namespace IFCS
     void Train::RenderTrainingOptions()
     {
         // model select
-        if (ImGui::Combo("Choose Model", &SelectedModelIdx, ModelOptions, IM_ARRAYSIZE(ModelOptions)))
-        {
-            UpdateTrainScript();
-            if (SelectedModelIdx == 4)
-                bApplyTransferLearning = false;
-        }
-
         if (ImGui::BeginCombo("Choose Training Set", SelectedTrainingSet.Name.c_str()))
         {
             YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/TrainingSets.yaml");
@@ -1236,21 +1284,44 @@ namespace IFCS
             ImGui::EndCombo();
         }
 
-        // apply transfer learning?
-        if (ImGui::Checkbox("Apply Transfer learning?", &bApplyTransferLearning))
-        {
-            UpdateTrainScript();
-        }
-        ImGui::SameLine();
-        ImGui::Text("(Tiny not supported)");
-        // TODO: allow to selection custom pre-trained weight?
+        ImGui::Checkbox("Train on existing model?", &bTrainOnExisitingModel);
 
-        // Hyper parameters are bounding to specific models... and normal users should just leave it away...
-        // // hyp options
-        // if (ImGui::Combo("Hyper parameter", &SelectedHypIdx, HypOptions, IM_ARRAYSIZE(HypOptions)))
-        // {
-        //     UpdateTrainScript();
-        // }
+        if (bTrainOnExisitingModel)
+        {
+            if (ImGui::BeginCombo("Choose Existing model", SelectedExistingModel.Name.c_str()))
+            {
+                YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
+                for (auto D : Data)
+                {
+                    auto Name = D.first.as<std::string>();
+                    if (ImGui::Selectable(Name.c_str(), Name == SelectedExistingModel.Name))
+                    {
+                        SelectedExistingModel = FModelDescription(Name, D.second);
+                        UpdateTrainScript();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            
+        }
+        else
+        {
+            if (ImGui::Combo("Choose Model", &SelectedModelIdx, ModelOptions, IM_ARRAYSIZE(ModelOptions)))
+            {
+                UpdateTrainScript();
+                if (SelectedModelIdx == 4)
+                    bApplyTransferLearning = false;
+            }
+            
+            // apply transfer learning?
+            if (ImGui::Checkbox("Apply Transfer learning?", &bApplyTransferLearning))
+            {
+                UpdateTrainScript();
+            }
+            ImGui::SameLine();
+            ImGui::Text("(Tiny not supported)");
+        }
+
 
         // epoch
         if (ImGui::InputInt("Num Epoch", &Epochs, 1, 10))
@@ -1497,7 +1568,9 @@ namespace IFCS
 
     void Train::UpdateTrainScript()
     {
-        const bool IsChoose6Model = Utils::Contains(Model6Indices, SelectedModelIdx);
+        
+        const bool IsChoose6Model = bTrainOnExisitingModel?
+            Utils::Contains(Model6Names, SelectedExistingModel.ModelType) : Utils::Contains(Model6Indices, SelectedModelIdx);
 
         SetPathScript = "cd /d " + Setting::Get().YoloV7Path;
         TrainScript = "";
@@ -1506,10 +1579,17 @@ namespace IFCS
         else
             TrainScript += Setting::Get().PythonPath + "/python train.py";
         TrainScript += " --weights ";
-        if (bApplyTransferLearning)
-            TrainScript += std::string(ModelOptions[SelectedModelIdx]) + "_training.pt";
+        if (bTrainOnExisitingModel)
+        {
+            TrainScript += Setting::Get().ProjectPath + "/Models/" + SelectedExistingModel.Name + "/weights/best.pt";
+        }
         else
-            TrainScript += "''";
+        {
+            if (bApplyTransferLearning)
+                TrainScript += std::string(ModelOptions[SelectedModelIdx]) + "_training.pt";
+            else
+                TrainScript += "''";
+        }
         TrainScript += " --cfg cfg/training/" + std::string(ModelOptions[SelectedModelIdx]) + ".yaml";
         TrainScript += " --data " + Setting::Get().ProjectPath + "/Data/" + SelectedTrainingSet.Name + "/" +
             SelectedTrainingSet.Name + ".yaml";

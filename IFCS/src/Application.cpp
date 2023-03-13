@@ -154,8 +154,8 @@ namespace IFCS
         {
             // TODO: chinese project path?
             // glfwSetWindowTitle(Window, "這是中文");
-            glfwSetWindowTitle(Window, (std::string("IFCS (v1.01)   ") + "(" + Setting::Get().ProjectPath + ")").c_str());
-            CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
+            glfwSetWindowTitle(Window, (std::string("IFCS (v1.02)   ") + "(" + Setting::Get().ProjectPath + ")").c_str());
+            CategoryManagement::Get().Setup("Category Management", Setting::Get().ActiveWorkspace == EWorkspace::Data, 0); // need project path?
         }
         else
         {
@@ -177,9 +177,7 @@ namespace IFCS
 
             if (Setting::Get().JustSetup)
             {
-                // TODO: chinese project path?
-                // glfwSetWindowTitle(Window, "這是中文");
-                glfwSetWindowTitle(Window, (std::string("IFCS (v1.01)    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
+                glfwSetWindowTitle(Window, (std::string("IFCS (v1.02)    ") + "(" + Setting::Get().ProjectPath + ")").c_str());
                 CategoryManagement::Get().Setup("Category Management", true, 0); // need project path?
                 Setting::Get().JustSetup = false;
             }
@@ -237,11 +235,10 @@ namespace IFCS
             if (RequestToChangeTitle)
             {
                 // TODO: chinese project path?
-                // glfwSetWindowTitle(Window, "這是中文");
                 if (Annotation::Get().NeedSaveFile)
                     UnSaveFileTick = tick;
                 std::string NeedSaveMark = Annotation::Get().NeedSaveFile? "*" : "";
-                glfwSetWindowTitle(Window, (std::string("IFCS (v1.01)   ") + "(" + Setting::Get().ProjectPath + ") " + NeedSaveMark).c_str());
+                glfwSetWindowTitle(Window, (std::string("IFCS (v1.02)   ") + "(" + Setting::Get().ProjectPath + ") " + NeedSaveMark).c_str());
                 RequestToChangeTitle = false;
             }
 
@@ -255,6 +252,7 @@ namespace IFCS
         Setting::Get().Save();
         if (Annotation::Get().NeedSaveFile)
             Annotation::Get().SaveDataFile();
+        DataBrowser::Get().ForceCloseLoading = true;
     }
 
     void Application::InitWindowTransform()

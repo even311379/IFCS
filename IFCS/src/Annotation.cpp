@@ -1,6 +1,7 @@
 ﻿#include "Annotation.h"
 
 #include <fstream>
+#include <regex>
 
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
@@ -33,50 +34,6 @@ namespace IFCS
         Panel::Setup(InName, InShouldOpen, InFlags, InCanClose);
         LoadDataFile();
     }
-
-    // void Annotation::DisplayFrame(int NewFrameNum)
-    // {
-    //     CurrentFrame = NewFrameNum;
-    //     if (!DB.VideoFrames.count(CurrentFrame))
-    //     {
-    //         cv::VideoCapture cap(DB.SelectedClipInfo.ClipPath);
-    //         cv::Mat Frame;
-    //         cap.set(cv::CAP_PROP_POS_FRAMES, CurrentFrame);
-    //         cap >> Frame;
-    //         cv::resize(Frame, Frame, cv::Size(1280, 720)); // 16 : 9
-    //         cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
-    //         cap.release();
-    //         DB.MatToGL(Frame);
-    //     }
-    //     else
-    //     {
-    //         DB.LoadVideoFrame(NewFrameNum);
-    //     }
-    // }
-
-    // void Annotation::PrepareVideo()
-    // {
-    //     IsImage = false;
-    //     // show frame 1 and update info
-    //     CurrentFrame = 0;
-    //     StartFrame = 0;
-    //     GrabData();
-    //     cv::Mat Frame;
-    //     cv::VideoCapture cap(DB.SelectedClipInfo.ClipPath);
-    //     int Width = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
-    //     int Height = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
-    //     float FPS = (float)cap.get(cv::CAP_PROP_FPS);
-    //     int FrameCount = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
-    //     EndFrame = FrameCount - 1;
-    //     DB.SelectedClipInfo.Update(FrameCount, FPS, Width, Height);
-    //     cap >> Frame;
-    //     cv::resize(Frame, Frame, cv::Size(1280, 720)); // 16 : 9
-    //     cv::cvtColor(Frame, Frame, cv::COLOR_BGR2RGB);
-    //     cap.release();
-    //     DB.MatToGL(Frame);
-    //     DB.VideoFrames.clear();
-    //     DB.LoadingVideoBlock(IsLoadingVideo,0);
-    // }
 
     std::map<int, FAnnotationToDisplay> Annotation::GetAnnotationToDisplay()
     {
@@ -116,7 +73,15 @@ namespace IFCS
                     NumCoreFinished++;
                 }
             }
-            if (NumCoreFinished == Setting::Get().CoresToUse) IsLoadingVideo = false;
+            if (NumCoreFinished == Setting::Get().CoresToUse)
+            {
+                IsLoadingVideo = false;
+                if (DB.ForceCloseLoading)
+                {
+                    DB.ForceCloseLoading = false;
+                    DB.PrepareVideo(IsLoadingVideo);
+                }
+            }
         }
 
         if (Tick > 15)
@@ -770,6 +735,8 @@ namespace IFCS
         {
             auto FileName = it->first.as<std::string>();
             if (FileName.empty()) continue;
+            FileName = std::regex_replace(FileName, std::regex(Setting::Get().ProjectPath), "");
+            // FileName.replace(Setting::Get().ProjectPath, "");
             auto CNode = it->second.as<YAML::Node>();
             for (YAML::const_iterator f = CNode.begin(); f != CNode.end(); ++f)
             {
@@ -800,7 +767,7 @@ namespace IFCS
     {
         if (DB.IsImageDisplayed)
         {
-            const std::string ImgPath = DB.SelectedImageInfo.ImagePath;
+            const std::string ImgPath = DB.SelectedImageInfo.ImagePath.substr(Setting::Get().ProjectPath.length());
             if (Data_Img.IsEmpty())
             {
                 Data.erase(ImgPath);
@@ -813,7 +780,10 @@ namespace IFCS
         else
         {
             if (!DB.SelectedClipInfo.ClipPath.empty())
-                Data[DB.SelectedClipInfo.ClipPath] = Data_Frame;
+            {
+                const std::string RelPath = DB.SelectedClipInfo.ClipPath.substr(Setting::Get().ProjectPath.length());
+                Data[RelPath] = Data_Frame;
+            }
         }
         NeedSaveFile = true;
         App->RequestToChangeTitle = true;
@@ -824,17 +794,19 @@ namespace IFCS
         if (DB.IsImageDisplayed)
         {
             Data_Img.AnnotationData.clear();
-            if (!Data.count(DB.SelectedImageInfo.ImagePath)) return;
-            Data_Img = Data[DB.SelectedImageInfo.ImagePath][0];
+            const std::string RelPath = std::regex_replace(DB.SelectedImageInfo.ImagePath, std::regex(Setting::Get().ProjectPath), "");
+            if (!Data.count(RelPath)) return;
+            Data_Img = Data[RelPath][0];
         }
         else
         {
-            if (!Data.count(DB.SelectedClipInfo.ClipPath))
+            const std::string RelPath = std::regex_replace(DB.SelectedClipInfo.ClipPath, std::regex(Setting::Get().ProjectPath), "");
+            if (!Data.count(RelPath))
             {
                 Data_Frame.clear();
                 return;
             }
-            Data_Frame = Data[DB.SelectedClipInfo.ClipPath];
+            Data_Frame = Data[RelPath];
         }
     }
 

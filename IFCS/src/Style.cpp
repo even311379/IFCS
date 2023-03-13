@@ -407,10 +407,10 @@ namespace IFCS
             colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.20f, 0.20f, 0.20f, 0.35f);
 
             // more missing colors...
-            colors[ImGuiCol_Tab] = BLUE(600, ActiveTheme);
-            colors[ImGuiCol_TabHovered] = BLUE(700, ActiveTheme);
+            colors[ImGuiCol_Tab] = BLUE(700, ActiveTheme);
+            colors[ImGuiCol_TabHovered] = SEAFOAM(600, ActiveTheme);
             colors[ImGuiCol_TabActive] = BLUE(400, ActiveTheme);
-            colors[ImGuiCol_TabUnfocused] = BLUE(500, ActiveTheme);
+            colors[ImGuiCol_TabUnfocused] = BLUE(700, ActiveTheme);
             colors[ImGuiCol_TabUnfocusedActive] = BLUE(400, ActiveTheme);
             
             colors[ImGuiCol_TableHeaderBg] = GRAY(400, ActiveTheme);

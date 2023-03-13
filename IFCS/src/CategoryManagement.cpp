@@ -306,6 +306,7 @@ namespace IFCS
 
     void CategoryManagement::UpdateCategoryStatics()
     {
+        Data.clear();
         LoadCategoriesFromFile();
         if (Data.empty())
         {

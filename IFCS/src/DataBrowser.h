@@ -46,6 +46,7 @@ namespace IFCS
         bool IsImageDisplayed = false;
         void LoadingVideoBlock(bool& InLoadingStatus, int CurrentFrameNum, const std::string& ParticularClip="");
         std::vector<std::future<void>> LoadingVideoTasks;
+        bool ForceCloseLoading = false;
         void MatToGL(const cv::Mat& Frame);
         void MoveFrame(int NewFrame);
         

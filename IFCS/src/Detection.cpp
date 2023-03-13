@@ -286,7 +286,15 @@ namespace IFCS
                             NumCoreFinished++;
                         }
                     }
-                    if (NumCoreFinished == Setting::Get().CoresToUse) IsLoadingVideo = false;
+                    if (NumCoreFinished == Setting::Get().CoresToUse)
+                    {
+                        IsLoadingVideo = false;
+                        if (DB.ForceCloseLoading)
+                        {
+                            DB.ForceCloseLoading = false;
+                            DB.LoadingVideoBlock(IsLoadingVideo, 0, DetectionClip);
+                        }
+                    }
                 }
                 // TODO: add export video?
                 if (SelectedAnalysisType == 0)

@@ -8,6 +8,7 @@
 #include <spdlog/spdlog.h>
 #include <shellapi.h>
 #include <fstream>
+#include <regex>
 #include <yaml-cpp/yaml.h>
 #include "opencv2/opencv.hpp"
 #include "backends/imgui_impl_glfw.h"
@@ -172,6 +173,11 @@ namespace IFCS
 
     void DataBrowser::PrepareVideo(bool& InLoadingStatus)
     {
+        if (InLoadingStatus)
+        {
+            ForceCloseLoading = true;
+            return;
+        }
         IsImageDisplayed = false;
         // show frame 1 and update info
         CurrentFrame = 0;
@@ -221,6 +227,11 @@ namespace IFCS
             Cap.set(cv::CAP_PROP_POS_FRAMES, Start);
             while (1)
             {
+                if (ForceCloseLoading)
+                {
+                    spdlog::info("forced stop loading...");
+                    break;
+                }
                 if (Start > End)
                 {
                     break;
@@ -488,15 +499,16 @@ namespace IFCS
                 std::string FullImagePath = entry.path().u8string();
                 std::string ImageName = entry.path().filename().u8string();
                 std::replace(FullImagePath.begin(), FullImagePath.end(), '\\', '/');
+                std::string RelPath = FullImagePath.substr(Setting::Get().ProjectPath.length());
                 std::string LabelName;
                 HasAnyImage = true;
                 if (Depth > 0)
                 {
                     ImGui::Indent();
                 }
-                if (ImgAnnotationsToDisplay.count(FullImagePath))
+                if (ImgAnnotationsToDisplay.count(RelPath))
                 {
-                    const FAnnotationToDisplay AD = ImgAnnotationsToDisplay[FullImagePath];
+                    const FAnnotationToDisplay AD = ImgAnnotationsToDisplay[RelPath];
                     if (NeedReviewedOnly && AD.IsReady) continue;
                     char buff[128];
                     const char* Icon = AD.IsReady ? ICON_FA_CHECK : "";
@@ -507,7 +519,7 @@ namespace IFCS
                 {
                     LabelName = ImageName;
                 }
-                if (!NeedReviewedOnly || ImgAnnotationsToDisplay.count(FullImagePath))
+                if (!NeedReviewedOnly || ImgAnnotationsToDisplay.count(RelPath))
                 {
                     if (ImGui::Selectable(LabelName.c_str(), SelectedImageInfo.ImagePath == FullImagePath,
                                           ImGuiSelectableFlags_AllowDoubleClick))
