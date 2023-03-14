@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <regex>
 
 #include "Annotation.h"
 #include "Application.h"
@@ -39,6 +40,7 @@ namespace IFCS
             return;
         }
         ProjectPath = EditorIni["LastOpenProject"].as<std::string>();
+        ProjectPath = std::regex_replace(ProjectPath, std::regex("/$"), "");
         if (!std::filesystem::exists(ProjectPath))
         {
             ProjectPath = "null";
@@ -49,7 +51,11 @@ namespace IFCS
             for (std::size_t i = 0; i < EditorIni["RecentProjects"].size(); i++)
             {
                 if (std::filesystem::exists(EditorIni["RecentProjects"][i].as<std::string>()))
-                    RecentProjects.insert(EditorIni["RecentProjects"][i].as<std::string>());
+                {
+                    auto RecentProject = EditorIni["RecentProjects"][i].as<std::string>();
+                    RecentProject = std::regex_replace(RecentProject, std::regex("/$"), "");
+                    RecentProjects.insert(RecentProject);
+                }
             }
         }
         LoadUserIni();
