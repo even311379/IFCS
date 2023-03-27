@@ -22,9 +22,6 @@ namespace IFCS
     static bool NeedSave = false;
     static bool NeedUpdateCategoryStatics = false;
     static int Tick = 0;
-    // static int StartFrame;
-    // static int EndFrame;
-    // static int BlockSize = 500;
     static ImVec2 WorkStartPos;
     static bool IsPlaying;
     static int FrameJumpSize = 1;
