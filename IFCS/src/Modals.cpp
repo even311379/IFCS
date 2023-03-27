@@ -148,6 +148,9 @@ namespace IFCS
         RenderDoc("Tutorial");
         RenderDoc("Contact");
         RenderDoc("License");
+        if (IsModalOpen_Delete)
+            ImGui::OpenPopup("Delete Asset");
+        RenderDeleteModal(DataBrowser::Get().LastSelectedAssetType);
         HandleFileDialogClose();
     }
 
@@ -764,6 +767,127 @@ namespace IFCS
                 IsModalOpen_License = false;
             }
             ImGui::EndPopup();
+        }
+    }
+
+    void Modals::RenderDeleteModal(EAssetType AssetType)
+    {
+        // only supports for training set, model, and detection for now
+        ImGui::SetNextWindowPos(Center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowSize(ImVec2(384, 108));
+        std::string ToDeleteName;
+        switch (AssetType)
+        {
+        case EAssetType::TrainingSet:
+            ToDeleteName = DataBrowser::Get().SelectedTrainingSet;
+            break;
+        case EAssetType::Model:
+            ToDeleteName = DataBrowser::Get().SelectedModel;
+            break;
+        case EAssetType::Detection:
+            ToDeleteName = DataBrowser::Get().SelectedDetection;
+            break;
+        default: ;
+        }
+
+        if (ImGui::BeginPopupModal("Delete Asset"))
+        {
+            ImGui::Text("Delete %s. Are you sure?", ToDeleteName.c_str());
+            ImGui::Separator();
+            if (ImGui::Button("OK"))
+            {
+                switch (AssetType)
+                {
+                case EAssetType::TrainingSet:
+                    {
+                        // modify yaml file
+                        YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/TrainingSets.yaml");
+                        YAML::Node NewData;
+                        
+                        for (YAML::const_iterator it=Data.begin();it!=Data.end();++it)
+                        {
+                            std::string Name = it->first.as<std::string>();
+                            if (Name == DataBrowser::Get().SelectedTrainingSet) continue;
+                            NewData[Name] = it->second;
+                        }
+                        std::ofstream ofs;
+                        ofs.open(Setting::Get().ProjectPath + "/Data/TrainingSets.yaml");
+                        YAML::Emitter Out;
+                        Out << NewData;
+                        ofs << Out.c_str();
+                        ofs.close();
+                        
+                        // delete contents
+                        auto async_delete = [this]()
+                        {
+                            std::filesystem::remove_all(Setting::Get().ProjectPath + "/Data/" + DataBrowser::Get().SelectedTrainingSet);
+                        };
+                        std::async(std::launch::async, async_delete);
+                        DataBrowser::Get().SelectedTrainingSet.clear();
+                        break;
+                    }
+                    
+                case EAssetType::Model:
+                    {
+                        YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
+                        YAML::Node NewData;
+                        
+                        for (YAML::const_iterator it=Data.begin();it!=Data.end();++it)
+                        {
+                            std::string Name = it->first.as<std::string>();
+                            if (Name == DataBrowser::Get().SelectedModel) continue;
+                            NewData[Name] = it->second;
+                        }
+                        std::ofstream ofs;
+                        ofs.open(Setting::Get().ProjectPath + "/Models/Models.yaml");
+                        YAML::Emitter Out;
+                        Out << NewData;
+                        ofs << Out.c_str();
+                        ofs.close();
+                        
+                        // delete contents
+                        std::filesystem::remove_all(Setting::Get().ProjectPath + "/Models/" + DataBrowser::Get().SelectedModel);
+                        DataBrowser::Get().SelectedModel.clear();
+                        break;
+                    }
+                case EAssetType::Detection:
+                    {
+                        YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Detections/Detections.yaml");
+                        YAML::Node NewData;
+                        for (YAML::const_iterator it=Data.begin();it!=Data.end();++it)
+                        {
+                            std::string Name = it->first.as<std::string>();
+                            if (Name == DataBrowser::Get().SelectedDetection) continue;
+                            NewData[Name] = it->second;
+                        }
+                        std::ofstream ofs;
+                        ofs.open(Setting::Get().ProjectPath + "/Detections/Detections.yaml");
+                        YAML::Emitter Out;
+                        Out << NewData;
+                        ofs << Out.c_str();
+                        ofs.close();
+                        
+                        // delete contents
+                        auto async_delete = [this]()
+                        {
+                            std::filesystem::remove_all(Setting::Get().ProjectPath + "/Detections/" + DataBrowser::Get().SelectedDetection);
+                        };
+                        std::async(std::launch::async, async_delete);
+                        DataBrowser::Get().SelectedDetection.clear();
+                        break;
+                    }
+                default: ;
+                }
+                DataBrowser::Get().ShouldViewDetail = false;
+                ImGui::CloseCurrentPopup();
+                IsModalOpen_Delete = false;
+            }
+            ImGui::SameLine(0, 24);
+            if (ImGui::Button("Cancel"))
+            {
+                ImGui::CloseCurrentPopup();
+                IsModalOpen_Delete = false;
+            }
         }
     }
 

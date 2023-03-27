@@ -29,6 +29,15 @@ namespace IFCS
         Train = 1,
         Detect = 2,
     };
+
+    enum class EAssetType : uint8_t
+    {
+        Clip = 0,
+        Image = 1,
+        TrainingSet = 2,
+        Model = 3,
+        Detection = 4
+    };
     
     // the value is the column position in csv...
     enum class ESupportedLanguage : uint8_t

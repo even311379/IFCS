@@ -56,6 +56,12 @@ namespace IFCS
         const std::array<std::string, 3> AcceptedImageFormat = {".jpg", ".jpeg", ".png"};
         
         bool NeedReviewedOnly;
+
+        EAssetType LastSelectedAssetType = EAssetType::Clip;
+        std::string SelectedTrainingSet;
+        std::string SelectedModel;
+        std::string SelectedDetection;
+        bool ShouldViewDetail = false;
         
     protected:
         void RenderContent() override;
@@ -71,12 +77,8 @@ namespace IFCS
         bool HasAnyImage = false;
         std::unordered_map<std::string, FAnnotationToDisplay> ImgAnnotationsToDisplay;
 
-        bool ShouldViewDetail = false;
-        std::string SelectedTrainingSet;
         FTrainingSetDescription TrainingSetDescription;
-        std::string SelectedModel;
         FModelDescription ModelDescription;
-        std::string SelectedDetection;
         FDetectionDescription DetectionDescription;
     };
 }

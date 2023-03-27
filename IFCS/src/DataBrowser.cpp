@@ -19,16 +19,8 @@
 
 namespace IFCS
 {
-    enum class EAssetType : uint8_t
-    {
-        Clip = 0,
-        Image = 1,
-        TrainingSet = 2,
-        Model = 3,
-        Detection = 4
-    };
 
-    EAssetType LastSelectedAssetType = EAssetType::Clip;
+    // EAssetType LastSelectedAssetType = EAssetType::Clip;
 
     void DataBrowser::Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose)
     {

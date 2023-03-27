@@ -1,8 +1,10 @@
 ﻿#include "Common.h"
 #include <yaml-cpp/yaml.h>
 
+#include "Modals.h"
 #include "Setting.h"
 #include "Utils.h"
+#include "Style.h"
 
 namespace IFCS
 {
@@ -312,6 +314,16 @@ namespace IFCS
         // Split and total export
         ImGui::TextWrapped("Train: %d, Valid: %d, Test: %d", int(Split[0] * TotalImagesExported),
                            int(Split[1] * TotalImagesExported), int(Split[2] * TotalImagesExported));
+
+        // Delete button
+        ImGui::PushStyleColor(ImGuiCol_Button, Style::RED(400, Setting::Get().Theme));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Style::RED(600, Setting::Get().Theme));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, Style::RED(700, Setting::Get().Theme));
+        if (ImGui::Button("Delete", {128, 0}))
+        {
+            Modals::Get().IsModalOpen_Delete = true;
+        }
+        ImGui::PopStyleColor(3);
     }
 
     FModelDescription::FModelDescription(const std::string& InName, const YAML::Node& InputNode)
@@ -377,6 +389,16 @@ namespace IFCS
         ImGui::Text("mAP@.5:.95:");
         ImGui::SameLine(Offset);
         ImGui::Text("%.3f", mAP5_95);
+        
+        // Delete button
+        ImGui::PushStyleColor(ImGuiCol_Button, Style::RED(400, Setting::Get().Theme));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Style::RED(600, Setting::Get().Theme));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, Style::RED(700, Setting::Get().Theme));
+        if (ImGui::Button("Delete", {128, 0}))
+        {
+            Modals::Get().IsModalOpen_Delete = true;
+        }
+        ImGui::PopStyleColor(3);
     }
 
     FDetectionDescription::FDetectionDescription(const std::string& InName, const YAML::Node& InputNode)
@@ -439,6 +461,16 @@ namespace IFCS
         ImGui::Text("Image Size:");
         ImGui::SameLine(Offset);
         ImGui::Text("%d", ImageSize);
+        
+        // Delete button
+        ImGui::PushStyleColor(ImGuiCol_Button, Style::RED(400, Setting::Get().Theme));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Style::RED(600, Setting::Get().Theme));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, Style::RED(700, Setting::Get().Theme));
+        if (ImGui::Button("Delete", {128, 0}))
+        {
+            Modals::Get().IsModalOpen_Delete = true;
+        }
+        ImGui::PopStyleColor(3);
     }
 
     float FLabelData::Distance(const FLabelData& Other, const int Width, const int Height) const

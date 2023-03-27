@@ -25,6 +25,7 @@ namespace IFCS
         bool IsModalOpen_Tutorial;
         bool IsModalOpen_Contact;
         bool IsModalOpen_License;
+        bool IsModalOpen_Delete;
 
     private:
         void RenderWelcome();
@@ -48,6 +49,7 @@ namespace IFCS
         char TempYoloV7Path[128];
         char TempPythonEnv[128];
         void RenderDoc(const char* DocName);
+        void RenderDeleteModal(EAssetType AssetType);
         void HandleFileDialogClose();
     };
     
