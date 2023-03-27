@@ -71,9 +71,6 @@ namespace IFCS
         bool IsLoadingVideo = false;
 
         void DrawPlayRange();
-        // int StartFrame = 0;
-        // int EndFrame = 100;
-        // int CurrentFrame = 0;
         int TotalClipFrameSize = 100;
         bool DisplayHelperLines = true;
         ImVec4 HintColor = Style::RED();
@@ -105,9 +102,5 @@ namespace IFCS
         bool IsAnalyzing = false;
         std::future<void> AnalyzeFuture;
         void OnAnalyzeFinished();
-        // std::vector<cv::Mat> VideoFrames;
-
-        // void DisplayFrame(int NewFrameNum);
-        
     };
 }

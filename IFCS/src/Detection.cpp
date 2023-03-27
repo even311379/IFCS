@@ -496,6 +496,8 @@ namespace IFCS
         }
     }
 
+    static bool ENABLE_SPEED_THRESHOLD = true;
+    static bool ENABLE_BODY_SIZE_BUFFER = true;
     static float MAX_SPEED_THRESHOLD = 0.1f;
     static float BODY_SIZE_BUFFER = 0.2f;
     static int NUM_BUFFER_FRAMES = 10;
@@ -526,31 +528,51 @@ namespace IFCS
         ImGui::ColorEdit3("##hint", (float*)&HintColor, ImGuiColorEditFlags_NoInputs);
         if (ImGui::TreeNode("Advanced pass count parameters"))
         {
-            if (ImGui::DragFloat("Conf threshold", &FIndividualData::ConfThreshold, 0.01f, 0.01f, 0.5f, "%.2f"))
-            {
-                IsIndividualDataLatest = false;
-            }
-            Utils::AddSimpleTooltip("A threshold value to decide which category this individual should belong to.\n"
-                "if none of its confidence value in different frames is higher than it, this individual will be UNCERTAIN");
-            if (ImGui::DragFloat("Max speed threshould", &MAX_SPEED_THRESHOLD, 0.01f, 0.01f, 0.5f, "%.2f"))
+            if (ImGui::Checkbox("Enable max speed threshold?", &ENABLE_SPEED_THRESHOLD))
             {
                 IsIndividualDataLatest = false;
             }
             Utils::AddSimpleTooltip("A threshold value to decide how to assign prediction to individual. "
                 "Same individual should locate at similar location, it's speed (pixel^2 / frames) should be smaller than"
                 " speed threshold * sqrt(ClipHeight^2 + ClipWidth^2)");
-            if (ImGui::DragFloat("Body size threshould", &BODY_SIZE_BUFFER, 0.01f, 0.01f, 0.5f, "%.2f"))
+            
+            if (ImGui::Checkbox("Enable body size buffer", &ENABLE_BODY_SIZE_BUFFER))
             {
                 IsIndividualDataLatest = false;
             }
             Utils::AddSimpleTooltip("A threshold value to decide how to assign prediction to individual. "
                 "Same individual should have similar body size among frames. If this value is too small, same individual could be judged as different!");
+            
+            if (ImGui::DragFloat("Conf threshold", &FIndividualData::ConfThreshold, 0.01f, 0.01f, 0.5f, "%.2f"))
+            {
+                IsIndividualDataLatest = false;
+            }
+            Utils::AddSimpleTooltip("A threshold value to decide which category this individual should belong to.\n"
+                "if none of its confidence value in different frames is higher than it, this individual will be UNCERTAIN");
+            
+            if (ENABLE_SPEED_THRESHOLD)
+            {
+                if (ImGui::DragFloat("Max speed threshould", &MAX_SPEED_THRESHOLD, 0.01f, 0.01f, 0.5f, "%.2f"))
+                {
+                    IsIndividualDataLatest = false;
+                }
+            }
+            
+            if (ENABLE_BODY_SIZE_BUFFER)
+            {
+                if (ImGui::DragFloat("Body size threshould", &BODY_SIZE_BUFFER, 0.01f, 0.01f, 0.5f, "%.2f"))
+                {
+                    IsIndividualDataLatest = false;
+                }
+            }
+            
             if (ImGui::DragInt("Frames buffer threshold", &NUM_BUFFER_FRAMES, 1, 1, 60))
             {
                 IsIndividualDataLatest = false;
             }
             Utils::AddSimpleTooltip("A threshold value to remove individaul that only appear in single frame. "
                 "If no new prediction for that individual after N frames are tracked, that individual could be a noise, and remove it");
+            
             ImGui::TreePop();
         }
         if (!IsIndividualDataLatest)
@@ -662,6 +684,7 @@ namespace IFCS
         // expose these vars to users?
         // the same individual should have same size between frames, but but to camera angle and it could be slightly different
         // considering multiple frames....
+        if (!ENABLE_BODY_SIZE_BUFFER) return true;
 
         float S1 = Label1.GetApproxBodySize(ClipWidth, ClipHeight);
         float S2 = Label2.GetApproxBodySize(ClipWidth, ClipHeight);
@@ -676,6 +699,7 @@ namespace IFCS
     bool Detection::IsDistanceAcceptable(const FLabelData& Label1, const FLabelData& Label2, int FrameDiff)
     {
         // max speed per frame should never be faster than 0.1 * length of diagonal
+        if (!ENABLE_SPEED_THRESHOLD) return true;
         const float Distance = Label1.Distance(Label2, ClipWidth, ClipHeight);
         return Distance / (FrameDiff) / std::pow(ClipWidth * ClipWidth + ClipHeight * ClipHeight, 0.5) <
             MAX_SPEED_THRESHOLD;
