@@ -11,6 +11,7 @@
 #include "Setting.h"
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
+#include "Train.h"
 
 
 namespace IFCS
@@ -967,6 +968,18 @@ namespace IFCS
                 std::replace(RawString.begin(), RawString.end(), '\\', '/');
                 strcpy(FileToImport, RawString.c_str());
                 CheckIsDataValidToImport();
+            }
+            ifd::FileDialog::Instance().Close();
+            IsChoosingFolder = false;
+        }
+        if (ifd::FileDialog::Instance().IsDone("ChooseExternalModelPath"))
+        {
+            
+            if (ifd::FileDialog::Instance().HasResult())
+            {
+                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
+                std::replace(RawString.begin(), RawString.end(), '\\', '/');
+                strcpy(Train::Get().ExternalModelPath, RawString.c_str());
             }
             ifd::FileDialog::Instance().Close();
             IsChoosingFolder = false;

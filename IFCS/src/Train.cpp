@@ -1280,7 +1280,6 @@ namespace IFCS
                     UpdateTrainScript();
                 }
             }
-
             ImGui::EndCombo();
         }
 
@@ -1288,21 +1287,39 @@ namespace IFCS
 
         if (bTrainOnExisitingModel)
         {
-            if (ImGui::BeginCombo("Choose Existing model", SelectedExistingModel.Name.c_str()))
+            if (bTrainOnExternalModel)
             {
-                YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
-                for (auto D : Data)
+                ImGui::InputText("External Model Path", ExternalModelPath, IM_ARRAYSIZE(ExternalModelPath), ImGuiInputTextFlags_ReadOnly);
+                ImGui::SameLine();
+                if (ImGui::Button("..."))
                 {
-                    auto Name = D.first.as<std::string>();
-                    if (ImGui::Selectable(Name.c_str(), Name == SelectedExistingModel.Name))
-                    {
-                        SelectedExistingModel = FModelDescription(Name, D.second);
-                        UpdateTrainScript();
-                    }
+                    Modals::Get().IsChoosingFolder = true;
+                    ifd::FileDialog::Instance().Open("ChooseExternalModelPath", "Choose external model path",
+                        "Model {.pt}", false, Setting::Get().ProjectPath);
+                    UpdateTrainScript();
                 }
-                ImGui::EndCombo();
             }
-            
+            else
+            {
+                if (ImGui::BeginCombo("Choose Existing model", SelectedExistingModel.Name.c_str()))
+                {
+                    YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
+                    for (auto D : Data)
+                    {
+                        auto Name = D.first.as<std::string>();
+                        if (ImGui::Selectable(Name.c_str(), Name == SelectedExistingModel.Name))
+                        {
+                            SelectedExistingModel = FModelDescription(Name, D.second);
+                            UpdateTrainScript();
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+            }
+            if (ImGui::Checkbox("Choose external model?", &bTrainOnExternalModel))
+            {
+                UpdateTrainScript();
+            }
         }
         else
         {
@@ -1414,9 +1431,21 @@ namespace IFCS
 
     void Train::RenderTrainingScript()
     {
-        if (SelectedTrainingSet.Name.empty() || ModelName.empty() || ModelNameIsDuplicated)
+        if ( ModelName.empty() || ModelNameIsDuplicated)
         {
-            ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "Something wrong in training set or model name");
+            ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "Model name is empty or duplicated!");
+        }
+        else if (SelectedTrainingSet.Name.empty())
+        {
+            ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "Training set is not selected!");
+        }
+        else if (bTrainOnExisitingModel && !bTrainOnExternalModel && SelectedExistingModel.Name.empty())
+        {
+            ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "Existing model is not selected!");
+        }
+        else if (bTrainOnExisitingModel && bTrainOnExternalModel && strlen(ExternalModelPath) == 0)
+        {
+            ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "External model path is empty!");
         }
         else
         {
@@ -1477,7 +1506,11 @@ namespace IFCS
         {
             // make host only once
             char host[255];
-            sprintf(host, "%s/Scripts/tensorboard --logdir %s/Models", Setting::Get().PythonPath.c_str(),
+            if (Setting::Get().PythonPath.find("Scripts") != std::string::npos)
+                sprintf(host, "%s/tensorboard --logdir %s/Models", Setting::Get().PythonPath.c_str(),
+                    Setting::Get().ProjectPath.c_str());
+            else
+                sprintf(host, "%s/Scripts/tensorboard --logdir %s/Models", Setting::Get().PythonPath.c_str(),
                     Setting::Get().ProjectPath.c_str());
             auto func = [=]()
             {
@@ -1581,7 +1614,14 @@ namespace IFCS
         TrainScript += " --weights ";
         if (bTrainOnExisitingModel)
         {
-            TrainScript += Setting::Get().ProjectPath + "/Models/" + SelectedExistingModel.Name + "/weights/best.pt";
+            if (bTrainOnExternalModel && strlen(ExternalModelPath) != 0)
+            {
+                TrainScript += ExternalModelPath;
+            }
+            else
+            {
+                TrainScript += Setting::Get().ProjectPath + "/Models/" + SelectedExistingModel.Name + "/weights/best.pt";
+            }
         }
         else
         {

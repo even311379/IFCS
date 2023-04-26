@@ -10,7 +10,8 @@ namespace IFCS
     public:
         MAKE_SINGLETON(Train)
         void Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose = true) override;
-
+        char ExternalModelPath[255];
+        
     protected:
         void RenderContent() override;
 
@@ -55,6 +56,7 @@ namespace IFCS
         void OnTrainingFinished();
 
         bool bTrainOnExisitingModel = false;
+        bool bTrainOnExternalModel = false;
         FModelDescription SelectedExistingModel;
         bool bApplyTransferLearning = true;
         int Epochs = 40;
