@@ -28,6 +28,7 @@ namespace IFCS
         Data = 0,
         Train = 1,
         Detect = 2,
+        Deploy = 3,
     };
 
     enum class EAssetType : uint8_t

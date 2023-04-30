@@ -4,6 +4,7 @@
 #include "Annotation.h"
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
+#include "Deploy.h"
 #include "imgui.h"
 #include "Log.h"
 #include "Train.h"
@@ -106,6 +107,14 @@ void IFCS::MainMenu::Render()
                 }
                 ImGui::EndMenu();
             }
+            if (ImGui::BeginMenu("Deploy"))
+            {
+                if (ImGui::MenuItem("Deploy", "", Deploy::Get().GetVisibility()))
+                {
+                    Deploy::Get().ToggleVisibility();
+                }
+                ImGui::EndMenu();
+            }
             if (ImGui::MenuItem(LOCTEXT("ToolbarItem.DataBrowser"), "", DataBrowser::Get().GetVisibility()))
             {
                 DataBrowser::Get().ToggleVisibility();
@@ -186,12 +195,21 @@ void IFCS::MainMenu::Render()
         }
         if (CurrentWks == EWorkspace::Detect)
             ImGui::PopStyleColor(3);
+        ImGui::Text(ICON_FA_ANGLE_RIGHT);
+        if (CurrentWks == EWorkspace::Deploy)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Button, Style::RED(400, CurrentTheme));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, Style::RED(400, CurrentTheme));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Style::RED(400, CurrentTheme));
+        }
+        if (ImGui::Button("Deploy", WksBtnSize))
+        {
+            if (CurrentWks != EWorkspace::Deploy)
+                Setting::Get().SetWorkspace(EWorkspace::Deploy);
+        }
+        if (CurrentWks == EWorkspace::Deploy)
+            ImGui::PopStyleColor(3);
         ImGui::PopStyleVar();
-
-        // very unlikely to add custom workspace... like blender...
-        // ImGui::Text("|");
-        // ImGui::MenuItem(ICON_FA_PLUS);
-        // Utils::AddSimpleTooltip(LOCTEXT("ToolbarMenu.AddWks"));
 
         ImGui::EndMainMenuBar();
     }

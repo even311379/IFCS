@@ -97,6 +97,7 @@ namespace IFCS
         bool SetDataWksNow = false;
         bool SetTrainWksNow = false;
         bool SetPredictWksNow = false;
+        bool SetDeployWksNow = false;
     protected:
         void PreRender() override;
         void RenderContent() override;

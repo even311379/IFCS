@@ -262,9 +262,9 @@ namespace IFCS
         ImGui::PopFont();
         ImVec2 ChildWindowSize = ImGui::GetContentRegionAvail();
         if (ShouldViewDetail)
-            ChildWindowSize.y *= 0.70f;
+            ChildWindowSize.y -= 360.f;
         else
-            ChildWindowSize.y *= 0.97f;
+            ChildWindowSize.y -= 36.f;
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_HorizontalScrollbar;
         ImGui::BeginChild("DataBrowserWindow", ChildWindowSize, false, window_flags);
         {
@@ -328,6 +328,7 @@ namespace IFCS
         }
         else
         {
+            ImGui::Separator();
             if (ImGui::Button(LOCTEXT("Common.OpenProjectFolder"), ImVec2(-1, 0)))
             {
                 ShellExecuteA(NULL, "open", Setting::Get().ProjectPath.c_str(), NULL, NULL,

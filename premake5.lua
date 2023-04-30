@@ -29,6 +29,8 @@ project "IFCS"
         "%{prj.name}/vendor/imgui_extensions/ImFileDialog/*.cpp",
         "%{prj.name}/vendor/imgui_extensions/Implot/*.h",
         "%{prj.name}/vendor/imgui_extensions/Implot/*.cpp",
+        "%{prj.name}/vendor/imgui_extensions/addons/*.h",
+        "%{prj.name}/vendor/imgui_extensions/addons/*.cpp",
         "%{prj.name}/vendor/stb/**.h", 
         "%{prj.name}/vendor/stb/**.cpp",
         "%{prj.name}/vendor/imgui_extensions/Imspinner/*.h", 

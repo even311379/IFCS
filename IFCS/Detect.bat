@@ -1,0 +1,2 @@
+cd /d K:/YOLO/yolov7 &^
+K:/Python/python-3.10.8-embed-amd64/python detect.py --weights L:/IFCS_DEV_PROJECTS/CatAndDog/Models/FishDev/weights/best.pt --conf-thres 0.25 --iou-thres 0.45 --img-size 640 --project L:/IFCS_DEV_PROJECTS/CatAndDog/Detections --name Fish001 --source L:/IFCS_DEV_PROJECTS/CatAndDog/Clips/bluelake05.mp4 --device 0 --save-txt --save-conf

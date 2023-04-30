@@ -131,9 +131,23 @@ namespace IFCS
             ImGuiID Right;
             ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Left, 0.15f, &Left, &Right);
             ImGui::DockBuilderDockWindow("Data Browser", Left);
-            ImGui::DockBuilderDockWindow("Prediction", Right);
+            ImGui::DockBuilderDockWindow("Detection", Right);
             ImGui::DockBuilderFinish(DockspaceID);
             SetPredictWksNow = false;
+        }
+        if (SetDeployWksNow)
+        {
+            ImGui::DockBuilderRemoveNode(DockspaceID);
+            ImGui::DockBuilderAddNode(DockspaceID, Flags | ImGuiDockNodeFlags_DockSpace);
+            ImGui::DockBuilderSetNodeSize(DockspaceID, ImGui::GetMainViewport()->Size);
+            
+            ImGuiID Left;
+            ImGuiID Right;
+            ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Left, 0.15f, &Left, &Right);
+            ImGui::DockBuilderDockWindow("Data Browser", Left);
+            ImGui::DockBuilderDockWindow("Deploy", Right);
+            ImGui::DockBuilderFinish(DockspaceID);
+            SetDeployWksNow = false;
         }
     }
 

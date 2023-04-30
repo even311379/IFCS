@@ -14,6 +14,7 @@
 #include "Annotation.h"
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
+#include "Deploy.h"
 #include "Panel.h"
 #include "Log.h"
 #include "MainMenu.h"
@@ -111,6 +112,7 @@ namespace IFCS
         Setting::Get().DefaultFont = io.Fonts->AddFontFromFileTTF("Resources/Font/cjkFonts_allseto_v1.11.ttf", 18.0f,
                                                                   NULL,
                                                                   io.Fonts->GetGlyphRangesChineseFull());
+        
         ImFontConfig font_cfg;
         font_cfg.FontDataOwnedByAtlas = false;
         font_cfg.MergeMode = true;
@@ -149,7 +151,8 @@ namespace IFCS
         Annotation::Get().Setup("Annotation", true, 0);
         Annotation::Get().SetApp(this);
         Train::Get().Setup("Model Generator", true, 0);
-        Detection::Get().Setup("Prediction", true, 0);
+        Detection::Get().Setup("Detection", true, 0);
+        Deploy::Get().Setup("Deploy", true, 0);
         if (Setting::Get().ProjectIsLoaded)
         {
             // TODO: chinese project path?
@@ -195,6 +198,7 @@ namespace IFCS
                 CategoryManagement::Get().Render();
                 Train::Get().Render();
                 Detection::Get().Render();
+                Deploy::Get().Render();
             }
 
             // task modals
@@ -263,6 +267,12 @@ namespace IFCS
             std::vector<int> WT = EditorIni["Window"].as<std::vector<int>>();
             glfwSetWindowPos(Window, WT[0], WT[1]);
             glfwSetWindowSize(Window, WT[2], WT[3]);
+            //TODO: make it recognize monitor status ex: fullscreen?
+            // way too tedious...
+            // int MonitorAmount;
+            // GLFWmonitor** Mo = glfwGetMonitors(&MonitorAmount);
+            // &Mo->
+            // glfwSetWindowMonitor(Window, )
         }
     }
 

@@ -10,6 +10,7 @@
 #include "Application.h"
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
+#include "Deploy.h"
 #include "Train.h"
 #include "Panel.h"
 #include "Detection.h"
@@ -200,6 +201,7 @@ namespace IFCS
         CategoryManagement::Get().SetVisibility(false);
         Train::Get().SetVisibility(false);
         Detection::Get().SetVisibility(false);
+        Deploy::Get().SetVisibility(false);
         DataBrowser::Get().SetVisibility(true);
         ActiveWorkspace = NewWorkspace;
         switch (ActiveWorkspace)
@@ -216,6 +218,10 @@ namespace IFCS
         case EWorkspace::Detect:
             Detection::Get().SetVisibility(true);
             BGPanel::Get().SetPredictWksNow = true;
+            break;
+        case EWorkspace::Deploy:
+            Deploy::Get().SetVisibility(true);
+            BGPanel::Get().SetDeployWksNow = true;
             break;
         }
     }
