@@ -610,4 +610,13 @@ namespace IFCS
         }
         return a->GetName().compare(b->GetName());
     }
+
+    YAML::Node FFeasibleZone::Serialize() const
+    {
+        YAML::Node OutNode;
+        OutNode["XYWH"] = XYWH;
+        OutNode["ColorLower"] = ImGui::ColorConvertFloat4ToU32(ColorLower);
+        OutNode["ColorUpper"] = ImGui::ColorConvertFloat4ToU32(ColorUpper);
+        return OutNode;
+    }
 }

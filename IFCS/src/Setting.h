@@ -51,7 +51,7 @@ namespace IFCS
         ImFont* DefaultFont;
         
         ImFont* TitleFont;
-        ImFont* H1;
+        // ImFont* H1;
         ImFont* H2;
         ImFont* H3;
         void SetWorkspace(EWorkspace NewWorkspace);

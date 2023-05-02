@@ -276,4 +276,16 @@ namespace IFCS
         inline static const ImGuiTableSortSpecs* CurrentSortSpecs;
         static int __cdecl CompareWithSortSpecs(const void* lhs, const void* rhs);
     };
+
+
+
+    // deploy
+    struct FFeasibleZone
+    {
+        FFeasibleZone() = default;
+        std::array<float, 4> XYWH = {0.f, 0.f, 0.f, 0.f};
+        ImVec4 ColorLower, ColorUpper;
+        std::vector<std::string> ReferenceImagePaths;
+        YAML::Node Serialize() const;
+    };
 }

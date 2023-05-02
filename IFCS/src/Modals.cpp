@@ -11,6 +11,7 @@
 #include "Setting.h"
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
+#include "Deploy.h"
 #include "Train.h"
 
 
@@ -980,6 +981,39 @@ namespace IFCS
                 std::string RawString = ifd::FileDialog::Instance().GetResult().string();
                 std::replace(RawString.begin(), RawString.end(), '\\', '/');
                 strcpy(Train::Get().ExternalModelPath, RawString.c_str());
+            }
+            ifd::FileDialog::Instance().Close();
+            IsChoosingFolder = false;
+        }
+        if (ifd::FileDialog::Instance().IsDone("ChooseTaskInputDir"))
+        {
+            if (ifd::FileDialog::Instance().HasResult())
+            {
+                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
+                std::replace(RawString.begin(), RawString.end(), '\\', '/');
+                Deploy::Get().SetInputPath(RawString.c_str());
+            }
+            ifd::FileDialog::Instance().Close();
+            IsChoosingFolder = false;
+        }
+        if (ifd::FileDialog::Instance().IsDone("ChooseTaskOutputDir"))
+        {
+            if (ifd::FileDialog::Instance().HasResult())
+            {
+                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
+                std::replace(RawString.begin(), RawString.end(), '\\', '/');
+                Deploy::Get().SetOutputPath(RawString.c_str());
+            }
+            ifd::FileDialog::Instance().Close();
+            IsChoosingFolder = false;
+        }
+        if (ifd::FileDialog::Instance().IsDone("ChooseFeasibilityReferenceImagePath"))
+        {
+            if (ifd::FileDialog::Instance().HasResult())
+            {
+                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
+                std::replace(RawString.begin(), RawString.end(), '\\', '/');
+                Deploy::Get().SetReferenceImagePath(RawString.c_str());
             }
             ifd::FileDialog::Instance().Close();
             IsChoosingFolder = false;
