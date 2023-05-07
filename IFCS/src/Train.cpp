@@ -1294,7 +1294,7 @@ namespace IFCS
                 if (ImGui::Button("..."))
                 {
                     Modals::Get().IsChoosingFolder = true;
-                    ifd::FileDialog::Instance().Open("ChooseExternalModelPath", "Choose external model path",
+                    ifd::FileDialog::Instance().Open("ChooseExternalModelPath", "Choose external model file",
                         "Model {.pt}", false, Setting::Get().ProjectPath);
                     UpdateTrainScript();
                 }

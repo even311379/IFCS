@@ -1018,5 +1018,27 @@ namespace IFCS
             ifd::FileDialog::Instance().Close();
             IsChoosingFolder = false;
         }
+        if (ifd::FileDialog::Instance().IsDone("SaveDeployConfigFile"))
+        {
+            if (ifd::FileDialog::Instance().HasResult())
+            {
+                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
+                std::replace(RawString.begin(), RawString.end(), '\\', '/');
+                Deploy::Get().SaveConfigFile(RawString.c_str());
+            }
+            ifd::FileDialog::Instance().Close();
+            IsChoosingFolder = false;
+        }
+        if (ifd::FileDialog::Instance().IsDone("LoadDeployConfigFile"))
+        {
+            if (ifd::FileDialog::Instance().HasResult())
+            {
+                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
+                std::replace(RawString.begin(), RawString.end(), '\\', '/');
+                Deploy::Get().LoadConfigFile(RawString.c_str());
+            }
+            ifd::FileDialog::Instance().Close();
+            IsChoosingFolder = false;
+        }
     }
 }

@@ -258,7 +258,7 @@ namespace IFCS
         }
         inline static int Width, Height;
         inline static std::vector<std::string> CategoryNames;
-        inline static float ConfThreshold = 0.1f;
+        inline static float SpeciesDetermineThreshold = 0.1f;
         
         std::map<int, FLabelData> Info;
         bool IsCompleted = false;
@@ -283,9 +283,110 @@ namespace IFCS
     struct FFeasibleZone
     {
         FFeasibleZone() = default;
+        FFeasibleZone(const YAML::Node& InputNode);
+        void Deserialize(const YAML::Node& InputNode);
+        YAML::Node Serialize() const;
         std::array<float, 4> XYWH = {0.f, 0.f, 0.f, 0.f};
         ImVec4 ColorLower, ColorUpper;
-        std::vector<std::string> ReferenceImagePaths;
+    };
+
+
+    struct FCameraSetup
+    {
+        FCameraSetup()=default;
+        FCameraSetup(const YAML::Node& InputNode);
         YAML::Node Serialize() const;
+        void Deserialize(const YAML::Node& InputNode);
+        std::string CameraName;
+        std::string DVRName;
+        // feasible data
+        std::vector<FFeasibleZone> FeasibleZones;
+
+        // model data
+        std::string ModelName;
+        std::string ModelFilePath;
+        int ImageSize = 640;
+        float Confidence = 0.25f;
+        float IOU = 0.45f;
+        bool ShouldApplyDetectionROI = false;
+        float DetectionROI[4];
+        bool IsPassVertical;
+        float FishwayStartEnd[2] = {0.f, 1.f};
+        bool ShouldEnableSpeedThreshold = true;
+        float SpeedThreshold = 0.1f;
+        bool ShouldEnableBodySizeThreshold = true;
+        float BodySizeThreshold = 0.2f;
+        float SpeciesDetermineThreshold = 0.1f;
+        int FrameBufferSize = 10;
+
+
+    };
+
+    struct FSMSReceiver
+    {
+        FSMSReceiver() = default;
+        FSMSReceiver(const YAML::Node& InputNode);
+        void Deserialize(const YAML::Node& InputNode);
+        YAML::Node Serialize() const;
+        std::string Name = "GoodGuy";
+        std::string Phone = "0912345678";
+        std::string Group = "Manager";
+    };
+
+    struct FSendGroup
+    {
+        FSendGroup()=default;
+        FSendGroup(const YAML::Node& InputNode);
+        void Deserialize(const YAML::Node& InputNode);
+        YAML::Node Serialize() const;
+        bool GroupManager = false;
+        bool GroupClient = false;
+        bool GroupHelper = false;
+        
+    };
+
+    struct FDeploymentData
+    {
+        FDeploymentData() = default;
+        FDeploymentData(const YAML::Node& InputNode);
+        YAML::Node Serialize() const;
+        void Deserialize(const YAML::Node& InputNode);
+        
+        std::string TaskInputDir;
+        std::string TaskOutputDir;
+        std::vector<FCameraSetup> Cameras = {FCameraSetup()}; // DB name -> camera setup
+        bool IsTaskStartNow = false;
+        int ScheduledRuntime[2] = {3, 0}; // default time: 3:00AM to start the task...
+        bool IsRunSpecifiedDates = false;
+        std::vector<tm> RunDates; // run dates bwteen start and end date
+        tm StartDate = tm();
+        tm EndDate = tm();
+        bool ShouldBackupImportantRegions = true;
+        bool ShouldBackupCombinedClips = true;
+        bool ShouldDeleteRawClips = false;
+        
+        // Data pipeline
+        int DetectionFrequency = 60;
+        bool IsDaytimeOnly = true;
+        int DetectionStartTime = 5; // AM
+        int DetectionEndTime = 8; // PM
+        int PassCountDuration = 5; // minutes
+        float PassCountFeasiblityThreshold = 0.1f;
+        std::string ServerAccount;
+        std::string ServerPassword;
+        
+        // SMS
+        std::string TwilioSID;
+        std::string TwilioAuthToken;
+        std::string TwilioPhoneNumber;
+        std::vector<FSMSReceiver> SMSReceivers = { FSMSReceiver() };
+        FSendGroup DailyReportSendGroup;
+        FSendGroup WeeklyReportSendGroup;
+        FSendGroup MonthlyReportSendGroup;
+        FSendGroup InFeasibleFirstDaySendGroup;
+        FSendGroup InFeasibleXDaysSendGroup;
+        int InFeasibleTolerate = 3;
+        FSendGroup LoseConnectionSendGroup;
+        FSendGroup SMSTestSendGroup;
     };
 }

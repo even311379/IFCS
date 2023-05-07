@@ -532,7 +532,7 @@ namespace IFCS
             {
                 return "Error";
             }
-            if (L.Conf < ConfThreshold) continue;
+            if (L.Conf < SpeciesDetermineThreshold) continue;
             CatConfs[CategoryNames[L.CatID]].push_back(L.Conf);
             S += 1;
         }
@@ -611,6 +611,18 @@ namespace IFCS
         return a->GetName().compare(b->GetName());
     }
 
+    FFeasibleZone::FFeasibleZone(const YAML::Node& InputNode)
+    {
+        Deserialize(InputNode);
+    }
+
+    void FFeasibleZone::Deserialize(const YAML::Node& InputNode)
+    {
+        XYWH = InputNode["XYWH"].as<std::array<float, 4>>();
+        ColorLower = ImGui::ColorConvertU32ToFloat4(InputNode["ColorLower"].as<uint32_t>());
+        ColorUpper = ImGui::ColorConvertU32ToFloat4(InputNode["ColorUpper"].as<uint32_t>());
+    }
+
     YAML::Node FFeasibleZone::Serialize() const
     {
         YAML::Node OutNode;
@@ -619,4 +631,263 @@ namespace IFCS
         OutNode["ColorUpper"] = ImGui::ColorConvertFloat4ToU32(ColorUpper);
         return OutNode;
     }
+
+    FCameraSetup::FCameraSetup(const YAML::Node& InputNode)
+    {
+        Deserialize(InputNode);
+    }
+
+    YAML::Node FCameraSetup::Serialize() const
+    {
+        YAML::Node Out;
+        Out["CameraName"] = CameraName;
+        Out["DVRName"] = DVRName;
+        for (const auto& Zone : FeasibleZones)
+        {
+            Out["FeasibleZones"].push_back(Zone.Serialize());
+        }
+        Out["ModelName"] = ModelName;
+        Out["ModelFilePath"] = ModelFilePath;
+        Out["Imagesize"] = ImageSize;
+        Out["Confidence"] = Confidence;
+        Out["IOU"] = IOU;
+        Out["ShouldApplyDetectionROI"] = ShouldApplyDetectionROI;
+        std::array<float, 4> Arr{};
+        for (int i =0; i < 4; i++)
+            Arr[i] = DetectionROI[i];
+        Out["DetectionROI"] = Arr;
+        Out["IsPassVertical"] = IsPassVertical;
+        std::array<float, 2> Arr2{};
+        for (int i = 0; i < 2; i++)
+            Arr2[i] = FishwayStartEnd[i];
+        Out["FishwayStartEnd"] = Arr2;
+        Out["ShouldEnableSpeedThreshold"] = ShouldEnableSpeedThreshold;
+        Out["SpeedThreshold"] = SpeedThreshold;
+        Out["ShouldEnableBodySizeThreshold"] = ShouldEnableBodySizeThreshold;
+        Out["BodySizeThreshold"] = BodySizeThreshold;
+        Out["SpeciesDetermineThreshold"] = SpeciesDetermineThreshold;
+        Out["FrameBufferSize"] = FrameBufferSize;
+        return Out;
+    }
+
+    void FCameraSetup::Deserialize(const YAML::Node& InputNode)
+    {
+        CameraName = InputNode["CameraName"].as<std::string>();
+        DVRName = InputNode["DVRName"].as<std::string>();
+        FeasibleZones.clear();
+        for (YAML::const_iterator it = InputNode["FeasibleZones"].begin(); it != InputNode["FeasibleZones"].end(); ++it)
+        {
+            FeasibleZones.emplace_back(it->as<YAML::Node>());
+        }
+        // for (size_t i = 0; i < InputNode["FeasibleZones"].size(); i++)
+        // {
+        //     FeasibleZones.emplace_back(InputNode["FeasibleZones"][i]);
+        // }
+        ModelName = InputNode["ModelName"].as<std::string>();
+        ModelFilePath = InputNode["ModelFilePath"].as<std::string>();
+        ImageSize = InputNode["Imagesize"].as<int>();
+        Confidence = InputNode["Confidence"].as<float>();
+        IOU = InputNode["IOU"].as<float>();
+        ShouldApplyDetectionROI = InputNode["ShouldApplyDetectionROI"].as<bool>();
+        const auto arr = InputNode["DetectionROI"].as<std::array<float, 4>>();
+        for (int i = 0; i < 4; i++)
+        {
+            DetectionROI[i] = arr[i];
+        }
+        IsPassVertical = InputNode["IsPassVertical"].as<bool>();
+        const auto arr2 = InputNode["FishwayStartEnd"].as<std::array<float, 2>>();
+        for (int i = 0; i < 2; i++)
+        {
+            FishwayStartEnd[i] = arr2[i];
+        }
+        ShouldEnableSpeedThreshold = InputNode["ShouldEnableSpeedThreshold"].as<bool>();
+        SpeedThreshold = InputNode["SpeedThreshold"].as<float>();
+        ShouldEnableBodySizeThreshold = InputNode["ShouldEnableBodySizeThreshold"].as<bool>();
+        BodySizeThreshold = InputNode["BodySizeThreshold"].as<float>();
+        SpeciesDetermineThreshold = InputNode["SpeciesDetermineThreshold"].as<float>();
+        FrameBufferSize = InputNode["FrameBufferSize"].as<int>();
+    }
+
+    FSMSReceiver::FSMSReceiver(const YAML::Node& InputNode)
+    {
+        Deserialize(InputNode);
+    }
+
+    void FSMSReceiver::Deserialize(const YAML::Node& InputNode)
+    {
+        Name = InputNode["Name"].as<std::string>();
+        Phone = InputNode["Phone"].as<std::string>();
+        Group = InputNode["Group"].as<std::string>();
+    }
+
+    YAML::Node FSMSReceiver::Serialize() const
+    {
+        YAML::Node Out;
+        Out["Name"] = Name;
+        Out["Phone"] = Phone;
+        Out["Group"] = Group;
+        return Out;
+    }
+
+    FSendGroup::FSendGroup(const YAML::Node& InputNode)
+    {
+        Deserialize(InputNode);
+    }
+
+    void FSendGroup::Deserialize(const YAML::Node& InputNode)
+    {
+        GroupManager = InputNode["Manager"].as<bool>();
+        GroupClient = InputNode["Client"].as<bool>();
+        GroupHelper = InputNode["Helper"].as<bool>();
+    }
+
+    YAML::Node FSendGroup::Serialize() const
+    {
+        YAML::Node Out;
+        Out["Manager"] = GroupManager;
+        Out["Client"] = GroupClient;
+        Out["Helper"] = GroupHelper;
+        return Out;
+    }
+
+    FDeploymentData::FDeploymentData(const YAML::Node& InputNode)
+    {
+        Deserialize(InputNode);
+    }
+
+    YAML::Node FDeploymentData::Serialize() const
+    {
+        YAML::Node Out;
+        Out["TaskInputDir"] = TaskInputDir;
+        Out["TaskOutputDir"] = TaskOutputDir;
+        for (const auto& Camera : Cameras)
+        {
+            Out["Cameras"].push_back(Camera.Serialize());
+        }
+        Out["IsTaskStartNow"] = IsTaskStartNow;
+        std::array<int, 2> Arr{};
+        for (int i = 0; i < 2; i++)
+            Arr[i] = ScheduledRuntime[i];
+        Out["ScheduledRuntime"] = Arr;
+        Out["IsRunSpecifiedDates"] = IsRunSpecifiedDates;
+        for (const auto& Date : RunDates)
+        {
+            YAML::Node DateNode;
+            DateNode["Year"] = Date.tm_year;
+            DateNode["Month"] = Date.tm_mon;
+            DateNode["Date"] = Date.tm_mday;
+            Out["RunDates"].push_back(DateNode);
+        }
+        Out["StartDate"]["Year"] = StartDate.tm_year;
+        Out["StartDate"]["Month"] = StartDate.tm_mon;
+        Out["StartDate"]["Date"] = StartDate.tm_mday;
+        Out["EndDate"]["Year"] = EndDate.tm_year;
+        Out["EndDate"]["Month"] = EndDate.tm_mon;
+        Out["EndDate"]["Date"] = EndDate.tm_mday;
+        Out["ShouldBackupImportantRegions"] = ShouldBackupImportantRegions;
+        Out["ShouldBackupCombinedClips"] = ShouldBackupCombinedClips;
+        Out["ShouldDeleteRawClips"] = ShouldDeleteRawClips;
+
+        Out["DetectionFrequency"] = DetectionFrequency;
+        Out["IsDaytimeOnly"] = IsDaytimeOnly;
+        Out["DetectionStartTime"] = DetectionStartTime;
+        Out["DetectionEndTime"] = DetectionEndTime;
+        Out["PassCountDuration"] = PassCountDuration;
+        Out["PassCountFeasibilityThreshold"] = PassCountFeasiblityThreshold;
+        Out["ServerAccount"] = ServerAccount;
+        Out["ServerPassword"] = ServerPassword;
+        
+        Out["TwilioSID"] = TwilioSID;
+        Out["TwilioAuthToken"] = TwilioAuthToken;
+        Out["TwilioPhoneNumber"] = TwilioPhoneNumber;
+        for (const auto& Receiver : SMSReceivers)
+        {
+            Out["Receivers"].push_back(Receiver.Serialize());
+        }
+        Out["DailyReportSendGroup"] = DailyReportSendGroup.Serialize();
+        Out["WeeklyReportSendGroup"] = WeeklyReportSendGroup.Serialize();
+        Out["MonthlyReportSendGroup"] = MonthlyReportSendGroup.Serialize();
+        Out["InFeasibleFirstDaySendGroup"] = InFeasibleFirstDaySendGroup.Serialize();
+        Out["InFeasibleXDaysSendGroup"] = InFeasibleXDaysSendGroup.Serialize();
+        Out["InFeasibleTolerate"] = InFeasibleTolerate;
+        Out["LoseConnectionSendGroup"] = LoseConnectionSendGroup.Serialize();
+        Out["SMSTestSendGroup"] = SMSTestSendGroup.Serialize();
+        
+        return Out;
+    }
+
+    void FDeploymentData::Deserialize(const YAML::Node& InputNode)
+    {
+        // deserialize all
+        TaskInputDir = InputNode["TaskInputDir"].as<std::string>();
+        TaskOutputDir = InputNode["TaskOutputDir"].as<std::string>();
+        for (YAML::const_iterator it = InputNode["Cameras"].begin(); it != InputNode["Cameras"].end(); ++it)
+        {
+            Cameras.emplace_back(it->as<YAML::Node>());
+        }
+        // for (size_t i = 0; i < InputNode["Cameras"].size(); i++)
+        // {
+        //     Cameras.emplace_back(InputNode["Cameras"][i].as<YAML::Node>());
+        // }
+        IsTaskStartNow = InputNode["IsTaskStartNow"].as<bool>();
+        const auto arr = InputNode["ScheduledRuntime"].as<std::array<int, 2>>();
+        ScheduledRuntime[0] = arr[0];
+        ScheduledRuntime[1] = arr[1];
+        IsRunSpecifiedDates = InputNode["IsRunSpecifiedDates"].as<bool>();
+        RunDates.clear();
+        for (YAML::const_iterator it = InputNode["RunDates"].begin(); it != InputNode["RunDates"].end(); ++it)
+        {
+            tm Date;
+            Date.tm_year = it->as<YAML::Node>()["Year"].as<int>();
+            Date.tm_mon = it->as<YAML::Node>()["Month"].as<int>();
+            Date.tm_mday = it->as<YAML::Node>()["Date"].as<int>();
+            RunDates.push_back(Date);
+        }
+        // {
+        //     tm Date;
+        //     Date.tm_year = InputNode["RunDates"][i]["Year"].as<int>();
+        //     Date.tm_mon = InputNode["RunDates"][i]["Month"].as<int>();
+        //     Date.tm_mday = InputNode["RunDates"][i]["Date"].as<int>();
+        //     RunDates.push_back(Date);
+        // }
+        StartDate = tm();
+        StartDate.tm_year = InputNode["StartDate"]["Year"].as<int>();
+        StartDate.tm_mon = InputNode["StartDate"]["Month"].as<int>();
+        StartDate.tm_mday = InputNode["StartDate"]["Date"].as<int>();
+        EndDate = tm();
+        EndDate.tm_year = InputNode["EndDate"]["Year"].as<int>();
+        EndDate.tm_mon = InputNode["EndDate"]["Month"].as<int>();
+        EndDate.tm_mday = InputNode["EndDate"]["Date"].as<int>();
+        ShouldBackupImportantRegions = InputNode["ShouldBackupImportantRegions"].as<bool>();
+        ShouldBackupCombinedClips = InputNode["ShouldBackupCombinedClips"].as<bool>();
+        ShouldDeleteRawClips = InputNode["ShouldDeleteRawClips"].as<bool>();
+        DetectionFrequency = InputNode["DetectionFrequency"].as<int>();
+        IsDaytimeOnly = InputNode["IsDaytimeOnly"].as<bool>();
+        DetectionStartTime = InputNode["DetectionStartTime"].as<int>();
+        DetectionEndTime = InputNode["DetectionEndTime"].as<int>();
+        PassCountDuration = InputNode["PassCountDuration"].as<int>();
+        ServerAccount = InputNode["ServerAccount"].as<std::string>();
+        ServerPassword = InputNode["ServerPassword"].as<std::string>();
+        TwilioSID = InputNode["TwilioSID"].as<std::string>();
+        TwilioAuthToken = InputNode["TwilioAuthToken"].as<std::string>();
+        TwilioPhoneNumber = InputNode["TwilioPhoneNumber"].as<std::string>();
+
+        for (YAML::const_iterator it = InputNode["Receivers"].begin(); it != InputNode["Receivers"].end(); ++it)
+        {
+            SMSReceivers.emplace_back(it->as<YAML::Node>());
+        }
+        // for (size_t i = 0; i < InputNode["Receivers"].size(); i++)
+        // {
+        //     SMSReceivers.emplace_back(InputNode["Receivers"][i]);
+        // }
+        DailyReportSendGroup = FSendGroup(InputNode["DailyReportSendGroup"]);
+        WeeklyReportSendGroup = FSendGroup(InputNode["WeeklyReportSendGroup"]);
+        MonthlyReportSendGroup = FSendGroup(InputNode["MonthlyReportSendGroup"]);
+        InFeasibleFirstDaySendGroup = FSendGroup(InputNode["InFeasibleFirstDaySendGroup"]);
+        InFeasibleXDaysSendGroup = FSendGroup(InputNode["InFeasibleXDaysSendGroup"]);
+        InFeasibleTolerate = InputNode["InFeasibleTolerate"].as<int>();
+        LoseConnectionSendGroup = FSendGroup(InputNode["LoseConnectionSendGroup"]);
+        SMSTestSendGroup = FSendGroup(InputNode["SMSTestSendGroup"]);
+    }
+
 }
