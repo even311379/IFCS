@@ -14,7 +14,6 @@ namespace IFCS
         void Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose = true) override;
         // void LoadOtherFrame(bool IsNext); // ture for next, false for previous
         // void LoadFrame(int FrameNumber); // if frame num < 0 .. load first extracted frame
-        // TODO: make access of opencv clip info centric to here...
         std::vector<std::string> GetAllClips() const;
         std::vector<std::string> GetAllImages() const;
         std::vector<std::string> GetImageFolders() const;

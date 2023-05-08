@@ -1040,5 +1040,27 @@ namespace IFCS
             ifd::FileDialog::Instance().Close();
             IsChoosingFolder = false;
         }
+        if (ifd::FileDialog::Instance().IsDone("ChooseExternalModelPath_Deploy"))
+        {
+            if (ifd::FileDialog::Instance().HasResult())
+            {
+                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
+                std::replace(RawString.begin(), RawString.end(), '\\', '/');
+                Deploy::Get().SetExternalModelFile(RawString);
+            }
+            ifd::FileDialog::Instance().Close();
+            IsChoosingFolder = false;
+        }
+        if (ifd::FileDialog::Instance().IsDone("GenerateDeployScriptsLocation"))
+        {
+            if (ifd::FileDialog::Instance().HasResult())
+            {
+                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
+                std::replace(RawString.begin(), RawString.end(), '\\', '/');
+                Deploy::Get().GenerateRunScript(RawString);
+            }
+            ifd::FileDialog::Instance().Close();
+            IsChoosingFolder = false;
+        }
     }
 }

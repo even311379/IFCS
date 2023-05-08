@@ -13,6 +13,8 @@ namespace IFCS
         void SetReferenceImagePath(const char* NewPath);
         void LoadConfigFile(const std::string& ConfigFilePath);
         void SaveConfigFile(const std::string& ConfigFilePath);
+        void SetExternalModelFile(const std::string& NewModelFile);
+        void GenerateRunScript(const std::string& ScriptsLocation);
 
     protected:
         void RenderContent() override;
@@ -27,6 +29,7 @@ namespace IFCS
         
         void CleanRegisteredCameras();
         
+        size_t CameraIndex_FT = 0;
         void RenderFeasibilityTest();
         void RenderAddingProgress(ImVec2 StartPos);
         cv::Mat ImgData;
@@ -36,14 +39,9 @@ namespace IFCS
         bool IsTestZonesPassRefImg();
         bool IsColorInRange(ImVec4 TestColor, ImVec4 LowerColor, ImVec4 UpperColor);
 
-        // std::map<std::string, FModelParameters> ModelParameters;
+        size_t CameraIndex_DP = 0;
         void RenderDataPipeline();
-
-        // TODO: use pre-defined receiver groups?
-        // std::map<std::string, std::string> ReceiverGroups; //receiever name -> group name
         void RenderSMSNotification();
-        
-        void GenerateScript();
 
         FDeploymentData Data;
         

@@ -15,6 +15,7 @@
 #include "ImFileDialog/ImFileDialog.h"
 
 #include "DataBrowser.h"
+#include "imgui_internal.h"
 #include "Modals.h"
 #include "Setting.h"
 #include "Style.h"
@@ -30,16 +31,6 @@ namespace IFCS
         SMSNotification,
     };
     
-    enum class EColorEditSpace : uint8_t
-    {
-        R,
-        G,
-        B,
-        H,
-        S,
-        V
-    };
-
     static EActiveDeployTab ActiveDeployTab = EActiveDeployTab::Automation;
 
     void Deploy::SetInputPath(const char* NewPath)
@@ -64,7 +55,6 @@ namespace IFCS
             {
                 if (Utils::InsensitiveStringCompare(entry.path().extension().string(), Format))
                 {
-                    // TODO: check utf8 issue...
                     ReferenceImages.emplace_back(entry.path().string());
                 }
             }
@@ -87,6 +77,26 @@ namespace IFCS
         YAML::Emitter Out;
         Out << Data.Serialize();
         std::ofstream(ConfigFilePath + "/DeployConfig.yaml") << Out.c_str();
+    }
+
+    void Deploy::SetExternalModelFile(const std::string& NewModelFile)
+    {
+        Data.Cameras[CameraIndex_DP].ModelFilePath = NewModelFile;
+    }
+
+    void Deploy::GenerateRunScript(const std::string& ScriptsLocation)
+    {
+        // write config file
+        YAML::Emitter Out;
+        Out << Data.Serialize();
+        std::ofstream(ScriptsLocation + "/IFCS_DeployConfig.yaml") << Out.c_str();
+        // copy python file
+        std::filesystem::copy_file("Scripts/IFCS_Deploy.py", ScriptsLocation + "/IFCS_Deploy.py", std::filesystem::copy_options::overwrite_existing);
+        // write run script
+        std::ofstream ofs;
+        ofs.open(ScriptsLocation + "/RUN.bat");
+        ofs << Setting::Get().PythonPath << "/python.exe IFCS_Deploy.py";
+        ofs.close();
     }
 
     void Deploy::RenderContent()
@@ -146,7 +156,9 @@ namespace IFCS
         ImGui::SameLine(ImGui::GetContentRegionAvail().x - 280);
         if (ImGui::Button("generate script", ImVec2(270, 0)))
         {
-            GenerateScript();
+            Modals::Get().IsChoosingFolder = true;
+            ifd::FileDialog::Instance().Open("GenerateDeployScriptsLocation", "Choose location to generate run script",
+                "", false, Setting::Get().ProjectPath);
         }
     }
 
@@ -154,6 +166,15 @@ namespace IFCS
     
     void Deploy::RenderAutomation()
     {
+        // setup for which camera?
+        if (ActiveDeployTab != EActiveDeployTab::Automation)
+        {
+            if (Data.Cameras.empty())
+            {
+                Data.Cameras.emplace_back();
+            }
+        }
+
         // TODO: maybe replace file dialog by native file dialoge to prevent trailing slash issues?
         ImGui::BulletText("Choose input and output paths for the automation task");
         ImGui::Indent();
@@ -185,9 +206,6 @@ namespace IFCS
         ImGui::Text("Output Path");
         ImGui::Unindent();
 
-        /*
-         * TODO: maybe I need two different camera names, the name in DVR and the name in a more human readable format
-         */
         static bool IsDVRNameDifferent = true;
         // register cameras
         ImGui::BulletText("Register cameras");
@@ -351,14 +369,11 @@ namespace IFCS
         ImGui::Unindent();
     }
 
-    static size_t CameraIndex_FT = 0;
     static ImVec2 ReferenceImagePos;
     static bool bAdding;
     static ImVec2 AddPointStart;
     static ImVec2 AddPointEnd;
     static ImVec4 HintColor = Style::RED(400, Setting::Get().Theme);
-
-    static EColorEditSpace ColorEditSpace;
 
     void Deploy::CleanRegisteredCameras()
     {
@@ -436,7 +451,9 @@ namespace IFCS
         }
 
         // choose image from some where
+        ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x * 0.5f - 325.f);
         ImGui::Text("Reference Images Path");
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(325.f);
         ImGui::InputText("", ReferenceImagePath, IM_ARRAYSIZE(ReferenceImagePath), ImGuiInputTextFlags_ReadOnly);
         ImGui::SameLine();
@@ -446,11 +463,9 @@ namespace IFCS
             ifd::FileDialog::Instance().Open("ChooseFeasibilityReferenceImagePath", "Choose path to reference images",
                 "", false, Setting::Get().ProjectPath);
         }
-        ImGui::SameLine();
         // draw control buttons
         if (!ReferenceImages.empty())
         {
-            ImGui::SameLine();
             std::string ImgName = ReferenceImages[CurrentRefImgIndex].substr(std::strlen(ReferenceImagePath) + 1);
             ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 360 - 64) * 0.5f);
             ReferenceImagePos = ImGui::GetCursorScreenPos();
@@ -478,7 +493,6 @@ namespace IFCS
             }
             Utils::AddSimpleTooltip("Next");
             ImGui::SameLine();
-            // TODO: move this to title?
             ImGui::ColorEdit3("##hint", (float*)&HintColor, ImGuiColorEditFlags_NoInputs);
         }
 
@@ -488,50 +502,17 @@ namespace IFCS
             return;
         }
         ImGui::Separator();
-        static const ImVec2 ModeBtnSize(32, ImGui::GetTextLineHeightWithSpacing() + 2);
-        
+        ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x * 0.5f - ImGui::CalcTextSize("PASS").x * 0.5f );
         ImGui::PushFont(Setting::Get().TitleFont);
         if (IsTestZonesPassRefImg())
             ImGui::TextColored(Style::GREEN(400, Setting::Get().Theme) ,"PASS");
         else
             ImGui::TextColored(Style::RED(400, Setting::Get().Theme) ,"FAIL");
         ImGui::PopFont();
-        ImGui::SameLine(0, 360.f);
-        ImGui::Text("Color Edit Mode:");ImGui::SameLine();
-        // for every draw box, set its color feasible range
-        // TODO: how too add active color edit mode hint?
-        if (ImGui::Button("R", ModeBtnSize)) ColorEditSpace = EColorEditSpace::R;
-        ImGui::SameLine();
-        if (ImGui::Button("G", ModeBtnSize)) ColorEditSpace = EColorEditSpace::G;
-        ImGui::SameLine();
-        if (ImGui::Button("B", ModeBtnSize)) ColorEditSpace = EColorEditSpace::B;
-        ImGui::SameLine(0, 64);
-        if (ImGui::Button("H", ModeBtnSize)) ColorEditSpace = EColorEditSpace::H;
-        ImGui::SameLine();
-        if (ImGui::Button("S", ModeBtnSize)) ColorEditSpace = EColorEditSpace::S;
-        ImGui::SameLine();
-        if (ImGui::Button("V", ModeBtnSize)) ColorEditSpace = EColorEditSpace::V;
-        ImGui::SameLine();
-        static int ColorEditStepSize = 1;
-        ImGui::SetNextItemWidth(128.f);
-        ImGui::DragInt("Step size", &ColorEditStepSize, 1, 1, 16);
-        ImGui::SameLine(0, 256);
         
-        ImGui::PushStyleColor(ImGuiCol_Button, Style::RED(400, Setting::Get().Theme));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Style::RED(600, Setting::Get().Theme));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, Style::RED(700, Setting::Get().Theme));
-        if (ImGui::Button(ICON_FA_TRASH, ModeBtnSize))
-        {
-            Data.Cameras[CameraIndex_FT].FeasibleZones.clear();
-        }
-        ImGui::PopStyleColor(3);
-        Utils::AddSimpleTooltip("Clear all feasibility test zones");
-
-
         static const ImVec2 SmallBtnSize = {32.f, 32.f};
         static const ImVec2 ColorBtnSize = {64.f, 32.f};
-        static ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter |
-            ImGuiTableFlags_BordersV | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable| ImGuiTableFlags_NoHostExtendX | ImGuiTableFlags_SizingFixedFit;
+        static ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable| ImGuiTableFlags_NoHostExtendX | ImGuiTableFlags_SizingFixedFit;
         ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x * 0.5 - 480);
         if (ImGui::BeginTable("##ColorEditTable", 6, flags))
         {
@@ -542,7 +523,9 @@ namespace IFCS
             ImGui::TableSetupColumn("Is Pass?", ImGuiTableColumnFlags_WidthFixed, 128.f);
             ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 64.f);
             ImGui::TableHeadersRow();
-
+            static ImGuiColorEditFlags flags = ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_NoAlpha |
+                ImGuiColorEditFlags_NoOptions | ImGuiColorEditFlags_NoDragDrop;
+    
             ImGui::PushID("ColorEdit");
             for (int i = 0; i < Data.Cameras[CameraIndex_FT].FeasibleZones.size(); i++)
             {
@@ -554,40 +537,21 @@ namespace IFCS
                 ImGui::TableSetColumnIndex(1);
                 ImGui::ColorButton("##Color", GetAverageColor(Zone.XYWH), ImGuiColorEditFlags_None, ColorBtnSize);
                 ImGui::TableSetColumnIndex(2);
-                if (ImGui::Button(ICON_FA_MINUS"##Lower", SmallBtnSize))
-                {
-                    // TODO: finish it!!! ZZZzzzzzz...
-                    // in open cv... it bgr!???
-                    cv::Mat3f Point(cv::Vec3f(Zone.ColorLower.x, Zone.ColorLower.y, Zone.ColorLower.z));
-                    // cv::cvtColor()
-                }
+                // TODO: this may make the color edit popup too big... but the fix (create a custom color edit popup) is too much work
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 8));
+                ImGui::ColorEdit3("##LowerColor", (float*)&Zone.ColorLower, flags);
+                ImGui::PopStyleVar();
                 ImGui::SameLine();
-                ImGui::ColorButton("##LowerColor", Zone.ColorLower, ImGuiColorEditFlags_None, ColorBtnSize);
-                ImGui::SameLine();
-                if (ImGui::Button(ICON_FA_PLUS"##Lower", SmallBtnSize))
-                {
-                    
-                }
-                ImGui::SameLine(0, 16);
                 if (ImGui::Button(ICON_FA_SYNC"##Lower", SmallBtnSize))
                 {
                     Zone.ColorLower = GetAverageColor(Zone.XYWH); 
                 }
-                Utils::AddSimpleTooltip("Sync upper color limit to ref color");
+                Utils::AddSimpleTooltip("Sync lower color limit to ref color");
                 ImGui::TableSetColumnIndex(3);
-                // TODO: is the ID required here?
-                if (ImGui::Button(ICON_FA_MINUS"##Upper", SmallBtnSize))
-                {
-                    
-                }
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 8));
+                ImGui::ColorEdit3("##UpperColor", (float*)&Zone.ColorUpper, flags);
+                ImGui::PopStyleVar();
                 ImGui::SameLine();
-                ImGui::ColorButton("##UpperColor", Zone.ColorUpper, ImGuiColorEditFlags_None, ColorBtnSize);
-                ImGui::SameLine();
-                if (ImGui::Button(ICON_FA_PLUS"##Upper", SmallBtnSize))
-                {
-                    
-                }
-                ImGui::SameLine(0, 16);
                 if(ImGui::Button(ICON_FA_SYNC"##Upper", SmallBtnSize))
                 {
                     Zone.ColorUpper = GetAverageColor(Zone.XYWH);
@@ -610,6 +574,16 @@ namespace IFCS
             ImGui::PopID();
             ImGui::EndTable();
         }
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Button, Style::RED(400, Setting::Get().Theme));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Style::RED(600, Setting::Get().Theme));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, Style::RED(700, Setting::Get().Theme));
+        if (ImGui::Button(ICON_FA_TRASH, SmallBtnSize))
+        {
+            Data.Cameras[CameraIndex_FT].FeasibleZones.clear();
+        }
+        ImGui::PopStyleColor(3);
+        Utils::AddSimpleTooltip("Clear all feasibility test zones");
  
 
     }
@@ -653,16 +627,16 @@ namespace IFCS
     {
         if (ImgData.empty())
             return {0.f ,0.f, 0.f, 1.f};
-        int Width = ImgData.cols;
-        int Height = ImgData.rows;
-        cv::Rect ROI = cv::Rect(
-            int((InXYWH[0] - InXYWH[2] * 0.5f) * (float)Width),
-            int((InXYWH[1] - InXYWH[3] * 0.5f) * (float)Height),
-            int(InXYWH[2] * float(Width)),
-            int(InXYWH[3] * float(Height)));
-        cv::Mat ImgRoi = ImgData(ROI);
+        const int Width = ImgData.cols;
+        const int Height = ImgData.rows;
+        const cv::Rect ROI = cv::Rect(
+            static_cast<int>((InXYWH[0] - InXYWH[2] * 0.5f) * static_cast<float>(Width)),
+            static_cast<int>((InXYWH[1] - InXYWH[3] * 0.5f) * static_cast<float>(Height)),
+            static_cast<int>(InXYWH[2] * static_cast<float>(Width)),
+            static_cast<int>(InXYWH[3] * static_cast<float>(Height)));
+        const cv::Mat ImgRoi = ImgData(ROI);
         cv::Scalar Avg = cv::mean(ImgRoi);
-        return ImColor((int)Avg[0], (int)Avg[1], (int)Avg[2], 255);
+        return ImColor(static_cast<int>(Avg[0]), static_cast<int>(Avg[1]), static_cast<int>(Avg[2]), 255);
     }
 
     void Deploy::RenderTestZones(ImVec2 StartPos)
@@ -676,7 +650,7 @@ namespace IFCS
             float H = Zone.XYWH[3];
             ImVec2 ZoneStartPos = StartPos + (ImVec2(X, Y) - ImVec2(W * 0.5, H * 0.5)) * WorkArea;
             ImVec2 ZoneEndPos = ZoneStartPos + ImVec2(W, H) * WorkArea;
-            ImGui::GetWindowDrawList()->AddRectFilled(ZoneStartPos, ZoneEndPos, ImColor(1.f, 0.f, 0.f, 1.f));
+            ImGui::GetWindowDrawList()->AddRectFilled(ZoneStartPos, ZoneEndPos, ImGui::ColorConvertFloat4ToU32(HintColor));
             // render ID
             ImVec2 LabelSize = ImGui::CalcTextSize(std::to_string(i).c_str());
             ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), 18.f, (ZoneStartPos + ZoneEndPos - LabelSize)/2,
@@ -736,12 +710,13 @@ namespace IFCS
             CleanRegisteredCameras();
         }
         ImGui::BulletText("Time");
+        ImGui::Indent();
         ImGui::DragInt("Detection Frequency", &Data.DetectionFrequency, 1, 1, 600, "%d Frames");
         ImGui::Indent();
         ImGui::Text("If your frame rate is ");ImGui::SameLine();
         ImGui::SetNextItemWidth(64.f);
         ImGui::DragFloat("##FPS_Count", &TempFPS, 0.1f, 0.f, 360.f, "%.1f"); ImGui::SameLine();
-        ImGui::Text(" , the detection will be performed every %.1f seconds.", (float)Data.DetectionFrequency / TempFPS);
+        ImGui::Text(" , the detection will be performed every %.1f seconds.", static_cast<float>(Data.DetectionFrequency) / TempFPS);
         ImGui::Unindent();
         
         ImGui::Checkbox("Day time only?", &Data.IsDaytimeOnly);
@@ -761,8 +736,9 @@ namespace IFCS
         ImGui::DragFloat("Feasibility Failure Threshold", &Data.PassCountFeasiblityThreshold, 0.01f, 0.f, 1.f, "%.2f");
         Utils::AddSimpleTooltip("If the X/% of detections during the pass count duration failed the feasibility test, the pass count for this hour will be a infeasible.");
         ImGui::Indent();
-        const float TotalDetectionsInPassCountDuration = (float)Data.PassCountDuration * 60 * TempFPS / (float)Data.DetectionFrequency;
+        const float TotalDetectionsInPassCountDuration = static_cast<float>(Data.PassCountDuration) * 60 * TempFPS / static_cast<float>(Data.DetectionFrequency);
         ImGui::Text("Over %.0f of %.0f infeasible detections will be considered as infeasible pass count.", Data.PassCountFeasiblityThreshold * TotalDetectionsInPassCountDuration, TotalDetectionsInPassCountDuration);
+        ImGui::Unindent();
         ImGui::Unindent();
 
         ImGui::Separator();
@@ -776,8 +752,7 @@ namespace IFCS
 
         // for each camera...
         // Choose camera combo
-        static size_t CameraIndex_DP = 0;
-        ImGui::BulletText("Model Parameters for Camera:"); ImGui::SameLine();
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(360.f);
         if (ImGui::BeginCombo("Choose Camera", Data.Cameras[CameraIndex_DP].CameraName.c_str()))
         {
@@ -790,18 +765,21 @@ namespace IFCS
             }
             ImGui::EndCombo();
         }
+        ImGui::Indent();
 
         // choose model
         static bool bUseExternalModelFile = false;
         static bool bOverrideModelName = false;
-        static char OverridenModelName[256] = "";
+        static char SelectedModel[256] = "";
 
         FCameraSetup* SelectedCamera = &Data.Cameras[CameraIndex_DP];
+        ImGui::BulletText("Common Parameters");
+        ImGui::Indent();
+
+        // TODO: make the model path correctly set...
         // internal model name
         if (bUseExternalModelFile)
         {
-            // abs model path?
-            ImGui::Checkbox("Use external model?", &bUseExternalModelFile);
             ImGui::SetNextItemWidth(480.f);
             ImGui::InputText("", &SelectedCamera->ModelFilePath, ImGuiInputTextFlags_ReadOnly);
             ImGui::SameLine();
@@ -811,28 +789,56 @@ namespace IFCS
                 ifd::FileDialog::Instance().Open("ChooseExternalModelPath_Deploy", "Choose external model file",
                     "Model {.pt}", false, Setting::Get().ProjectPath);
             }
+            ImGui::SameLine();
+            ImGui::Text("Choose external model file");
         }
         else
         {
-            std::string* SelectedModel = &SelectedCamera->ModelName;
-            if (ImGui::BeginCombo("Choose Model", (*SelectedModel).c_str()))
+            if (SelectedModel[0] == '\0')
             {
-                YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
-                for (YAML::const_iterator it = Data.begin(); it != Data.end(); ++it)
+                YAML::Node ModelData = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
+                for (YAML::const_iterator it = ModelData.begin(); it != ModelData.end(); ++it)
+                {
+                    strcpy(SelectedModel, it->first.as<std::string>().c_str());
+                    break;
+                }
+            }
+            if (ImGui::BeginCombo("Choose Model", SelectedModel))
+            {
+                YAML::Node ModelData = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
+                for (YAML::const_iterator it = ModelData.begin(); it != ModelData.end(); ++it)
                 {
                     auto Name = it->first.as<std::string>();
-                    if (ImGui::Selectable(Name.c_str(), Name == *SelectedModel))
+                    if (ImGui::Selectable(Name.c_str(), Name == SelectedModel))
                     {
-                        *SelectedModel = Name;
+                        strcpy(SelectedModel, Name.c_str());
+                        SelectedCamera->ModelName = Name;
+                        SelectedCamera->ModelFilePath = Setting::Get().ProjectPath + "/Models/" + Name + "/weights/best.pt";
                     }
                 }
                 ImGui::EndCombo();
             }
-            ImGui::Checkbox("Override Model Name?", &bOverrideModelName);
+            if (ImGui::Checkbox("Override Model Name?", &bOverrideModelName))
+            {
+                SelectedCamera->ModelName = SelectedModel;
+            }
         }
         if (bUseExternalModelFile || bOverrideModelName)
         {
-            ImGui::InputText("Model name", OverridenModelName, IM_ARRAYSIZE(OverridenModelName));
+            ImGui::InputText("Model name", &SelectedCamera->ModelName);
+        }
+        if (ImGui::Checkbox("Use external model?", &bUseExternalModelFile))
+        {
+            if (bUseExternalModelFile)
+            {
+                SelectedCamera->ModelName = "";
+                SelectedCamera->ModelFilePath = "";
+            }
+            else
+            {
+                SelectedCamera->ModelName = SelectedModel;
+                SelectedCamera->ModelFilePath = Setting::Get().ProjectPath + "/Models/" + SelectedModel + "/weights/best.pt";
+            }
         }
         
         // image size
@@ -841,6 +847,9 @@ namespace IFCS
         ImGui::DragFloat("Confidence", &SelectedCamera->Confidence, 0.05f, 0.01f,0.95f, "%.2f");
         // IOU
         ImGui::DragFloat("IOU", &SelectedCamera->IOU, 0.05f, 0.01f,0.95f, "%.2f");
+        ImGui::Unindent();
+
+        
         // detection ROI
         ImGui::BulletText("Detection parameters");
         ImGui::Indent();
@@ -879,16 +888,19 @@ namespace IFCS
         ImGui::DragFloat("Confidence threshold", &SelectedCamera->SpeciesDetermineThreshold, 0.01f, 0.01f, 0.5f, "%.2f");
         ImGui::DragInt("Frames buffer threshold", &SelectedCamera->FrameBufferSize, 1, 1, 60);
         ImGui::Unindent();
-        
+        ImGui::Unindent();
         // count parameters? how to access?
 
         ImGui::Separator();
         // server settings
+        ImGui::BulletText("Server");
+        ImGui::Indent();
         // account
-        ImGui::InputText("Server account", &Data.ServerAccount);
+        ImGui::InputText("User account", &Data.ServerAccount);
         Utils::AddSimpleTooltip("The user account of your web application");
         // passwordd
-        ImGui::InputText("Server password", &Data.ServerPassword, ImGuiInputTextFlags_Password);
+        ImGui::InputText("Password", &Data.ServerPassword, ImGuiInputTextFlags_Password);
+        ImGui::Unindent();
         
     }
 
@@ -906,7 +918,6 @@ namespace IFCS
         ImGui::BulletText("Register receivers");
         ImGui::Indent();
 
-        // TODO: add table based on registered receivers
         ImGui::Text("Name");
         ImGui::SameLine(256, 32);
         ImGui::Text("Phone Numer");
@@ -1107,8 +1118,5 @@ namespace IFCS
         ImGui::Unindent();
     }
 
-    void Deploy::GenerateScript()
-    {
-        // just generate at output dir?
-    }
+
 }

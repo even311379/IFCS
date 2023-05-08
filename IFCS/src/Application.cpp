@@ -29,11 +29,6 @@
 #include "IconFontCppHeaders/IconsFontAwesome5.h"
 
 
-/*
- * TODO: fix exported format to real yaml... rather than something wierd??
- * and create a helper script to fix previous failures
- */
-
 
 namespace IFCS
 {

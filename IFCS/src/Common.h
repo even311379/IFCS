@@ -93,8 +93,6 @@ namespace IFCS
         void MakeDetailWidget();
     };
 
-    //TODO: when to serialize them to the yaml file?
-
     struct FCategory
     {
         FCategory()=default;
@@ -309,7 +307,7 @@ namespace IFCS
         float Confidence = 0.25f;
         float IOU = 0.45f;
         bool ShouldApplyDetectionROI = false;
-        float DetectionROI[4];
+        float DetectionROI[4] = {0.f, 0.f, 1.f, 1.f};
         bool IsPassVertical;
         float FishwayStartEnd[2] = {0.f, 1.f};
         bool ShouldEnableSpeedThreshold = true;
