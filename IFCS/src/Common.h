@@ -360,6 +360,7 @@ namespace IFCS
         tm StartDate = tm();
         tm EndDate = tm();
         bool ShouldBackupImportantRegions = true;
+        int BackupBufferTime = 5; // minutes
         bool ShouldBackupCombinedClips = true;
         bool ShouldDeleteRawClips = false;
         

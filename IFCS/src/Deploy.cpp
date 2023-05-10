@@ -88,6 +88,9 @@ namespace IFCS
     {
         // write config file
         YAML::Emitter Out;
+        YAML::Node ExtraContent;
+        ExtraContent["YoloV7Path"] = Setting::Get().YoloV7Path;
+        Out << ExtraContent;
         Out << Data.Serialize();
         std::ofstream(ScriptsLocation + "/IFCS_DeployConfig.yaml") << Out.c_str();
         // copy python file
@@ -326,11 +329,11 @@ namespace IFCS
             else
             {
                 ImGui::PushID("DatesChooser");
-                for (size_t i = 0; i < Data.RunDates.size(); i++)
+                for (size_t j = 0; j < Data.RunDates.size(); j++)
                 {
-                    ImGui::PushID(i);
+                    ImGui::PushID(j);
                     ImGui::SetNextItemWidth(240.f);
-                    ImGui::DateChooser("", Data.RunDates[i], "%Y/%m/%d");
+                    ImGui::DateChooser("", Data.RunDates[j], "%Y/%m/%d");
                     ImGui::PopID();
                 }
                 ImGui::PopID();
@@ -362,6 +365,9 @@ namespace IFCS
         ImGui::Indent();
         // enable important region backup
         ImGui::Checkbox("Backup clips with important regions", &Data.ShouldBackupImportantRegions);
+        ImGui::SameLine();
+        ImGui::DragInt("Buffer time (minutes)", &Data.BackupBufferTime, 1, 1, 20, "%d");
+        Utils::AddSimpleTooltip("extend the duration before and after the detected frame by buffer time as important region");
         // enable combined clips backup
         ImGui::Checkbox("Backup combinded clip", &Data.ShouldBackupCombinedClips);
         // delete raw clips after backup?
@@ -535,7 +541,12 @@ namespace IFCS
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("%d", i);
                 ImGui::TableSetColumnIndex(1);
-                ImGui::ColorButton("##Color", GetAverageColor(Zone.XYWH), ImGuiColorEditFlags_None, ColorBtnSize);
+                if (ImGui::ColorButton("##Color", GetAverageColor(Zone.XYWH), ImGuiColorEditFlags_None, ColorBtnSize))
+                {
+                    //TODO: I can trigger it !! so good...
+                    // make the following color edit to open the popup!!!
+                    spdlog::info("Can I click on color button?");
+                }
                 ImGui::TableSetColumnIndex(2);
                 // TODO: this may make the color edit popup too big... but the fix (create a custom color edit popup) is too much work
                 ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 8));

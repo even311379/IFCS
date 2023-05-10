@@ -648,7 +648,7 @@ namespace IFCS
         }
         Out["ModelName"] = ModelName;
         Out["ModelFilePath"] = ModelFilePath;
-        Out["Imagesize"] = ImageSize;
+        Out["ImageSize"] = ImageSize;
         Out["Confidence"] = Confidence;
         Out["IOU"] = IOU;
         Out["ShouldApplyDetectionROI"] = ShouldApplyDetectionROI;
@@ -679,13 +679,9 @@ namespace IFCS
         {
             FeasibleZones.emplace_back(it->as<YAML::Node>());
         }
-        // for (size_t i = 0; i < InputNode["FeasibleZones"].size(); i++)
-        // {
-        //     FeasibleZones.emplace_back(InputNode["FeasibleZones"][i]);
-        // }
         ModelName = InputNode["ModelName"].as<std::string>();
         ModelFilePath = InputNode["ModelFilePath"].as<std::string>();
-        ImageSize = InputNode["Imagesize"].as<int>();
+        ImageSize = InputNode["ImageSize"].as<int>();
         Confidence = InputNode["Confidence"].as<float>();
         IOU = InputNode["IOU"].as<float>();
         ShouldApplyDetectionROI = InputNode["ShouldApplyDetectionROI"].as<bool>();
@@ -775,16 +771,17 @@ namespace IFCS
             YAML::Node DateNode;
             DateNode["Year"] = Date.tm_year;
             DateNode["Month"] = Date.tm_mon;
-            DateNode["Date"] = Date.tm_mday;
+            DateNode["Day"] = Date.tm_mday;
             Out["RunDates"].push_back(DateNode);
         }
         Out["StartDate"]["Year"] = StartDate.tm_year;
         Out["StartDate"]["Month"] = StartDate.tm_mon;
-        Out["StartDate"]["Date"] = StartDate.tm_mday;
+        Out["StartDate"]["Day"] = StartDate.tm_mday;
         Out["EndDate"]["Year"] = EndDate.tm_year;
         Out["EndDate"]["Month"] = EndDate.tm_mon;
-        Out["EndDate"]["Date"] = EndDate.tm_mday;
+        Out["EndDate"]["Day"] = EndDate.tm_mday;
         Out["ShouldBackupImportantRegions"] = ShouldBackupImportantRegions;
+        Out["BackupBufferTime"] = BackupBufferTime;
         Out["ShouldBackupCombinedClips"] = ShouldBackupCombinedClips;
         Out["ShouldDeleteRawClips"] = ShouldDeleteRawClips;
 
@@ -825,10 +822,6 @@ namespace IFCS
         {
             Cameras.emplace_back(it->as<YAML::Node>());
         }
-        // for (size_t i = 0; i < InputNode["Cameras"].size(); i++)
-        // {
-        //     Cameras.emplace_back(InputNode["Cameras"][i].as<YAML::Node>());
-        // }
         IsTaskStartNow = InputNode["IsTaskStartNow"].as<bool>();
         const auto arr = InputNode["ScheduledRuntime"].as<std::array<int, 2>>();
         ScheduledRuntime[0] = arr[0];
@@ -843,22 +836,16 @@ namespace IFCS
             Date.tm_mday = it->as<YAML::Node>()["Date"].as<int>();
             RunDates.push_back(Date);
         }
-        // {
-        //     tm Date;
-        //     Date.tm_year = InputNode["RunDates"][i]["Year"].as<int>();
-        //     Date.tm_mon = InputNode["RunDates"][i]["Month"].as<int>();
-        //     Date.tm_mday = InputNode["RunDates"][i]["Date"].as<int>();
-        //     RunDates.push_back(Date);
-        // }
         StartDate = tm();
         StartDate.tm_year = InputNode["StartDate"]["Year"].as<int>();
         StartDate.tm_mon = InputNode["StartDate"]["Month"].as<int>();
-        StartDate.tm_mday = InputNode["StartDate"]["Date"].as<int>();
+        StartDate.tm_mday = InputNode["StartDate"]["Day"].as<int>();
         EndDate = tm();
         EndDate.tm_year = InputNode["EndDate"]["Year"].as<int>();
         EndDate.tm_mon = InputNode["EndDate"]["Month"].as<int>();
-        EndDate.tm_mday = InputNode["EndDate"]["Date"].as<int>();
+        EndDate.tm_mday = InputNode["EndDate"]["Day"].as<int>();
         ShouldBackupImportantRegions = InputNode["ShouldBackupImportantRegions"].as<bool>();
+        BackupBufferTime = InputNode["BackupBufferTime"].as<int>();
         ShouldBackupCombinedClips = InputNode["ShouldBackupCombinedClips"].as<bool>();
         ShouldDeleteRawClips = InputNode["ShouldDeleteRawClips"].as<bool>();
         DetectionFrequency = InputNode["DetectionFrequency"].as<int>();
@@ -876,10 +863,6 @@ namespace IFCS
         {
             SMSReceivers.emplace_back(it->as<YAML::Node>());
         }
-        // for (size_t i = 0; i < InputNode["Receivers"].size(); i++)
-        // {
-        //     SMSReceivers.emplace_back(InputNode["Receivers"][i]);
-        // }
         DailyReportSendGroup = FSendGroup(InputNode["DailyReportSendGroup"]);
         WeeklyReportSendGroup = FSendGroup(InputNode["WeeklyReportSendGroup"]);
         MonthlyReportSendGroup = FSendGroup(InputNode["MonthlyReportSendGroup"]);
