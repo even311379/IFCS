@@ -88,10 +88,9 @@ namespace IFCS
     {
         // write config file
         YAML::Emitter Out;
-        YAML::Node ExtraContent;
-        ExtraContent["YoloV7Path"] = Setting::Get().YoloV7Path;
-        Out << ExtraContent;
-        Out << Data.Serialize();
+        YAML::Node OutNode = Data.Serialize();
+        OutNode["YoloV7Path"] = Setting::Get().YoloV7Path;
+        Out << OutNode;
         std::ofstream(ScriptsLocation + "/IFCS_DeployConfig.yaml") << Out.c_str();
         // copy python file
         std::filesystem::copy_file("Scripts/IFCS_Deploy.py", ScriptsLocation + "/IFCS_Deploy.py", std::filesystem::copy_options::overwrite_existing);
@@ -366,6 +365,7 @@ namespace IFCS
         // enable important region backup
         ImGui::Checkbox("Backup clips with important regions", &Data.ShouldBackupImportantRegions);
         ImGui::SameLine();
+        ImGui::SetNextItemWidth(32.f);
         ImGui::DragInt("Buffer time (minutes)", &Data.BackupBufferTime, 1, 1, 20, "%d");
         Utils::AddSimpleTooltip("extend the duration before and after the detected frame by buffer time as important region");
         // enable combined clips backup
@@ -531,7 +531,7 @@ namespace IFCS
             ImGui::TableHeadersRow();
             static ImGuiColorEditFlags flags = ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_NoAlpha |
                 ImGuiColorEditFlags_NoOptions | ImGuiColorEditFlags_NoDragDrop;
-    
+            static ImVec4 BackupColor;
             ImGui::PushID("ColorEdit");
             for (int i = 0; i < Data.Cameras[CameraIndex_FT].FeasibleZones.size(); i++)
             {
@@ -541,17 +541,20 @@ namespace IFCS
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("%d", i);
                 ImGui::TableSetColumnIndex(1);
-                if (ImGui::ColorButton("##Color", GetAverageColor(Zone.XYWH), ImGuiColorEditFlags_None, ColorBtnSize))
-                {
-                    //TODO: I can trigger it !! so good...
-                    // make the following color edit to open the popup!!!
-                    spdlog::info("Can I click on color button?");
-                }
+                ImGui::ColorButton("##Color", GetAverageColor(Zone.XYWH), ImGuiColorEditFlags_None, ColorBtnSize);
                 ImGui::TableSetColumnIndex(2);
-                // TODO: this may make the color edit popup too big... but the fix (create a custom color edit popup) is too much work
-                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 8));
-                ImGui::ColorEdit3("##LowerColor", (float*)&Zone.ColorLower, flags);
-                ImGui::PopStyleVar();
+                if (ImGui::ColorButton("##LowerColor", Zone.ColorLower, ImGuiColorEditFlags_None, ColorBtnSize))
+                {
+                    ImGui::OpenPopup("LowerColorPicker");
+                    BackupColor = Zone.ColorLower;
+                }
+                if (ImGui::BeginPopup("LowerColorPicker"))
+                {
+                    ImGui::Text("Set lower color limit");
+                    ImGui::Separator();
+                    MakeColorPicker(&Zone.ColorLower, BackupColor);
+                    ImGui::EndPopup();
+                }
                 ImGui::SameLine();
                 if (ImGui::Button(ICON_FA_SYNC"##Lower", SmallBtnSize))
                 {
@@ -559,9 +562,21 @@ namespace IFCS
                 }
                 Utils::AddSimpleTooltip("Sync lower color limit to ref color");
                 ImGui::TableSetColumnIndex(3);
-                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 8));
-                ImGui::ColorEdit3("##UpperColor", (float*)&Zone.ColorUpper, flags);
-                ImGui::PopStyleVar();
+                if (ImGui::ColorButton("##UpperColor", Zone.ColorUpper, ImGuiColorEditFlags_None, ColorBtnSize))
+                {
+                    ImGui::OpenPopup("UpperColorPicker");
+                    BackupColor = Zone.ColorUpper;
+                }
+                if (ImGui::BeginPopup("UpperColorPicker"))
+                {
+                    ImGui::Text("Set upper color limit");
+                    ImGui::Separator();
+                    MakeColorPicker(&Zone.ColorUpper, BackupColor);
+                    ImGui::EndPopup();
+                }
+                // ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 8));
+                // ImGui::ColorEdit3("##UpperColor", (float*)&Zone.ColorUpper, flags);
+                // ImGui::PopStyleVar();
                 ImGui::SameLine();
                 if(ImGui::Button(ICON_FA_SYNC"##Upper", SmallBtnSize))
                 {
@@ -691,6 +706,22 @@ namespace IFCS
         }
         
         ImGui::GetWindowDrawList()->AddRect(AddPointStart, AddPointEnd, ImColor(1.f, 0.f, 0.f, 1.f), 0, 0, 3);
+    }
+
+    void Deploy::MakeColorPicker(ImVec4* TargetColor, ImVec4 BackupColor)
+    {
+        // ImGui::Text("");
+        // ImGui::Separator();
+        ImGui::ColorPicker3("##picker", (float*)TargetColor, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoSmallPreview);
+        ImGui::SameLine();
+
+        ImGui::BeginGroup(); // Lock X position
+        ImGui::Text("Current");
+        ImGui::ColorButton("##current", *TargetColor, ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_AlphaPreviewHalf, ImVec2(60, 40));
+        ImGui::Text("Previous");
+        if (ImGui::ColorButton("##previous", BackupColor, ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_AlphaPreviewHalf, ImVec2(60, 40)))
+            *TargetColor = BackupColor;
+        ImGui::EndGroup();
     }
 
     bool Deploy::IsTestZonesPassRefImg()

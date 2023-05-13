@@ -32,6 +32,7 @@ namespace IFCS
         size_t CameraIndex_FT = 0;
         void RenderFeasibilityTest();
         void RenderAddingProgress(ImVec2 StartPos);
+        void MakeColorPicker(ImVec4* TargetColor, ImVec4 BackupColor);
         cv::Mat ImgData;
         void UpdateReferenceImage();
         ImColor GetAverageColor(const std::array<float, 4>& InXYWH);
