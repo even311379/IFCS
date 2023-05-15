@@ -4,8 +4,16 @@ from datetime import datetime, timedelta
 from twilio.rest import Client
 
 
+'''
+send the passwords, sid, phone number to my client with a encrypted pdf file...
+
+'''
+
 # global vars
 config_data = {}
+
+FAILURE_LIMIT = 5 
+
 
 def SendMessage(twilio_account_sid, twilio_auth_token, twilio_phone_number, to_phone_number, message):
     client = Client(twilio_account_sid, twilio_auth_token)
@@ -15,6 +23,19 @@ def SendMessage(twilio_account_sid, twilio_auth_token, twilio_phone_number, to_p
          to = to_phone_number
     )
     message.sid # message 
+
+def GetFrameSafe(in_cap):
+    read_times = 0
+    while True:
+        ret, frame = in_cap.read()
+        if ret:
+            return read_times, frame
+        else:
+            read_times += 1
+            if read_times > FAILURE_LIMIT:
+                return 0, []
+
+
 
 def AddDetectionAnalysisToServer(target_date, camera):
     pass
@@ -48,104 +69,163 @@ def IsFeasibilityTestPassed(frame_data, camera_info):
 
 def CombineVideo(target_date):
     '''
-    get the one day video info from separate clips    
-    infeasible detection is cleared here
+    combine frames which need to detect into one video based on the settings...
+
+    infeasible detection is cleared here, and relavant info is stored to further matching
     
     multiple per frame clips per hour
 
-    *** the frames among clip is not guaranteed to match each other... ***
+    *** CORRUPTED VIDEO ***
+    there are missing frames in each clip, basic video parameters (total frame count) are not reachable by opencv. 
+    Some weird logic is applied to handle it. 
+
+    By this ASSUMPTION:
+        each clip is actually concat to each other
+
     '''
 
+    #the max allowed frame size for failure to load frame, maybe its the end of the clip? since I can't use normal way to check if video is finished...
+    DETECTION_FREQ = config_data["DetectionFrequency"]
+    IN_DIR = config_data["TaskInputDir"]
+    OUT_DIR = config_data["TaskOutputDir"]
+
     for camera_info in config_data["Cameras"]:        
+        # prepare clips
         one_day_clips = sorted([file for file in os.listdir(config_data["TaskInputDir"]) if camera_info['DVRName'] in file and target_date.strftime("%Y%m%d") in file and file.endswith('.video')])
-        IsFirstClipFound = False
-        IsTaskDone = False
-        ProgressTime = "" # datetime to concat clip 
-        # get the format...
-        cap = cv2.VideoCapture(f"{config_data['TaskInputDir']}/{one_day_clips[0]}")
+        if config_data["IsDaytimeOnly"]:
+            temp = one_day_clips.copy()
+            one_day_clips = []
+            start_time = target_date + timedelta(hours=config_data["DetectionStartTime"])
+            end_time = target_date + timedelta(hours=config_data["DetectionEndTime"]+12)
+            sid ,eid = 0
+            for i in range(len(temp) - 1):
+                if datetime.strptime(re.findall('-(\d+-\d+).video', temp[i])[0], "%Y%m%d-%H%M%S") < start_time < datetime.strptime(re.findall('-(\d+-\d+).video', temp[i+1])[0], "%Y%m%d-%H%M%S"):
+                    sid = i
+                if datetime.strptime(re.findall('-(\d+-\d+).video', temp[i])[0], "%Y%m%d-%H%M%S") > end_time:
+                    eid = i
+                    break
+            for i in range(sid, eid+1):
+                one_day_clips.append(temp[i])
+
+        # get the basic video parameters
+        cap = cv2.VideoCapture(f"{IN_DIR}/{one_day_clips[0]}")
         fps = cap.get(cv2.CAP_PROP_FPS)
         w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         cap.release()
-        video_writer = cv2.VideoWriter(f"{config_data['TaskOutputDir']}/Temp/{camera_info['CameraName']}_{target_date.strftime('%Y-%m-%d')}_Detection.mp4", cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
-        frames_info_file = open(f"{config_data['TaskOutputDir']}/Temp/{camera_info['CameraName']}_{target_date.strftime('%Y-%m-%d')}_frames_info.txt", "w")
-        # handling detection
-        for clip in one_day_clips:
-            cap = cv2.VideoCapture(f"{config_data['TaskInputDir']}/{clip}")
-            total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-            video_start_time = datetime.strptime(re.findall('-(\d+-\d+).video', clip), "%Y%m%d-%H%M%S")
-            video_end_time = video_start_time + timedelta(seconds=total_frames/fps)
-            if not IsFirstClipFound:
-                if config_data['IsDaytimeOnly']:
-                    detection_start_time = target_date + timedelta(hours=config_data["DetectionStartTime"])
-                    if video_start_time < detection_start_time and video_end_time > detection_start_time:
-                        frames_to_read = []
-                        f = 0
-                        while f < total_frames:
-                            if video_start_time + timedelta(seconds=f/fps) > detection_start_time:
-                                frames_to_read.append(f)
-                            f += config_data["DetectionFrequency"]
-                        for f in frames_to_read:
-                            cap.set(cv2.CAP_PROP_POS_FRAMES, f)
-                            _, frame = cap.read()
-                            # do the feasibility test!
-                            if IsFeasibilityTestPassed(frame, camera_info):
-                                video_writer.write(frame)
-                                time_str = (video_start_time + timedelta(seconds=f/fps)).strftime("%H%M%S%f")
-                                frames_info_file.write(f"{time_str}\n")
-                            else:
-                                AddInfeasibleDetectionToServer(video_start_time + timedelta(seconds=f/fps), camera_info["CameraName"])
+
+        video_writer = cv2.VideoWriter(f"{OUT_DIR}/Temp/{camera_info['CameraName']}_{target_date.strftime('%Y-%m-%d')}_Detection.mp4",
+                                        cv2.VideoWriter_fourcc(*'mp4v'), 30, (w, h)) # fps doesn't matter here.. just set it 30... 
+        frames_info_file = open(f"{OUT_DIR}/Temp/{camera_info['CameraName']}_{target_date.strftime('%Y-%m-%d')}_frames_info.txt", "w")
+
+        # handle the first video...
+        start_time = datetime.strptime(re.findall('-(\d+-\d+).video', one_day_clips[0])[0], "%Y%m%d-%H%M%S")
+        frames_to_move = (datetime(start_time.year, start_time.month, start_time.day, start_time.hour + 1) - start_time).seconds * fps
+        cap = cv2.VideoCapture(f"{IN_DIR}/{one_day_clips[0]}")
+        t = 0
+        is_frame_pos_valid = 1
+        while is_frame_pos_valid:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, f + DETECTION_FREQ*t)
+            is_frame_pos_valid, frame = GetFrameSafe(cap)
+            if is_frame_pos_valid:
+                video_writer.write(frame)            
+            t += 1
+        
+
+        # handle the rest
+        for i in range(1, len(one_day_clips) -1):
+            pass
+
+        #handle the end frame
+
+
+'''
+above steps are for day time only
+
+otherwise just loop til the end is good!
+'''
+
+
+
+        # # handling detection
+        # for idx in range(len(one_day_clips)):
+        #     clip = one_day_clips[idx]
+        #     cap = cv2.VideoCapture(f"{config_data['TaskInputDir']}/{clip}")
+        #     # total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT) 
+        #     video_start_time = datetime.strptime(re.findall('-(\d+-\d+).video', clip)[0], "%Y%m%d-%H%M%S")
+        #     # ASSUMING the test is passed            
+        #     video_end_time = datetime.strptime(re.findall('-(\d+-\d+).video', one_day_clips[idx + 1])[0], "%Y%m%d-%H%M%S")
+        #     if not is_first_clip_found:
+        #         if config_data['IsDaytimeOnly']:
+        #             detection_start_time = target_date + timedelta(hours=config_data["DetectionStartTime"])
+        #             if video_start_time < detection_start_time and video_end_time > detection_start_time:
+        #                 frames_to_read = []
+        #                 f = 0
+        #                 while f < total_frames:
+        #                     if video_start_time + timedelta(seconds=f/fps) > detection_start_time:
+        #                         frames_to_read.append(f)
+        #                     f += config_data["DetectionFrequency"]
+        #                 for f in frames_to_read:
+        #                     cap.set(cv2.CAP_PROP_POS_FRAMES, f)
+        #                     ret, frame = cap.read()
+        #                     # do the feasibility test!
+        #                     if IsFeasibilityTestPassed(frame, camera_info):
+        #                         video_writer.write(frame)
+        #                         time_str = (video_start_time + timedelta(seconds=f/fps)).strftime("%H%M%S%f")
+        #                         frames_info_file.write(f"{time_str}\n")
+        #                     else:
+        #                         AddInfeasibleDetectionToServer(video_start_time + timedelta(seconds=f/fps), camera_info["CameraName"])
                                 
-                        IsFirstClipFound = True
-                        ProgressTime = video_end_time
+        #                 is_first_clip_found = True
+        #                 progress_time = video_end_time
                             
-                    else:
-                        cap.release()
-                else:
-                    frames_to_read = []
-                    f = 0
-                    while f < total_frames:
-                        frames_to_read.append(f)
-                        f += config_data["DetectionFrequency"]
-                    for f in frames_to_read:
-                        cap.set(cv2.CAP_PROP_POS_FRAMES, f)
-                        _, frame = cap.read()
-                        # do the feasibility test!
-                        if IsFeasibilityTestPassed(frame, camera_info):
-                            video_writer.write(frame)
-                            time_str = (video_start_time + timedelta(seconds=f/fps)).strftime("%H%M%S%f")
-                            frames_info_file.write(f"{time_str}\n")
-                        else:
-                            AddInfeasibleDetectionToServer(video_start_time + timedelta(seconds=f/fps), camera_info["CameraName"])
-                    IsFirstClipFound = True
-                    ProgressTime = video_end_time
-                    cap.release()
-            else: # handling the rest clip ... it starts in between...
-                # check if process time is in between video start and end
-                if ProgressTime > video_start_time and ProgressTime < video_end_time:
-                    frames_to_read = []
-                    f = 0
-                    while f < total_frames:
-                        if video_start_time + timedelta(seconds=f/fps) > ProgressTime:
-                            frames_to_read.append(f)                            
-                        f += config_data["DetectionFrequency"]
-                        # stop it's night time or stop it's the second day...
-                        if (config_data["IsDaytimeOnly"] and video_start_time + timedelta(seconds=f/fps) > target_date + timedelta(hours=config_data["DetectionEndTime"] + 12)) or \
-                            (video_start_time + timedelta(seconds=f/fps) > target_date + timedelta(days=1)):
-                                IsTaskDone = True
-                                break
-                    for f in frames_to_read:
-                        cap.set(cv2.CAP_PROP_POS_FRAMES, f)
-                        _, frame = cap.read()
-                        if IsFeasibilityTestPassed(frame, camera_info):
-                            video_writer.write(frame)
-                            time_str = (video_start_time + timedelta(seconds=f/fps)).strftime("%H%M%S%f")
-                            frames_info_file.write(f"{time_str}\n")
-                        else:
-                            AddInfeasibleDetectionToServer(video_start_time + timedelta(seconds=f/fps), camera_info["CameraName"])
-                cap.release()
-                if IsTaskDone:
-                    break
+        #             else:
+        #                 cap.release()
+        #         else:
+        #             frames_to_read = []
+        #             f = 0
+        #             while f < total_frames:
+        #                 frames_to_read.append(f)
+        #                 f += config_data["DetectionFrequency"]
+        #             for f in frames_to_read:
+        #                 cap.set(cv2.CAP_PROP_POS_FRAMES, f)
+        #                 _, frame = cap.read()
+        #                 # do the feasibility test!
+        #                 if IsFeasibilityTestPassed(frame, camera_info):
+        #                     video_writer.write(frame)
+        #                     time_str = (video_start_time + timedelta(seconds=f/fps)).strftime("%H%M%S%f")
+        #                     frames_info_file.write(f"{time_str}\n")
+        #                 else:
+        #                     AddInfeasibleDetectionToServer(video_start_time + timedelta(seconds=f/fps), camera_info["CameraName"])
+        #             is_first_clip_found = True
+        #             progress_time = video_end_time
+        #             cap.release()
+        #     else: # handling the rest clip ... it starts in between...
+        #         # check if process time is in between video start and end
+        #         if progress_time > video_start_time and progress_time < video_end_time:
+        #             frames_to_read = []
+        #             f = 0
+        #             while f < total_frames:
+        #                 if video_start_time + timedelta(seconds=f/fps) > progress_time:
+        #                     frames_to_read.append(f)                            
+        #                 f += config_data["DetectionFrequency"]
+        #                 # stop it's night time or stop it's the second day...
+        #                 if (config_data["IsDaytimeOnly"] and video_start_time + timedelta(seconds=f/fps) > target_date + timedelta(hours=config_data["DetectionEndTime"] + 12)) or \
+        #                     (video_start_time + timedelta(seconds=f/fps) > target_date + timedelta(days=1)):
+        #                         is_task_done = True
+        #                         break
+        #             for f in frames_to_read:
+        #                 cap.set(cv2.CAP_PROP_POS_FRAMES, f)
+        #                 _, frame = cap.read()
+        #                 if IsFeasibilityTestPassed(frame, camera_info):
+        #                     video_writer.write(frame)
+        #                     time_str = (video_start_time + timedelta(seconds=f/fps)).strftime("%H%M%S%f")
+        #                     frames_info_file.write(f"{time_str}\n")
+        #                 else:
+        #                     AddInfeasibleDetectionToServer(video_start_time + timedelta(seconds=f/fps), camera_info["CameraName"])
+        #         cap.release()
+        #         if is_task_done:
+        #             break
         video_writer.release()    
         frames_info_file.close()
         
@@ -165,7 +245,7 @@ def CombineVideo(target_date):
                 cap = cv2.VideoCapture(f"{config_data['TaskInputDir']}/{clip}")
                 total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
                 video_start_time = datetime.strptime(re.findall('-(\d+-\d+).video', clip), "%Y%m%d-%H%M%S")
-                video_end_time = video_start_time + timedelta(seconds=total_frames/fps)
+                # video_end_time = video_start_time + timedelta(seconds=total_frames/fps)
                 if video_start_time > target_date + timedelta(hours=hour_to_write) and video_end_time < target_date:
                     frame_to_jump = (target_date + timedelta(hours=hour_to_write) - video_start_time).seconds * fps
                     cap.set(cv2.CAP_PROP_POS_FRAMES, frame_to_jump)

@@ -1,0 +1,159 @@
+TaskInputDir: L:/DEV_INPUT
+TaskOutputDir: L:/DEV_OUTPUT
+Cameras:
+  - CameraName: 樹下
+    DVRName: BBAA
+    FeasibleZones:
+      - XYWH:
+          - 0.298437506
+          - 0.872222245
+          - 0.0210937504
+          - 0.0388888903
+        ColorLower: 4282988371
+        ColorUpper: 4282988371
+      - XYWH:
+          - 0.54296875
+          - 0.796527803
+          - 0.0132812504
+          - 0.0541666672
+        ColorLower: 4282988371
+        ColorUpper: 4282988371
+      - XYWH:
+          - 0.772265613
+          - 0.754166663
+          - 0.0218749996
+          - 0.0638888925
+        ColorLower: 4282988369
+        ColorUpper: 4282988369
+    ModelName: P1
+    ModelFilePath: L:/IFCS_DEV_PROJECTS/CatAndDog/Models/Perfect/weights/best.pt
+    Imagesize: 640
+    Confidence: 0.25
+    IOU: 0.449999988
+    ShouldApplyDetectionROI: false
+    DetectionROI:
+      - 0
+      - 0
+      - 1
+      - 1
+    IsPassVertical: false
+    FishwayStartEnd:
+      - 0.232999995
+      - 0.741999984
+    ShouldEnableSpeedThreshold: true
+    SpeedThreshold: 0.100000001
+    ShouldEnableBodySizeThreshold: true
+    BodySizeThreshold: 0.200000003
+    SpeciesDetermineThreshold: 0.100000001
+    FrameBufferSize: 10
+  - CameraName: 好棒棒
+    DVRName: BBAA2
+    FeasibleZones:
+      - XYWH:
+          - 0.10546875
+          - 0.612500012
+          - 0.01171875
+          - 0.0250000004
+        ColorLower: 4282988107
+        ColorUpper: 4282988107
+      - XYWH:
+          - 0.504296899
+          - 0.482638896
+          - 0.0078125
+          - 0.0236111116
+        ColorLower: 4282988106
+        ColorUpper: 4282988106
+      - XYWH:
+          - 0.91796875
+          - 0.428472221
+          - 0.01171875
+          - 0.0291666668
+        ColorLower: 4283053639
+        ColorUpper: 4283053639
+    ModelName: EXT
+    ModelFilePath: L:/IFCS_DEV_PROJECTS/P1/Models/NotT/weights/best.pt
+    Imagesize: 640
+    Confidence: 0.25
+    IOU: 0.449999988
+    ShouldApplyDetectionROI: false
+    DetectionROI:
+      - 0
+      - 0
+      - 1
+      - 1
+    IsPassVertical: false
+    FishwayStartEnd:
+      - 0
+      - 1
+    ShouldEnableSpeedThreshold: true
+    SpeedThreshold: 0.100000001
+    ShouldEnableBodySizeThreshold: true
+    BodySizeThreshold: 0.200000003
+    SpeciesDetermineThreshold: 0.100000001
+    FrameBufferSize: 10
+IsTaskStartNow: false
+ScheduledRuntime:
+  - 3
+  - 0
+IsRunSpecifiedDates: false
+StartDate:
+  Year: 0
+  Month: 0
+  Date: 0
+EndDate:
+  Year: 0
+  Month: 0
+  Date: 0
+ShouldBackupImportantRegions: true
+ShouldBackupCombinedClips: true
+ShouldDeleteRawClips: true
+DetectionFrequency: 600
+IsDaytimeOnly: true
+DetectionStartTime: 5
+DetectionEndTime: 8
+PassCountDuration: 10
+PassCountFeasibilityThreshold: 0.100000001
+ServerAccount: even
+ServerPassword: 1qaz@WSX
+TwilioSID: dsfghsdfsd
+TwilioAuthToken: sdgsdfhsdgdf
+TwilioPhoneNumber: 0912345678
+Receivers:
+  - Name: GoodGuy
+    Phone: 0912345678
+    Group: Manager
+  - Name: BadGuy
+    Phone: 0912345678
+    Group: Helper
+  - Name: BOSS
+    Phone: 0912345678
+    Group: Client
+DailyReportSendGroup:
+  Manager: true
+  Client: false
+  Helper: false
+WeeklyReportSendGroup:
+  Manager: true
+  Client: true
+  Helper: false
+MonthlyReportSendGroup:
+  Manager: false
+  Client: true
+  Helper: false
+InFeasibleFirstDaySendGroup:
+  Manager: true
+  Client: false
+  Helper: false
+InFeasibleXDaysSendGroup:
+  Manager: false
+  Client: false
+  Helper: true
+InFeasibleTolerate: 3
+LoseConnectionSendGroup:
+  Manager: true
+  Client: false
+  Helper: false
+SMSTestSendGroup:
+  Manager: true
+  Client: true
+  Helper: true
