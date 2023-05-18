@@ -781,7 +781,7 @@ namespace IFCS
         Out["EndDate"]["Month"] = EndDate.tm_mon;
         Out["EndDate"]["Day"] = EndDate.tm_mday;
         Out["ShouldBackupImportantRegions"] = ShouldBackupImportantRegions;
-        Out["BackupBufferTime"] = BackupBufferTime;
+        Out["BackupMinimumTime"] = BackupMinimumTime;
         Out["ShouldBackupCombinedClips"] = ShouldBackupCombinedClips;
         Out["ShouldDeleteRawClips"] = ShouldDeleteRawClips;
 
@@ -845,7 +845,7 @@ namespace IFCS
         EndDate.tm_mon = InputNode["EndDate"]["Month"].as<int>();
         EndDate.tm_mday = InputNode["EndDate"]["Day"].as<int>();
         ShouldBackupImportantRegions = InputNode["ShouldBackupImportantRegions"].as<bool>();
-        BackupBufferTime = InputNode["BackupBufferTime"].as<int>();
+        BackupMinimumTime = InputNode["BackupMinimumTime"].as<int>();
         ShouldBackupCombinedClips = InputNode["ShouldBackupCombinedClips"].as<bool>();
         ShouldDeleteRawClips = InputNode["ShouldDeleteRawClips"].as<bool>();
         DetectionFrequency = InputNode["DetectionFrequency"].as<int>();

@@ -366,8 +366,9 @@ namespace IFCS
         ImGui::Checkbox("Backup clips with important regions", &Data.ShouldBackupImportantRegions);
         ImGui::SameLine();
         ImGui::SetNextItemWidth(32.f);
-        ImGui::DragInt("Buffer time (minutes)", &Data.BackupBufferTime, 1, 1, 20, "%d");
-        Utils::AddSimpleTooltip("extend the duration before and after the detected frame by buffer time as important region");
+        //TODO: rename it as minimum clip length?
+        ImGui::DragInt("Minimum time (minutes)", &Data.BackupMinimumTime, 1, 1, 20, "%d");
+        Utils::AddSimpleTooltip("Minimum time for important region");
         // enable combined clips backup
         ImGui::Checkbox("Backup combinded clip", &Data.ShouldBackupCombinedClips);
         // delete raw clips after backup?

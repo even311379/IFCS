@@ -822,6 +822,7 @@ namespace IFCS
                     TempTrackData.end(),
                     [=](const FIndividualData& Data)
                     {
+                        // TODO: this R is of no use? just remove it?
                         bool R = (std::prev(Data.Info.end())->first + NUM_BUFFER_FRAMES < F || Data.IsCompleted);
                         return (std::prev(Data.Info.end())->first + NUM_BUFFER_FRAMES < F || Data.IsCompleted);
                     }),

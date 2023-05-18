@@ -1,1 +1,4 @@
 twilio
+opencv-python
+pandas
+requests
