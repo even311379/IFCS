@@ -1,33 +1,33 @@
-TaskInputDir: L:/DEV_INPUT
-TaskOutputDir: L:/DEV_OUTPUT
+TaskInputDir: L:/Free_Dev/DEV_INPUT
+TaskOutputDir: L:/Free_Dev/DEV_OUTPUT
 Cameras:
-  - CameraName: 樹下
-    DVRName: BBAA
+  - CameraName: fgfd
+    DVRName: hffg
     FeasibleZones:
       - XYWH:
-          - 0.298437506
-          - 0.872222245
-          - 0.0210937504
-          - 0.0388888903
-        ColorLower: 4282988371
-        ColorUpper: 4282988371
+          - 0.292187512
+          - 0.795833349
+          - 0.01953125
+          - 0.055555556
+        ColorLower: 4280427305
+        ColorUpper: 4287112272
       - XYWH:
-          - 0.54296875
-          - 0.796527803
-          - 0.0132812504
-          - 0.0541666672
-        ColorLower: 4282988371
-        ColorUpper: 4282988371
+          - 0.520312488
+          - 0.578472197
+          - 0.01171875
+          - 0.0402777791
+        ColorLower: 4278387459
+        ColorUpper: 4287467153
       - XYWH:
-          - 0.772265613
-          - 0.754166663
-          - 0.0218749996
-          - 0.0638888925
-        ColorLower: 4282988369
-        ColorUpper: 4282988369
-    ModelName: P1
-    ModelFilePath: L:/IFCS_DEV_PROJECTS/CatAndDog/Models/Perfect/weights/best.pt
-    Imagesize: 640
+          - 0.656640649
+          - 0.256249994
+          - 0.00937500037
+          - 0.0402777791
+        ColorLower: 4278190080
+        ColorUpper: 4278202111
+    ModelName: ""
+    ModelFilePath: ""
+    ImageSize: 640
     Confidence: 0.25
     IOU: 0.449999988
     ShouldApplyDetectionROI: false
@@ -38,41 +38,86 @@ Cameras:
       - 1
     IsPassVertical: false
     FishwayStartEnd:
-      - 0.232999995
-      - 0.741999984
+      - 0
+      - 1
     ShouldEnableSpeedThreshold: true
     SpeedThreshold: 0.100000001
     ShouldEnableBodySizeThreshold: true
     BodySizeThreshold: 0.200000003
     SpeciesDetermineThreshold: 0.100000001
     FrameBufferSize: 10
-  - CameraName: 好棒棒
-    DVRName: BBAA2
+  - CameraName: kkg
+    DVRName: jjjj
     FeasibleZones:
       - XYWH:
-          - 0.10546875
-          - 0.612500012
-          - 0.01171875
-          - 0.0250000004
-        ColorLower: 4282988107
-        ColorUpper: 4282988107
+          - 0.65234375
+          - 0.224999994
+          - 0.0164062493
+          - 0.013888889
+        ColorLower: 4281349713
+        ColorUpper: 4281349713
       - XYWH:
-          - 0.504296899
-          - 0.482638896
-          - 0.0078125
-          - 0.0236111116
-        ColorLower: 4282988106
-        ColorUpper: 4282988106
+          - 0.969140649
+          - 0.522222221
+          - 0.0125000002
+          - 0.0472222231
+        ColorLower: 4282139755
+        ColorUpper: 4282139755
       - XYWH:
-          - 0.91796875
-          - 0.428472221
-          - 0.01171875
-          - 0.0291666668
-        ColorLower: 4283053639
-        ColorUpper: 4283053639
-    ModelName: EXT
-    ModelFilePath: L:/IFCS_DEV_PROJECTS/P1/Models/NotT/weights/best.pt
-    Imagesize: 640
+          - 0.0859375
+          - 0.759027779
+          - 0.0148437498
+          - 0.0458333343
+        ColorLower: 4281482347
+        ColorUpper: 4281482347
+    ModelName: ""
+    ModelFilePath: ""
+    ImageSize: 640
+    Confidence: 0.25
+    IOU: 0.449999988
+    ShouldApplyDetectionROI: false
+    DetectionROI:
+      - 0
+      - 0
+      - 1
+      - 1
+    IsPassVertical: false
+    FishwayStartEnd:
+      - 0
+      - 1
+    ShouldEnableSpeedThreshold: true
+    SpeedThreshold: 0.100000001
+    ShouldEnableBodySizeThreshold: true
+    BodySizeThreshold: 0.200000003
+    SpeciesDetermineThreshold: 0.100000001
+    FrameBufferSize: 10
+  - CameraName: weeq
+    DVRName: ggh
+    FeasibleZones:
+      - XYWH:
+          - 0.293749988
+          - 0.73888886
+          - 0.00859375019
+          - 0.0194444451
+        ColorLower: 4281548140
+        ColorUpper: 4281548140
+      - XYWH:
+          - 0.541015625
+          - 0.736805558
+          - 0.00625000009
+          - 0.0069444445
+        ColorLower: 4281745518
+        ColorUpper: 4281745518
+      - XYWH:
+          - 0.790234387
+          - 0.834027767
+          - 0.0109374998
+          - 0.020833334
+        ColorLower: 4282074481
+        ColorUpper: 4282074481
+    ModelName: DD_more
+    ModelFilePath: L:/Free_Dev/IFCS_DEV_PROJECTS/CatAndDog/Models/DD_more/weights/best.pt
+    ImageSize: 640
     Confidence: 0.25
     IOU: 0.449999988
     ShouldApplyDetectionROI: false
@@ -97,43 +142,55 @@ ScheduledRuntime:
   - 0
 IsRunSpecifiedDates: false
 StartDate:
-  Year: 0
-  Month: 0
-  Date: 0
+  Year: 123
+  Month: 4
+  Day: 19
 EndDate:
-  Year: 0
-  Month: 0
-  Date: 0
+  Year: 123
+  Month: 4
+  Day: 19
 ShouldBackupImportantRegions: true
+BackupMinimumTime: 5
 ShouldBackupCombinedClips: true
-ShouldDeleteRawClips: true
-DetectionFrequency: 600
+ShouldDeleteRawClips: false
+DetectionFrequency: 90
 IsDaytimeOnly: true
-DetectionStartTime: 5
+DetectionStartTime: 4
 DetectionEndTime: 8
 PassCountDuration: 10
 PassCountFeasibilityThreshold: 0.100000001
+Server: http://143.198.216.92/
 ServerAccount: even
-ServerPassword: 1qaz@WSX
-TwilioSID: dsfghsdfsd
-TwilioAuthToken: sdgsdfhsdgdf
-TwilioPhoneNumber: 0912345678
+ServerPassword: asdsagggrrhsdhtjte
+TwilioSID: fdsgds
+TwilioAuthToken: asghsdfd
+TwilioPhoneNumber: 560412345
+ReceiverAreaCode: 886
 Receivers:
-  - Name: GoodGuy
+  - Name: 同仁A
     Phone: 0912345678
     Group: Manager
-  - Name: BadGuy
-    Phone: 0912345678
-    Group: Helper
-  - Name: BOSS
+  - Name: 老師A
     Phone: 0912345678
     Group: Client
+  - Name: 客戶A
+    Phone: 0912345678
+    Group: Client
+  - Name: 小幫手A
+    Phone: 0912345678
+    Group: Helper
+  - Name: 小幫手B
+    Phone: 0912345678
+    Group: Helper
+  - Name: 我
+    Phone: 0912345678
+    Group: Manager
 DailyReportSendGroup:
   Manager: true
   Client: false
   Helper: false
 WeeklyReportSendGroup:
-  Manager: true
+  Manager: false
   Client: true
   Helper: false
 MonthlyReportSendGroup:
@@ -141,9 +198,9 @@ MonthlyReportSendGroup:
   Client: true
   Helper: false
 InFeasibleFirstDaySendGroup:
-  Manager: true
+  Manager: false
   Client: false
-  Helper: false
+  Helper: true
 InFeasibleXDaysSendGroup:
   Manager: false
   Client: false
@@ -157,3 +214,6 @@ SMSTestSendGroup:
   Manager: true
   Client: true
   Helper: true
+SMS_SendTime:
+  - 9
+  - 0

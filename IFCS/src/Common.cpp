@@ -791,12 +791,14 @@ namespace IFCS
         Out["DetectionEndTime"] = DetectionEndTime;
         Out["PassCountDuration"] = PassCountDuration;
         Out["PassCountFeasibilityThreshold"] = PassCountFeasiblityThreshold;
+        Out["Server"] = Server;
         Out["ServerAccount"] = ServerAccount;
         Out["ServerPassword"] = ServerPassword;
         
         Out["TwilioSID"] = TwilioSID;
         Out["TwilioAuthToken"] = TwilioAuthToken;
         Out["TwilioPhoneNumber"] = TwilioPhoneNumber;
+        Out["ReceiverAreaCode"] = ReceiverAreaCode;
         for (const auto& Receiver : SMSReceivers)
         {
             Out["Receivers"].push_back(Receiver.Serialize());
@@ -809,7 +811,10 @@ namespace IFCS
         Out["InFeasibleTolerate"] = InFeasibleTolerate;
         Out["LoseConnectionSendGroup"] = LoseConnectionSendGroup.Serialize();
         Out["SMSTestSendGroup"] = SMSTestSendGroup.Serialize();
-        
+        std::array<int, 2> Arr2{};
+        for (int i = 0; i < 2; i++)
+            Arr2[i] = SMS_SendTime[i];
+        Out["SMS_SendTime"] = Arr2;
         return Out;
     }
 
@@ -823,9 +828,9 @@ namespace IFCS
             Cameras.emplace_back(it->as<YAML::Node>());
         }
         IsTaskStartNow = InputNode["IsTaskStartNow"].as<bool>();
-        const auto arr = InputNode["ScheduledRuntime"].as<std::array<int, 2>>();
-        ScheduledRuntime[0] = arr[0];
-        ScheduledRuntime[1] = arr[1];
+        const auto temp = InputNode["ScheduledRuntime"].as<std::array<int, 2>>();
+        ScheduledRuntime[0] = temp[0];
+        ScheduledRuntime[1] = temp[1];
         IsRunSpecifiedDates = InputNode["IsRunSpecifiedDates"].as<bool>();
         RunDates.clear();
         for (YAML::const_iterator it = InputNode["RunDates"].begin(); it != InputNode["RunDates"].end(); ++it)
@@ -853,11 +858,13 @@ namespace IFCS
         DetectionStartTime = InputNode["DetectionStartTime"].as<int>();
         DetectionEndTime = InputNode["DetectionEndTime"].as<int>();
         PassCountDuration = InputNode["PassCountDuration"].as<int>();
+        Server = InputNode["Server"].as<std::string>();
         ServerAccount = InputNode["ServerAccount"].as<std::string>();
         ServerPassword = InputNode["ServerPassword"].as<std::string>();
         TwilioSID = InputNode["TwilioSID"].as<std::string>();
         TwilioAuthToken = InputNode["TwilioAuthToken"].as<std::string>();
         TwilioPhoneNumber = InputNode["TwilioPhoneNumber"].as<std::string>();
+        ReceiverAreaCode = InputNode["ReceiverAreaCode"].as<std::string>();
 
         for (YAML::const_iterator it = InputNode["Receivers"].begin(); it != InputNode["Receivers"].end(); ++it)
         {
@@ -871,6 +878,10 @@ namespace IFCS
         InFeasibleTolerate = InputNode["InFeasibleTolerate"].as<int>();
         LoseConnectionSendGroup = FSendGroup(InputNode["LoseConnectionSendGroup"]);
         SMSTestSendGroup = FSendGroup(InputNode["SMSTestSendGroup"]);
+        const auto temp2 = InputNode["SMS_SendTime"].as<std::array<int, 2>>();
+        SMS_SendTime[0] = temp2[0];
+        SMS_SendTime[1] = temp2[1];
+
     }
 
 }

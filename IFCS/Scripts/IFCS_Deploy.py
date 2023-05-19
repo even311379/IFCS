@@ -1,4 +1,5 @@
-import time, logging, requests, re, yaml, cv2, os, sys, atexit, random, subprocess
+import logging, requests, re, yaml, cv2, os, sys, atexit, random, subprocess
+import time as _time
 import numpy as np
 import pandas as pd
 from statistics import mean
@@ -10,32 +11,39 @@ from twilio.rest import Client
 send the passwords, sid, phone number to my client with a encrypted pdf file...
 
 
-TODO: Domain name is missing in config_data... (ServerUrl)
-it will be: Server: http://127.0.0.1:8000  ?
-
-TODO: Fish Cat ID -> Fish Name is not provided in config data
-it will be in each camera info: (just grab model info and output it to config)
-Categories: ["fish0", "fish1", ...]
-
 TODO: Add new function for config data <-> server check... check if the neccessary info in server is correct and matched
 
-BackupMinimumTime
+TODO: Fix add mkdir before write any video?
+
+TODO: Detection ROI is not implemented at all...
 
 '''
 
 # global vars
 CONFIG = {}
+CONFIG_PROBLEMS = []
 
 FAILURE_LIMIT = 5 
 DB_TimeFormat = "%Y-%M-%dT%H:%M:S+08:00"
 Session = requests.Session()
 
+def load_categories():
+    # TODO: this failed... fix it ASAP...
+    return
+    cwd = os.getcwd()
+    os.chdir(f"{CONFIG['YoloV7Path']}")      
+    from models.experimental import attempt_load
+    for C in CONFIG["Cameras"]:
+        cats = attempt_load(C["ModelFilePath"]).names
+        C["Categories"] = cats
+    os.chdir(cwd)
 
-def SendMessage(twilio_account_sid, twilio_auth_token, twilio_phone_number, to_phone_number, message):
-    client = Client(twilio_account_sid, twilio_auth_token)
+
+def send_message(message, to_phone_number):
+    client = Client(CONFIG["TwilioSID"], CONFIG["TwilioAuthToken"])
     message = client.messages.create(
          body=message,
-         from_ =  twilio_phone_number,
+         from_ =  CONFIG["TwilioPhoneNumber"],
          to = to_phone_number
     )
     message.sid # message 
@@ -334,12 +342,8 @@ def add_detection_analysis_to_server(target_date):
             d["event_period"] = "23:59:59"
         d["analysis_type"] = "DE"
         d["analysis_time"] = analysis_time 
-
-        '''
-        TODO: consider this twice... should this ALWAYS be true? 
-        each detection result from this analysis has independt infeasible test result...
-        how does that relate to the whole analysis?
-        '''
+        # TODO: maybe... not always be true?
+        # it's always feasible to run detection analysis... so this will always be true!
         d["can_analysis"] = "true"
         d["analysis_log"] = "created by automation task"
 
@@ -348,10 +352,6 @@ def add_detection_analysis_to_server(target_date):
     
 
 def add_infeasible_detection_to_server(analysis_event_time, detection_time, camera):
-    '''
-    TODO: need test...
-    make sure "infeasible" fish species is registered!!
-    '''
     d = dict(
         analysis = f'{camera["CameraName"]},{camera["ModelName"]},{analysis_event_time.strftime("%Y-%m-%d %H:%M:%S")}',
         fish = "無法辨識",
@@ -360,12 +360,6 @@ def add_infeasible_detection_to_server(analysis_event_time, detection_time, came
         can_detect = "false"
     )
     Session.post(f'{CONFIG["Server"]}/api/fish_detection', json=[d])
-
-# def SendDetectionResult():
-#     pass
-
-# def SendZeroDetection():
-#     pass
 
 def get_rgb_from_u32(u32_color):
     b = u32_color & 255
@@ -396,8 +390,15 @@ def config_checking():
     required fish species: 無法辨識 空白
 
     '''
+    # TODO: for demo now... make it all True
 
-    return False
+    return True
+
+def prepare_dir(target_date):
+    '''
+    check and create all the dir that is about to use...
+    '''
+    pass
 
 
 def combine_video(target_date):
@@ -431,20 +432,7 @@ def combine_video(target_date):
 
     for camera_info in CONFIG["Cameras"]:        
         # prepare clips
-        one_day_clips = sorted([file for file in os.listdir(CONFIG["TaskInputDir"]) if camera_info['DVRName'] in file and target_date.strftime("%Y%m%d") in file and file.endswith('.video')])
-        if CONFIG["IsDaytimeOnly"]:
-            temp = one_day_clips.copy()
-            one_day_clips = []
-            event_end_time = target_date + timedelta(hours=CONFIG["DetectionEndTime"]+12)
-            sid ,eid = 0
-            for i in range(len(temp) - 1):
-                if get_datetime_from_clip_file(temp[i]) < event_start_time < get_datetime_from_clip_file(temp[i+1]):
-                    sid = i
-                if get_datetime_from_clip_file(temp[i]) > event_end_time:
-                    eid = i
-                    break
-            for i in range(sid, eid+1):
-                one_day_clips.append(temp[i])
+        one_day_clips = get_one_day_clips(target_date, event_start_time, camera_info)
 
         # get the basic video parameters
         CAP.open(f"{IN_DIR}/{one_day_clips[0]}")
@@ -476,8 +464,7 @@ def combine_video(target_date):
                     else:
                         add_infeasible_detection_to_server(event_start_time, video_start_time + timedelta(seconds=frame_pos/FPS), camera_info["CameraName"])
                     saved_frame_count += 1
-                else:
-                    pass
+                # else:
                     # print("end of video is reached!")
             CAP.release()
 
@@ -617,13 +604,30 @@ def combine_video(target_date):
                 CAP.release()
                 VID_WRITER.release()
 
-    logging.log("Video combining is completed...")
+    logging.log(0, "Video combining is completed...")
+
+def get_one_day_clips(target_date, event_start_time, camera_info):
+    one_day_clips = sorted([file for file in os.listdir(CONFIG["TaskInputDir"]) if camera_info['DVRName'] in file and target_date.strftime("%Y%m%d") in file and file.endswith('.video')])
+    if CONFIG["IsDaytimeOnly"]:
+        temp = one_day_clips.copy()
+        one_day_clips = []
+        event_end_time = target_date + timedelta(hours=CONFIG["DetectionEndTime"]+12)
+        sid ,eid = 0
+        for i in range(len(temp) - 1):
+            if get_datetime_from_clip_file(temp[i]) < event_start_time < get_datetime_from_clip_file(temp[i+1]):
+                sid = i
+            if get_datetime_from_clip_file(temp[i]) > event_end_time:
+                eid = i
+                break
+        for i in range(sid, eid+1):
+            one_day_clips.append(temp[i])
+    return one_day_clips
                     
         
 def run_detection(target_date):
     add_detection_analysis_to_server(target_date)
     cwd = os.getcwd()
-    os.chdir(f"cd {CONFIG['YoloV7Path']}")
+    os.chdir(f"{CONFIG['YoloV7Path']}")
     event_start_time = target_date
     if CONFIG["IsDaytimeOnly"]:
         event_start_time += timedelta(hours=CONFIG["DetectionStartTime"])
@@ -689,7 +693,7 @@ def run_counting(target_date):
         send detail and simple to server
     '''
     cwd = os.getcwd()
-    os.chdir(f"cd {CONFIG['YoloV7Path']}")               
+    os.chdir(f"{CONFIG['YoloV7Path']}")               
     CAP = cv2.VideoCapture()
     num_frames_test = round(1/CONFIG["PassCountDuration"])
     temp_dir = f'{CONFIG["TaskOutputDir"]}/Temp/'    
@@ -772,10 +776,81 @@ def run_counting(target_date):
     os.chdir(cwd)
             
     
-# TODO: padding time not include in IFCS... thats a required var to set? 
 def preserve_important_regions(target_date):
-    
-    pass
+    min_time = CONFIG["BackupMinimumTime"]
+    padding_time = 5 #sec
+    event_start_time = target_date
+    if CONFIG["IsDaytimeOnly"]:
+        event_start_time += timedelta(hours=CONFIG["DetectionStartTime"])
+
+    for camera_info in CONFIG["Cameras"]:        
+        # make the important regions
+        frames_info_file = f"{CONFIG['TaskOutputDir']}/Temp/{camera_info['CameraName']}_{target_date.strftime('%Y-%m-%d')}_frames_info.txt"
+        with open(frames_info_file, 'r') as f:
+            # format is %H:%M:%S
+            timestamps = f.read().split("\n")[:-1]
+        
+        # TODO: need test this algorithm...
+        last_time = 0
+        region_start = 0
+        regions = []
+          # need to handle one position only...
+        for i, ts in enumerate(timestamps):
+            h, m, s = ts.split(":")
+            t = datetime(target_date.year, target_date.month, target_date.day, h, m, s)
+            if region_start:
+                if (t - last_time).seconds / 60 > min_time or i == len(timestamps) - 1:
+                    regions.append([region_start, last_time]) # region start == last time could happen here! no need for extra logic!
+                    region_start = t
+            else:
+                region_start = t
+            last_time = t
+        
+        for r in regions:
+            if (r[1] - r[0]).total_seconds() > min_time * 60:
+                r[0] -= timedelta(seconds=padding_time)
+                r[1] -= timedelta(seconds=padding_time)
+            else:
+                pad = round((min_time * 60 - (r[1] - r[0]).seconds)/2)
+                r[0] -= timedelta(seconds=pad)
+                r[1] += timedelta(seconds=pad)
+
+        # write clips...
+        one_day_clips = get_one_day_clips(target_date, event_start_time, camera_info)
+        CAP = cv2.VideoCapture(one_day_clips[0])
+        FPS = CAP.get(cv2.CAP_PROP_FPS)
+        WIDTH = int(CAP.get(cv2.CAP_PROP_FRAME_WIDTH))
+        HEIGHT = int(CAP.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        CAP.release()
+        VID_WRITER = cv2.VideoWriter()
+        for r in regions:
+            target_clips = []
+            target_clips_region = []
+            clip_start_time = get_datetime_from_clip_file(one_day_clips[0]) 
+            for clip in one_day_clips[1:]:
+                clip_end_time = get_datetime_from_clip_file(clip)
+                # check segment overlap...
+                # ref from https://mikekchar.github.io/portfolio//OverlappingLines
+                x = max(clip_start_time, r[0])
+                y = min(clip_end_time, r[1])
+                if x < y: # overlap happend
+                    target_clips.append(clip)
+                    target_clips_region.append((clip_start_time, clip_end_time))
+                clip_start_time = clip_end_time                        
+            VID_WRITER.open(f'{CONFIG["TaskOut"]}/Backup/camera_info{"CameraName"}/{target_date.strftime("/%Y-%m-%d")}/important_region_{r[0].strftime("%H%M%S")}-{r[1].strftime("%H%M%S")}.mp4',
+                cv2.VideoWriter_fourcc(*'mp4v'), 30, (WIDTH, HEIGHT))
+            for clip, clip_region in zip(target_clips, target_clips_region):                                
+                CAP.open(clip)
+                if clip_region[0] < r[0]:
+                    CAP.set(cv2.CAP_PROP_POS_FRAMES, (r[0] - clip_region[0]).seconds * FPS)
+                is_frame_pos_valid = 1
+                while is_frame_pos_valid:
+                    is_frame_pos_valid, frame = get_frame_safe(CAP)
+                    if is_frame_pos_valid:          
+                        VID_WRITER.write(frame)
+                    #TODO: how to handle the last clip?
+                
+                
 
 
 # very roughly estimates... it will take 4 hours to preserve 24 hours video!
@@ -785,16 +860,16 @@ def preserve_combined_clips(target_date):
 
 def remove_raw_clips(target_date):
     '''
-    maybe remove the clips after 1 weeks which all the anlysis is done perfectly?
+    maybe remove the clips after 1 weeks which all the analysis is done perfectly?
     '''
     pass
 
 def notify_server_stopping_scheduled_task():
-    logging.log("Scheduled task is stopped!")
+    logging.log(0, "Scheduled task is stopped!")
     print("hey... this will be the perfect code to do the stuff...")
 
 def one_time_task():
-    logging.log("Start one time task...")
+    logging.log(0, "Start one time task...")
     task_start_time = time.time()
     dates_to_run = []
     '''
@@ -813,7 +888,8 @@ def one_time_task():
             dates_to_run.append(d)
             d += timedelta(days=1)
     for date in dates_to_run:
-        logging.log(f"processing {date.strftime('%Y/%m/%d')}...")
+        logging.log(0, f"processing {date.strftime('%Y/%m/%d')}...")
+        prepare_dir(date)
         combine_video(date)
         run_detection(date)
         run_counting(date)
@@ -824,7 +900,7 @@ def one_time_task():
         if CONFIG["ShouldDeleteRawClips"]:
             remove_raw_clips(date)      
     time_elapse = str(timedelta(seconds=round(time.time() - task_start_time)))
-    logging.log(f"One time task is finished! (time elapse: {time_elapse})")
+    logging.log(0, f"One time task is finished! (time elapse: {time_elapse})")
     '''
     No SMS notification in on_time_task!! Not necessary at all!
     '''
@@ -833,10 +909,14 @@ def one_time_task():
 def scheduled_task():
     atexit.register(notify_server_stopping_scheduled_task)
     while True:
-        if datetime.now().hour == CONFIG["ScheduledRuntime"][0] and datetime.now().minute == CONFIG["ScheduledRuntime"][1]:
-            logging.log("Start scheduled task...")
+        now = datetime.now()
+        if now.hour == CONFIG["SMS_SendTime"][0] and now.minute == CONFIG["SMS_SendTime"][1]:
+            send_SMS()
+        if now.hour == CONFIG["ScheduledRuntime"][0] and now.minute == CONFIG["ScheduledRuntime"][1]:
+            logging.log(0, "Start scheduled task...")
             task_start_time = time.time()
-            yesterday = datetime.today() - timedelta(days=1)
+            yesterday = datetime.combind((now - timedelta(days=1)).date(), time(0, 0, 0))            
+            prepare_dir(yesterday)
             combine_video(yesterday)
             run_detection(yesterday)
             run_counting(yesterday)
@@ -847,21 +927,49 @@ def scheduled_task():
             if CONFIG["ShouldDeleteRawClips"]:
                 remove_raw_clips(yesterday)                                
             time_elapse = str(timedelta(seconds=round(time.time() - task_start_time)))
-            logging.log(f"Scheduled task is finished! (time elapse: {time_elapse})")
-            send_SMS()
-        time.sleep(60)
+            logging.log(0, f"Scheduled task is finished! (time elapse: {time_elapse})")
+        _time.sleep(60)
 
+def should_report_send_group(group):
+    return group["Manager"] or group["Client"] or group["Helper"]
+
+def make_area_phone(phone_number):
+    if phone_number[0] == "0":
+        return "+" + str(CONFIG["ReceiverAreaCode"]) + phone_number[1:]
+    
 
 def send_SMS():
+    today = datetime.now().date()
+    if should_report_send_group(CONFIG["DailyReportSendGroup"]):
+        pass
+    if should_report_send_group(CONFIG["WeeklyReportSendGroup"]) and today.weekday() == 0:
+        pass
+    if should_report_send_group(CONFIG["MonthlyReportSendGroup"]) and today.day == 1:
+        pass
+    '''
+    infeasible report?
+    TODO: how to define an infeasible day?
+    this is per camera, right?
+    '''
+    
+    
     pass
 
 def send_test_SMS():
-    pass
-
+    if not should_report_send_group(CONFIG["SMSTestSendGroup"]):
+        return
+    msg = "魚道監測自動系統，通知訊息測試，祝您有美好的一天!"
+    for g, b in CONFIG["SMSTestSendGroup"].items():
+        if b:
+            for r in CONFIG["Receivers"]:
+                if r["Group"] == g:                    
+                    send_message(msg, make_area_phone(r["Phone"]))
+                
         
 if __name__ == "__main__":
-    with open("IFCS_DeployConfig.yaml", 'r') as f:
+    with open("IFCS_DeployConfig.yaml", 'r', encoding='utf8') as f:
         CONFIG = yaml.safe_load(f.read())      
+    load_categories()
     if not os.path.exists(f"{CONFIG['TaskOutputDir']}/Temp"):
         os.mkdir(f"{CONFIG['TaskOutputDir']}/Temp")    
         os.mkdir(f"{CONFIG['TaskOutputDir']}/Detections")    
@@ -882,8 +990,7 @@ if __name__ == "__main__":
     else:
         logging.error("Configuration is not completed...")
         print("*** Configuration is not completed ***")
-        print("Please double check you configuration file and server database")
-        print()
-        # TODO: how to grab the configuration problem here, so that the user would understand how to handle?
-        print()
+        print("Please double check your configuration file and server database...")
+        for problem in CONFIG_PROBLEMS:
+            print(problem)
         input("PRESS ANY KEY TO QUIT")

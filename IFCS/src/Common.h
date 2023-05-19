@@ -317,6 +317,8 @@ namespace IFCS
         float SpeciesDetermineThreshold = 0.1f;
         int FrameBufferSize = 10;
 
+        // category
+        std::vector<std::string> Categories;
 
     };
 
@@ -340,7 +342,6 @@ namespace IFCS
         bool GroupManager = false;
         bool GroupClient = false;
         bool GroupHelper = false;
-        
     };
 
     struct FDeploymentData
@@ -371,6 +372,7 @@ namespace IFCS
         int DetectionEndTime = 8; // PM
         int PassCountDuration = 5; // minutes
         float PassCountFeasiblityThreshold = 0.1f;
+        std::string Server;
         std::string ServerAccount;
         std::string ServerPassword;
         
@@ -378,6 +380,7 @@ namespace IFCS
         std::string TwilioSID;
         std::string TwilioAuthToken;
         std::string TwilioPhoneNumber;
+        std::string ReceiverAreaCode = "886";
         std::vector<FSMSReceiver> SMSReceivers = { FSMSReceiver() };
         FSendGroup DailyReportSendGroup;
         FSendGroup WeeklyReportSendGroup;
@@ -387,5 +390,6 @@ namespace IFCS
         int InFeasibleTolerate = 3;
         FSendGroup LoseConnectionSendGroup;
         FSendGroup SMSTestSendGroup;
+        int SMS_SendTime[2] = {9, 0};
     };
 }

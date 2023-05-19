@@ -330,7 +330,7 @@ namespace IFCS
                 ImGui::PushID("DatesChooser");
                 for (size_t j = 0; j < Data.RunDates.size(); j++)
                 {
-                    ImGui::PushID(j);
+                    ImGui::PushID(static_cast<int>(j));
                     ImGui::SetNextItemWidth(240.f);
                     ImGui::DateChooser("", Data.RunDates[j], "%Y/%m/%d");
                     ImGui::PopID();
@@ -365,14 +365,22 @@ namespace IFCS
         // enable important region backup
         ImGui::Checkbox("Backup clips with important regions", &Data.ShouldBackupImportantRegions);
         ImGui::SameLine();
+        ImGui::Text("(Minimum time for important region ");
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(32.f);
-        //TODO: rename it as minimum clip length?
-        ImGui::DragInt("Minimum time (minutes)", &Data.BackupMinimumTime, 1, 1, 20, "%d");
+        ImGui::DragInt(" minutes)", &Data.BackupMinimumTime, 1, 1, 20, "%d");
         Utils::AddSimpleTooltip("Minimum time for important region");
         // enable combined clips backup
         ImGui::Checkbox("Backup combinded clip", &Data.ShouldBackupCombinedClips);
         // delete raw clips after backup?
-        ImGui::Checkbox("Delete raw clips after backup?", &Data.ShouldDeleteRawClips);
+        if (Data.ShouldBackupImportantRegions || Data.ShouldBackupCombinedClips)
+        {
+            ImGui::Checkbox("Delete raw clips after backup?", &Data.ShouldDeleteRawClips);
+        }
+        else
+        {
+            Data.ShouldDeleteRawClips = false;
+        }
         ImGui::Unindent();
     }
 
@@ -495,7 +503,7 @@ namespace IFCS
             {
                 CurrentRefImgIndex--;
                 if (CurrentRefImgIndex < 0)
-                    CurrentRefImgIndex = ReferenceImages.size() - 1;
+                    CurrentRefImgIndex = static_cast<int>(ReferenceImages.size()) - 1;
                 UpdateReferenceImage();
             }
             Utils::AddSimpleTooltip("Next");
@@ -520,7 +528,7 @@ namespace IFCS
         static const ImVec2 SmallBtnSize = {32.f, 32.f};
         static const ImVec2 ColorBtnSize = {64.f, 32.f};
         static ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable| ImGuiTableFlags_NoHostExtendX | ImGuiTableFlags_SizingFixedFit;
-        ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x * 0.5 - 480);
+        ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x * 0.5f - 480.f);
         if (ImGui::BeginTable("##ColorEditTable", 6, flags))
         {
             ImGui::TableSetupColumn("Zone ID", ImGuiTableColumnFlags_WidthFixed, 128.f);
@@ -675,7 +683,7 @@ namespace IFCS
             float Y = Zone.XYWH[1];
             float W = Zone.XYWH[2];
             float H = Zone.XYWH[3];
-            ImVec2 ZoneStartPos = StartPos + (ImVec2(X, Y) - ImVec2(W * 0.5, H * 0.5)) * WorkArea;
+            ImVec2 ZoneStartPos = StartPos + (ImVec2(X, Y) - ImVec2(W * 0.5f, H * 0.5f)) * WorkArea;
             ImVec2 ZoneEndPos = ZoneStartPos + ImVec2(W, H) * WorkArea;
             ImGui::GetWindowDrawList()->AddRectFilled(ZoneStartPos, ZoneEndPos, ImGui::ColorConvertFloat4ToU32(HintColor));
             // render ID
@@ -711,8 +719,6 @@ namespace IFCS
 
     void Deploy::MakeColorPicker(ImVec4* TargetColor, ImVec4 BackupColor)
     {
-        // ImGui::Text("");
-        // ImGui::Separator();
         ImGui::ColorPicker3("##picker", (float*)TargetColor, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoSmallPreview);
         ImGui::SameLine();
 
@@ -938,6 +944,9 @@ namespace IFCS
         // server settings
         ImGui::BulletText("Server");
         ImGui::Indent();
+        // server
+        ImGui::InputText("Server", &Data.Server);
+        Utils::AddSimpleTooltip("The server address of your web application");
         // account
         ImGui::InputText("User account", &Data.ServerAccount);
         Utils::AddSimpleTooltip("The user account of your web application");
@@ -950,16 +959,29 @@ namespace IFCS
     void Deploy::RenderSMSNotification()
     {
         // twilio account, api key, phone number
-        ImGui::BulletText("Twilio settup");
+        ImGui::BulletText("Twilio setup");
         ImGui::Indent();
         ImGui::InputText("Twilio account SID", &Data.TwilioSID);
         ImGui::InputText("Twilio Auth Token", &Data.TwilioAuthToken, ImGuiInputTextFlags_Password);
         ImGui::InputText("Twilio phone number", &Data.TwilioPhoneNumber, ImGuiInputTextFlags_CharsDecimal);
+        ImGui::SetNextItemWidth(240.f);
+        if (ImGui::DragInt2("When should SMS send?", Data.SMS_SendTime, 1, 0, 59))
+        {
+            if (Data.SMS_SendTime[0] > 23)
+            {
+                Data.SMS_SendTime[0] = 23;
+            }
+            if (Data.SMS_SendTime[1] > 59)
+            {
+                Data.SMS_SendTime[1] = 59;
+            }
+        }
         ImGui::Unindent();
         
         // register receivers
         ImGui::BulletText("Register receivers");
         ImGui::Indent();
+        ImGui::InputText("Area Code", &Data.ReceiverAreaCode, ImGuiInputTextFlags_CharsDecimal);
 
         ImGui::Text("Name");
         ImGui::SameLine(256, 32);
@@ -1158,6 +1180,8 @@ namespace IFCS
             }
             ImGui::EndTable();
         }
+        
+
         ImGui::Unindent();
     }
 

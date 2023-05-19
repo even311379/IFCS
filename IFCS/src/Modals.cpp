@@ -824,7 +824,7 @@ namespace IFCS
                         {
                             std::filesystem::remove_all(Setting::Get().ProjectPath + "/Data/" + DataBrowser::Get().SelectedTrainingSet);
                         };
-                        std::async(std::launch::async, async_delete);
+                        auto f = std::async(std::launch::async, async_delete);
                         DataBrowser::Get().SelectedTrainingSet.clear();
                         break;
                     }
@@ -874,7 +874,7 @@ namespace IFCS
                         {
                             std::filesystem::remove_all(Setting::Get().ProjectPath + "/Detections/" + DataBrowser::Get().SelectedDetection);
                         };
-                        std::async(std::launch::async, async_delete);
+                        auto f = std::async(std::launch::async, async_delete);
                         DataBrowser::Get().SelectedDetection.clear();
                         break;
                     }
