@@ -1,0 +1,1 @@
+K:/YOLO/env_yolov7/Scripts/python.exe Automation.py
