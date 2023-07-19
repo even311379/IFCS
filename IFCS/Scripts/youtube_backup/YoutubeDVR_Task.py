@@ -43,13 +43,19 @@ def main():
             start_time = start_time.replace(minute=45)
         else:
             start_time = start_time.replace(minute=0, hour=new_hour)
+            if new_hour == 0:
+                start_time = start_time + datetime.timedelta(days=1)
     elif clip_length == 30:
         if start_time.minute < 30:
             start_time = start_time.replace(minute=30)
         else:
             start_time = start_time.replace(minute=0, hour=new_hour)
+            if new_hour == 0:
+                start_time = start_time + datetime.timedelta(days=1)
     elif clip_length == 60:
         start_time = start_time.replace(minute=0, hour=new_hour)
+        if new_hour == 0:
+            start_time = start_time + datetime.timedelta(days=1)
     elif clip_length == 120:
         start_time = start_time.replace(minute=0)
         if start_time.hour >= 22:
