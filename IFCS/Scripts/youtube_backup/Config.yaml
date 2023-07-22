@@ -1,0 +1,8 @@
+ClipLength: 15
+TargetFolder: E:/YoutubeBackups 
+Cameras:
+  - Name: 魚道影像1（下）
+    StreamID: 7Qu8XckwKIY  
+
+  - Name: 魚道影像2（上）
+    StreamID: f4mhIXp7rS0  

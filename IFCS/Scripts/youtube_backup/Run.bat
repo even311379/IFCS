@@ -1,1 +1,1 @@
-K:/YOLO/env_yolov7/Scripts/python.exe Automation.py
+D:/IFCS_DEV_ENV/Scripts/python.exe Automation.py

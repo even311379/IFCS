@@ -27,6 +27,16 @@ def main():
     h = int(stream.stream.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = stream.stream.get(cv2.CAP_PROP_FPS)
     print(f"stream ready! info: w {w}, h {h}, fps {fps}")
+
+    while fps > 62:
+        print("Something wrong in FPS... wait 10 seconds to retry...")
+        time.sleep(10)
+        stream = CamGear(source='https://youtu.be/' + video_id, stream_mode = True,logging=False, time_delay=1).start()
+        w = int(stream.stream.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(stream.stream.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = stream.stream.get(cv2.CAP_PROP_FPS)
+        print(f"stream ready! info: w {w}, h {h}, fps {fps}")
+
     start_time = datetime.datetime.now()    
     start_time = start_time.replace(second=0)
     if start_time.hour == 23:
@@ -82,6 +92,7 @@ def main():
     frames_to_write = fps * (end_time - start_time).seconds
     while True:
         frame = stream.read()
+
         if frame is None:
             break
         if start_now:
@@ -94,8 +105,7 @@ def main():
                 minutes_recorded += 1
             frames_written += 1
         else:
-            now = datetime.datetime.now()
-            if (now.hour >= start_time.hour and now.minute >= start_time.minute and now.second >= start_time.second) or now.day > start_time.day:
+            if datetime.datetime.now() >= start_time:
                 start_now = True
                 print(f'Start recording... {start_time.strftime("%Y%m%d%H%M")} to {end_time.strftime("%Y%m%d%H%M")}')
             # else:
