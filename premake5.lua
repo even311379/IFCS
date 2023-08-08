@@ -34,7 +34,6 @@ project "IFCS"
         "%{prj.name}/vendor/stb/**.h", 
         "%{prj.name}/vendor/stb/**.cpp",
         "%{prj.name}/vendor/imgui_extensions/Imspinner/*.h", 
---         "%{prj.name}/vendor/imgui_extensions/IconFontCppHeaders/IconsFontAwesome5.h", 
     }
 
     defines
