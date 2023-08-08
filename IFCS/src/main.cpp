@@ -1,9 +1,11 @@
-﻿#include "Application.h"
+﻿#include <clocale>
+
+#include "Application.h"
 #include <cstdlib>
 
 int main()
 {
-    system("chcp 65001"); // make encoding utf8?
+    setlocale(LC_ALL, ".UTF8");
     
     // create app
     const auto app = new IFCS::Application();

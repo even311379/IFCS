@@ -5,7 +5,6 @@
 #include "Setting.h"
 #include "Style.h"
 #include "Utils.h"
-#include "ImFileDialog/ImFileDialog.h"
 
 #include "IconFontCppHeaders/IconsFontAwesome5.h"
 #define LOCTEXT(key) Utils::GetLocText(key).c_str()

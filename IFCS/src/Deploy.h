@@ -8,9 +8,8 @@ namespace IFCS
     {
     public:
         MAKE_SINGLETON(Deploy)
-        void SetInputPath(const char* NewPath);
-        void SetOutputPath(const char* NewPath);
-        void SetReferenceImagePath(const char* NewPath);
+        void SetInputPath(const std::string& NewPath);
+        void SetOutputPath(const std::string& NewPath);
         void LoadConfigFile(const std::string& ConfigFilePath);
         void SaveConfigFile(const std::string& ConfigFilePath);
         void SetExternalModelFile(const std::string& NewModelFile);

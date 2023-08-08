@@ -49,8 +49,6 @@ namespace IFCS
         void MatToGL(const cv::Mat& Frame);
         void MoveFrame(int NewFrame);
         
-        
-
         const std::array<std::string, 6> AcceptedClipsFormat = {".mp4", ".mov", ".wmv", ".avi", ".flv", ".mkv"};
         const std::array<std::string, 3> AcceptedImageFormat = {".jpg", ".jpeg", ".png"};
         

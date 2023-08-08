@@ -732,7 +732,7 @@ namespace IFCS
         {
             auto FileName = it->first.as<std::string>();
             if (FileName.empty()) continue;
-            FileName = std::regex_replace(FileName, std::regex(Setting::Get().ProjectPath), "");
+            // FileName = std::regex_replace(FileName, std::regex(Setting::Get().ProjectPath), "");
             // FileName.replace(Setting::Get().ProjectPath, "");
             auto CNode = it->second.as<YAML::Node>();
             for (YAML::const_iterator f = CNode.begin(); f != CNode.end(); ++f)

@@ -23,7 +23,6 @@
 #include "Modals.h"
 
 
-#include "ImFileDialog/ImFileDialog.h"
 #include "fa_solid_900.h"
 #include "stb_image.h"
 #include "IconFontCppHeaders/IconsFontAwesome5.h"
@@ -104,7 +103,7 @@ namespace IFCS
         // load font
         // first loaded will become default font!
         Style::ApplyTheme();
-        Setting::Get().DefaultFont = io.Fonts->AddFontFromFileTTF("Resources/Font/cjkFonts_allseto_v1.11.ttf", 18.0f,
+        Setting::Get().DefaultFont = io.Fonts->AddFontFromFileTTF("Resources/Font/NotoSansCJKtc-Black.otf", 18.0f,
                                                                   NULL,
                                                                   io.Fonts->GetGlyphRangesChineseFull());
         
@@ -134,7 +133,6 @@ namespace IFCS
     void Application::run()
     {
         // setup third party stuff
-        CreateFileDialog();
 
         // setup this app
         MainMenu::Get().SetApp(this);
@@ -270,31 +268,5 @@ namespace IFCS
             // glfwSetWindowMonitor(Window, )
         }
     }
-
-    void Application::CreateFileDialog()
-    {
-        ifd::FileDialog::Instance().CreateTexture = [](uint8_t* data, int w, int h, char fmt) -> void*
-        {
-            GLuint tex;
-
-            glGenTextures(1, &tex);
-            glBindTexture(GL_TEXTURE_2D, tex);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-            // glGenerateMipmap(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, 0);
-
-            return (void*)(intptr_t)tex;
-        };
-        ifd::FileDialog::Instance().DeleteTexture = [](void* tex)
-        {
-            GLuint texID = (GLuint)((uintptr_t)tex);
-            glDeleteTextures(1, &texID);
-        };
-    }
-
 
 }

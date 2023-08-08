@@ -27,6 +27,8 @@ project "IFCS"
         "%{prj.name}/vendor/imgui/backends/imgui_impl_opengl3_loader.h",
         "%{prj.name}/vendor/imgui_extensions/ImFileDialog/*.h",
         "%{prj.name}/vendor/imgui_extensions/ImFileDialog/*.cpp",
+        "%{prj.name}/vendor/imgui_extensions/ImGuiFileDialog/*.h",
+        "%{prj.name}/vendor/imgui_extensions/ImGuiFileDialog/*.cpp",
         "%{prj.name}/vendor/imgui_extensions/Implot/*.h",
         "%{prj.name}/vendor/imgui_extensions/Implot/*.cpp",
         "%{prj.name}/vendor/imgui_extensions/addons/*.h",

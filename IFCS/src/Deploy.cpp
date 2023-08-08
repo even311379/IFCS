@@ -12,7 +12,7 @@
 #include "yaml-cpp/yaml.h"
 
 #include "addons/imguidatechooser.h"
-#include "ImFileDialog/ImFileDialog.h"
+#include "ImGuiFileDialog/ImGuiFileDialog.h"
 
 #include "DataBrowser.h"
 #include "imgui_internal.h"
@@ -33,36 +33,14 @@ namespace IFCS
     
     static EActiveDeployTab ActiveDeployTab = EActiveDeployTab::Automation;
 
-    void Deploy::SetInputPath(const char* NewPath)
+    void Deploy::SetInputPath(const std::string& NewPath)
     {
         Data.TaskInputDir = NewPath;
     }
 
-    void Deploy::SetOutputPath(const char* NewPath)
+    void Deploy::SetOutputPath(const std::string& NewPath)
     {
         Data.TaskOutputDir = NewPath;
-    }
-
-    void Deploy::SetReferenceImagePath(const char* NewPath)
-    {
-        ReferenceImages.clear();
-        CurrentRefImgIndex = 0;
-        strcpy(ReferenceImagePath, NewPath);
-        for (auto& entry : std::filesystem::directory_iterator(ReferenceImagePath))
-        {
-            if (entry.is_directory()) continue;
-            for (const std::string& Format : DataBrowser::Get().AcceptedImageFormat )
-            {
-                if (Utils::InsensitiveStringCompare(entry.path().extension().string(), Format))
-                {
-                    ReferenceImages.emplace_back(entry.path().string());
-                }
-            }
-        }
-        if (!ReferenceImages.empty())
-        {
-            UpdateReferenceImage();
-        }
     }
 
     void Deploy::LoadConfigFile(const std::string& ConfigFilePath)
@@ -107,34 +85,107 @@ namespace IFCS
         DeployWindowSize.y -= 36;
         ImGui::BeginChild("DeployWindow", DeployWindowSize, false);
         {
-            if (ImGui::BeginTabBar("DeployTabs"))
+            if (ImGui::TreeNodeEx("Input & Output", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                if (ImGui::BeginTabItem("Automation"))
+                ImGui::SetNextItemWidth(480.f);
+                ImGui::InputText("", &Data.TaskInputDir, ImGuiInputTextFlags_ReadOnly);
+                ImGui::SameLine();
+                if (ImGui::Button("...##Btn_TaskInputDir"))
                 {
-                    RenderAutomation();
-                    ActiveDeployTab = EActiveDeployTab::Automation;
-                    ImGui::EndTabItem();
+                    // ifd::FileDialog::Instance().Open("ChooseTaskInputDir", "Choose automation task input directory (DVR clips repo)",
+                    //     "", false, Setting::Get().ProjectPath);
+                    ImGuiFileDialog::Instance()->OpenDialog("ChooseTaskInputDir", "Choose path which contains folders for each camera",
+                        nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
                 }
-                if (ImGui::BeginTabItem("Feasibility Test"))
+                ImGui::SameLine();
+                ImGui::Text("Input Path");
+                ImGui::Indent();
+                if (!Data.TaskInputDir.empty())
                 {
-                    RenderFeasibilityTest();
-                    ActiveDeployTab = EActiveDeployTab::FeasibilityTest;
-                    ImGui::EndTabItem();
+                    ImGui::BulletText("Camera clips folders:");
+                    for (const auto& entry : std::filesystem::directory_iterator(Data.TaskInputDir))
+                    {
+                        if (!is_directory(entry.path()))
+                            continue;
+                        ImGui::Text(entry.path().string().c_str());
+                    }
                 }
-                if (ImGui::BeginTabItem("Data pipeline"))
+                ImGui::Unindent();
+                
+                // choose store repo
+                ImGui::SetNextItemWidth(480.f);
+                ImGui::InputText("", &Data.TaskOutputDir, ImGuiInputTextFlags_ReadOnly);
+                ImGui::SameLine();
+                if (ImGui::Button("...##Btn_TaskOutputDir"))
                 {
-                    RenderDataPipeline();
-                    ActiveDeployTab = EActiveDeployTab::DataPipeline;
-                    ImGui::EndTabItem();
+                    // Modals::Get().IsChoosingFolder = true;
+                    ImGuiFileDialog::Instance()->OpenDialog("ChooseTaskOutputDir", "Choose automation task output directory", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
+                    // ifd::FileDialog::Instance().Open("ChooseTaskOutputDir", "Choose automation task output directory",
+                    //     "", false, Setting::Get().ProjectPath);
                 }
-                if (ImGui::BeginTabItem("SMS Notification"))
-                {
-                    RenderSMSNotification();
-                    ActiveDeployTab = EActiveDeployTab::SMSNotification;
-                    ImGui::EndTabItem();
-                }
-                ImGui::EndTabBar();
+                ImGui::SameLine();
+                ImGui::Text("Output Path");
+                 // // open Dialog Simple
+                // if (ImGui::Button("Open File Dialog"))
+                // {
+                //     ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".cpp,.h,.hpp", ".");
+                // }
+                      //
+                      // // display
+                      // if (ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey")) 
+                      // {
+                      //   // action if OK
+                      //   if (ImGuiFileDialog::Instance()->IsOk())
+                      //   {
+                      //     std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+                      //     std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
+                      //     // action
+                      //   }
+                      //   
+                      //   // close
+                      //   ImGuiFileDialog::Instance()->Close();
+                      // }
+
+                ImGui::TreePop();
             }
+            if (ImGui::TreeNodeEx("Configure Task", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::Text("TESTSTT");
+                ImGui::TreePop();
+            }
+            if (ImGui::TreeNodeEx("Generate Python Script", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::Text("加一些中文字？");
+                ImGui::TreePop();
+            }
+            // if (ImGui::BeginTabBar("DeployTabs"))
+            // {
+            //     if (ImGui::BeginTabItem("Automation"))
+            //     {
+            //         RenderAutomation();
+            //         ActiveDeployTab = EActiveDeployTab::Automation;
+            //         ImGui::EndTabItem();
+            //     }
+            //     if (ImGui::BeginTabItem("Feasibility Test"))
+            //     {
+            //         RenderFeasibilityTest();
+            //         ActiveDeployTab = EActiveDeployTab::FeasibilityTest;
+            //         ImGui::EndTabItem();
+            //     }
+            //     if (ImGui::BeginTabItem("Data pipeline"))
+            //     {
+            //         RenderDataPipeline();
+            //         ActiveDeployTab = EActiveDeployTab::DataPipeline;
+            //         ImGui::EndTabItem();
+            //     }
+            //     if (ImGui::BeginTabItem("SMS Notification"))
+            //     {
+            //         RenderSMSNotification();
+            //         ActiveDeployTab = EActiveDeployTab::SMSNotification;
+            //         ImGui::EndTabItem();
+            //     }
+            //     ImGui::EndTabBar();
+            // }
         }
         ImGui::EndChild();
         ImGui::Separator();
@@ -142,25 +193,23 @@ namespace IFCS
         
         if (ImGui::Button(ICON_FA_UPLOAD))
         {
-            Modals::Get().IsChoosingFolder = true;
-            ifd::FileDialog::Instance().Open("SaveDeployConfigFile", "Choose path to save configuration file",
-                "", false, Setting::Get().ProjectPath);
+            ImGuiFileDialog::Instance()->OpenDialog("SaveDeployConfigFile", "Choose path to save configuration file", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
         }
         Utils::AddSimpleTooltip("Save current configuration to file");
         ImGui::SameLine();
         if (ImGui::Button(ICON_FA_DOWNLOAD))
         {
-            Modals::Get().IsChoosingFolder = true;
-            ifd::FileDialog::Instance().Open("LoadDeployConfigFile", "Choose configuration file to load",
-                "config file {.yaml}", false, Setting::Get().ProjectPath);
+            ImGuiFileDialog::Instance()->OpenDialog("LoadDeployConfigFile", "Choose configuration file to load", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
         }
         Utils::AddSimpleTooltip("Load configuration from file");
         ImGui::SameLine(ImGui::GetContentRegionAvail().x - 280);
         if (ImGui::Button("generate script", ImVec2(270, 0)))
         {
-            Modals::Get().IsChoosingFolder = true;
-            ifd::FileDialog::Instance().Open("GenerateDeployScriptsLocation", "Choose location to generate run script",
-                "", false, Setting::Get().ProjectPath);
+            // TODO: maybe just place the run script at output dir??
+                    ImGuiFileDialog::Instance()->OpenDialog("GenerateDeployScriptsLocation", "Choose location to generate run script", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
+            // Modals::Get().IsChoosingFolder = true;
+            // ifd::FileDialog::Instance().Open("GenerateDeployScriptsLocation", "Choose location to generate run script",
+            //     "", false, Setting::Get().ProjectPath);
         }
     }
 
@@ -187,9 +236,10 @@ namespace IFCS
         ImGui::SameLine();
         if (ImGui::Button("...##Btn_TaskInputDir"))
         {
-            Modals::Get().IsChoosingFolder = true;
-            ifd::FileDialog::Instance().Open("ChooseTaskInputDir", "Choose automation task input directory (DVR clips repo)",
-                "", false, Setting::Get().ProjectPath);
+            // ImGuiFileDialog::Instance()->OpenDialog("ChooseTaskOutputDir", "Choose automation task output directory", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
+            // Modals::Get().IsChoosingFolder = true;
+            // ifd::FileDialog::Instance().Open("ChooseTaskInputDir", "Choose automation task input directory (DVR clips repo)",
+            //     "", false, Setting::Get().ProjectPath);
         }
         ImGui::SameLine();
         ImGui::Text("Input Path");
@@ -200,9 +250,10 @@ namespace IFCS
         ImGui::SameLine();
         if (ImGui::Button("...##Btn_TaskOutputDir"))
         {
-            Modals::Get().IsChoosingFolder = true;
-            ifd::FileDialog::Instance().Open("ChooseTaskOutputDir", "Choose automation task output directory",
-                "", false, Setting::Get().ProjectPath);
+            //         ImGuiFileDialog::Instance()->OpenDialog("ChooseTaskOutputDir", "Choose automation task output directory", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
+            // Modals::Get().IsChoosingFolder = true;
+            // ifd::FileDialog::Instance().Open("ChooseTaskOutputDir", "Choose automation task output directory",
+            //     "", false, Setting::Get().ProjectPath);
         }
         ImGui::SameLine();
         ImGui::Text("Output Path");
@@ -399,229 +450,230 @@ namespace IFCS
     }
 
 
-    void Deploy::RenderFeasibilityTest()
-    {
-        // setup for which camera?
-        if (ActiveDeployTab != EActiveDeployTab::FeasibilityTest)
-        {
-            CleanRegisteredCameras();
-        }
-
-        if (Data.Cameras.size() == 0)
-        {
-            ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "No camera is registered! Checkout autotation tab first!");
-            return;
-        }
-
-        // Choose camera combo
-        ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x * 0.5f - 180.f);
-        ImGui::SetNextItemWidth(360.f);
-        if (ImGui::BeginCombo("Choose Camera", Data.Cameras[CameraIndex_FT].CameraName.c_str()))
-        {
-            for (size_t i = 0; i < Data.Cameras.size(); i++)
-            {
-                if (ImGui::Selectable(Data.Cameras[i].CameraName.c_str(), CameraIndex_FT == i))
-                {
-                    CameraIndex_FT = i;
-                }
-            }
-            ImGui::EndCombo();
-        }
-        
-
-        // image widget and draw boxes
-        ImGui::SetCursorPosX((ImGui::GetWindowWidth() - WorkArea[0]) * 0.5f);
-        ReferenceImagePos = ImGui::GetCursorScreenPos();
-        ImGui::BeginChild("ReferenceImage", WorkArea);
-        {
-            ImGui::Image((void*)(intptr_t)ReferenceImagePtr, WorkArea);
-            if (bAdding)
-                RenderAddingProgress(AddPointStart);
-            RenderTestZones(ReferenceImagePos);
-        }
-        ImGui::EndChild();
-        if (ImGui::IsItemHovered())
-        {
-            if (ImGui::IsMouseClicked(0))
-            {
-                AddPointStart = ImGui::GetMousePos();
-                bAdding = true;
-            }
-        }
-        
-        // handle final input
-        if (bAdding && ImGui::IsMouseReleased(0))
-        {
-            bAdding = false;
-            
-            // add to feasible zones
-            FFeasibleZone NewZone;
-            NewZone.XYWH[0] = (abs(AddPointStart.x + AddPointEnd.x) / 2.f - ReferenceImagePos.x) / WorkArea.x; 
-            NewZone.XYWH[1] = (abs(AddPointStart.y + AddPointEnd.y) / 2.f - ReferenceImagePos.y) / WorkArea.y; 
-            NewZone.XYWH[2] = abs(AddPointStart.x - AddPointEnd.x) / WorkArea.x;
-            NewZone.XYWH[3] = abs(AddPointStart.y - AddPointEnd.y) / WorkArea.y;
-            // spdlog::info("is adding new zone with xywh: {}, {}, {}, {}  ... correct?", NewZone.XYWH[0], NewZone.XYWH[1], NewZone.XYWH[2], NewZone.XYWH[3]);
-            NewZone.ColorLower = NewZone.ColorUpper = GetAverageColor(NewZone.XYWH);
-            Data.Cameras[CameraIndex_FT].FeasibleZones.emplace_back(NewZone);
-        }
-
-        // choose image from some where
-        ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x * 0.5f - 325.f);
-        ImGui::Text("Reference Images Path");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(325.f);
-        ImGui::InputText("", ReferenceImagePath, IM_ARRAYSIZE(ReferenceImagePath), ImGuiInputTextFlags_ReadOnly);
-        ImGui::SameLine();
-        if (ImGui::Button("...##Btn_FeasibilityRefImgDir"))
-        {
-            Modals::Get().IsChoosingFolder = true;
-            ifd::FileDialog::Instance().Open("ChooseFeasibilityReferenceImagePath", "Choose path to reference images",
-                "", false, Setting::Get().ProjectPath);
-        }
-        // draw control buttons
-        if (!ReferenceImages.empty())
-        {
-            std::string ImgName = ReferenceImages[CurrentRefImgIndex].substr(std::strlen(ReferenceImagePath) + 1);
-            ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 360 - 64) * 0.5f);
-            ReferenceImagePos = ImGui::GetCursorScreenPos();
-            if (ImGui::Button(ICON_FA_ARROW_LEFT, ImVec2(32, 0)))
-            {
-                CurrentRefImgIndex++;
-                if (CurrentRefImgIndex >= ReferenceImages.size())
-                    CurrentRefImgIndex = 0;
-                UpdateReferenceImage();
-            }
-            Utils::AddSimpleTooltip("Previous");
-            ImGui::SameLine();
-            ImGui::BeginChildFrame(ImGui::GetID("ReferenceImageFileName"), ImVec2(360, ImGui::GetTextLineHeightWithSpacing() + 2));
-            float TextWidth = ImGui::CalcTextSize(ImgName.c_str()).x;
-            ImGui::SetCursorPosX(180 - TextWidth * 0.5f);
-            ImGui::Text("%s", ImgName.c_str());
-            ImGui::EndChildFrame();
-            ImGui::SameLine();
-            if (ImGui::Button(ICON_FA_ARROW_RIGHT, ImVec2(32, 0)))
-            {
-                CurrentRefImgIndex--;
-                if (CurrentRefImgIndex < 0)
-                    CurrentRefImgIndex = static_cast<int>(ReferenceImages.size()) - 1;
-                UpdateReferenceImage();
-            }
-            Utils::AddSimpleTooltip("Next");
-            ImGui::SameLine();
-            ImGui::ColorEdit3("##hint", (float*)&HintColor, ImGuiColorEditFlags_NoInputs);
-        }
-
-        if (Data.Cameras[CameraIndex_FT].FeasibleZones.empty())
-        {
-            ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "No feasibility test zone is registered!");
-            return;
-        }
-        ImGui::Separator();
-        ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x * 0.5f - ImGui::CalcTextSize("PASS").x * 0.5f );
-        ImGui::PushFont(Setting::Get().TitleFont);
-        if (IsTestZonesPassRefImg())
-            ImGui::TextColored(Style::GREEN(400, Setting::Get().Theme) ,"PASS");
-        else
-            ImGui::TextColored(Style::RED(400, Setting::Get().Theme) ,"FAIL");
-        ImGui::PopFont();
-        
-        static const ImVec2 SmallBtnSize = {32.f, 32.f};
-        static const ImVec2 ColorBtnSize = {64.f, 32.f};
-        static ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable| ImGuiTableFlags_NoHostExtendX | ImGuiTableFlags_SizingFixedFit;
-        ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x * 0.5f - 480.f);
-        if (ImGui::BeginTable("##ColorEditTable", 6, flags))
-        {
-            ImGui::TableSetupColumn("Zone ID", ImGuiTableColumnFlags_WidthFixed, 128.f);
-            ImGui::TableSetupColumn("Color in Ref", ImGuiTableColumnFlags_WidthFixed, 128.f);
-            ImGui::TableSetupColumn("Lower Color Limit", ImGuiTableColumnFlags_WidthFixed, 256.f);
-            ImGui::TableSetupColumn("Upper Color Limit", ImGuiTableColumnFlags_WidthFixed, 256.f);
-            ImGui::TableSetupColumn("Is Pass?", ImGuiTableColumnFlags_WidthFixed, 128.f);
-            ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 64.f);
-            ImGui::TableHeadersRow();
-            static ImGuiColorEditFlags flags = ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_NoAlpha |
-                ImGuiColorEditFlags_NoOptions | ImGuiColorEditFlags_NoDragDrop;
-            static ImVec4 BackupColor;
-            ImGui::PushID("ColorEdit");
-            for (int i = 0; i < Data.Cameras[CameraIndex_FT].FeasibleZones.size(); i++)
-            {
-                ImGui::PushID(i);
-                FFeasibleZone& Zone = Data.Cameras[CameraIndex_FT].FeasibleZones[i]; 
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text("%d", i);
-                ImGui::TableSetColumnIndex(1);
-                ImGui::ColorButton("##Color", GetAverageColor(Zone.XYWH), ImGuiColorEditFlags_None, ColorBtnSize);
-                ImGui::TableSetColumnIndex(2);
-                if (ImGui::ColorButton("##LowerColor", Zone.ColorLower, ImGuiColorEditFlags_None, ColorBtnSize))
-                {
-                    ImGui::OpenPopup("LowerColorPicker");
-                    BackupColor = Zone.ColorLower;
-                }
-                if (ImGui::BeginPopup("LowerColorPicker"))
-                {
-                    ImGui::Text("Set lower color limit");
-                    ImGui::Separator();
-                    MakeColorPicker(&Zone.ColorLower, BackupColor);
-                    ImGui::EndPopup();
-                }
-                ImGui::SameLine();
-                if (ImGui::Button(ICON_FA_SYNC"##Lower", SmallBtnSize))
-                {
-                    Zone.ColorLower = GetAverageColor(Zone.XYWH); 
-                }
-                Utils::AddSimpleTooltip("Sync lower color limit to ref color");
-                ImGui::TableSetColumnIndex(3);
-                if (ImGui::ColorButton("##UpperColor", Zone.ColorUpper, ImGuiColorEditFlags_None, ColorBtnSize))
-                {
-                    ImGui::OpenPopup("UpperColorPicker");
-                    BackupColor = Zone.ColorUpper;
-                }
-                if (ImGui::BeginPopup("UpperColorPicker"))
-                {
-                    ImGui::Text("Set upper color limit");
-                    ImGui::Separator();
-                    MakeColorPicker(&Zone.ColorUpper, BackupColor);
-                    ImGui::EndPopup();
-                }
-                // ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 8));
-                // ImGui::ColorEdit3("##UpperColor", (float*)&Zone.ColorUpper, flags);
-                // ImGui::PopStyleVar();
-                ImGui::SameLine();
-                if(ImGui::Button(ICON_FA_SYNC"##Upper", SmallBtnSize))
-                {
-                    Zone.ColorUpper = GetAverageColor(Zone.XYWH);
-                }
-                Utils::AddSimpleTooltip("Sync upper color limit to ref color");
-                
-                ImGui::TableSetColumnIndex(4);
-                if (IsColorInRange(GetAverageColor(Zone.XYWH), Zone.ColorLower, Zone.ColorUpper))
-                    ImGui::TextColored(Style::GREEN(400, Setting::Get().Theme), "PASS");
-                else
-                    ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "FAIL");
-                ImGui::TableSetColumnIndex(5);
-                if (ImGui::Button(ICON_FA_TIMES, SmallBtnSize))
-                {
-                    Data.Cameras[CameraIndex_FT].FeasibleZones.erase(Data.Cameras[CameraIndex_FT].FeasibleZones.begin() + i);
-                }
-                Utils::AddSimpleTooltip("Remove this test zone?");
-                ImGui::PopID();
-            }
-            ImGui::PopID();
-            ImGui::EndTable();
-        }
-        ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Button, Style::RED(400, Setting::Get().Theme));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Style::RED(600, Setting::Get().Theme));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, Style::RED(700, Setting::Get().Theme));
-        if (ImGui::Button(ICON_FA_TRASH, SmallBtnSize))
-        {
-            Data.Cameras[CameraIndex_FT].FeasibleZones.clear();
-        }
-        ImGui::PopStyleColor(3);
-        Utils::AddSimpleTooltip("Clear all feasibility test zones");
- 
-
-    }
+    // void Deploy::RenderFeasibilityTest()
+    // {
+    //     // setup for which camera?
+    //     if (ActiveDeployTab != EActiveDeployTab::FeasibilityTest)
+    //     {
+    //         CleanRegisteredCameras();
+    //     }
+    //
+    //     if (Data.Cameras.size() == 0)
+    //     {
+    //         ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "No camera is registered! Checkout autotation tab first!");
+    //         return;
+    //     }
+    //
+    //     // Choose camera combo
+    //     ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x * 0.5f - 180.f);
+    //     ImGui::SetNextItemWidth(360.f);
+    //     if (ImGui::BeginCombo("Choose Camera", Data.Cameras[CameraIndex_FT].CameraName.c_str()))
+    //     {
+    //         for (size_t i = 0; i < Data.Cameras.size(); i++)
+    //         {
+    //             if (ImGui::Selectable(Data.Cameras[i].CameraName.c_str(), CameraIndex_FT == i))
+    //             {
+    //                 CameraIndex_FT = i;
+    //             }
+    //         }
+    //         ImGui::EndCombo();
+    //     }
+    //     
+    //
+    //     // image widget and draw boxes
+    //     ImGui::SetCursorPosX((ImGui::GetWindowWidth() - WorkArea[0]) * 0.5f);
+    //     ReferenceImagePos = ImGui::GetCursorScreenPos();
+    //     ImGui::BeginChild("ReferenceImage", WorkArea);
+    //     {
+    //         ImGui::Image((void*)(intptr_t)ReferenceImagePtr, WorkArea);
+    //         if (bAdding)
+    //             RenderAddingProgress(AddPointStart);
+    //         RenderTestZones(ReferenceImagePos);
+    //     }
+    //     ImGui::EndChild();
+    //     if (ImGui::IsItemHovered())
+    //     {
+    //         if (ImGui::IsMouseClicked(0))
+    //         {
+    //             AddPointStart = ImGui::GetMousePos();
+    //             bAdding = true;
+    //         }
+    //     }
+    //     
+    //     // handle final input
+    //     if (bAdding && ImGui::IsMouseReleased(0))
+    //     {
+    //         bAdding = false;
+    //         
+    //         // add to feasible zones
+    //         FFeasibleZone NewZone;
+    //         NewZone.XYWH[0] = (abs(AddPointStart.x + AddPointEnd.x) / 2.f - ReferenceImagePos.x) / WorkArea.x; 
+    //         NewZone.XYWH[1] = (abs(AddPointStart.y + AddPointEnd.y) / 2.f - ReferenceImagePos.y) / WorkArea.y; 
+    //         NewZone.XYWH[2] = abs(AddPointStart.x - AddPointEnd.x) / WorkArea.x;
+    //         NewZone.XYWH[3] = abs(AddPointStart.y - AddPointEnd.y) / WorkArea.y;
+    //         // spdlog::info("is adding new zone with xywh: {}, {}, {}, {}  ... correct?", NewZone.XYWH[0], NewZone.XYWH[1], NewZone.XYWH[2], NewZone.XYWH[3]);
+    //         NewZone.ColorLower = NewZone.ColorUpper = GetAverageColor(NewZone.XYWH);
+    //         Data.Cameras[CameraIndex_FT].FeasibleZones.emplace_back(NewZone);
+    //     }
+    //
+    //     // choose image from some where
+    //     ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x * 0.5f - 325.f);
+    //     ImGui::Text("Reference Images Path");
+    //     ImGui::SameLine();
+    //     ImGui::SetNextItemWidth(325.f);
+    //     ImGui::InputText("", ReferenceImagePath, IM_ARRAYSIZE(ReferenceImagePath), ImGuiInputTextFlags_ReadOnly);
+    //     ImGui::SameLine();
+    //     if (ImGui::Button("...##Btn_FeasibilityRefImgDir"))
+    //     {
+    //                 ImGuiFileDialog::Instance()->OpenDialog("ChooseTaskOutputDir", "Choose automation task output directory", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
+    //         Modals::Get().IsChoosingFolder = true;
+    //         ifd::FileDialog::Instance().Open("ChooseFeasibilityReferenceImagePath", "Choose path to reference images",
+    //             "", false, Setting::Get().ProjectPath);
+    //     }
+    //     // draw control buttons
+    //     if (!ReferenceImages.empty())
+    //     {
+    //         std::string ImgName = ReferenceImages[CurrentRefImgIndex].substr(std::strlen(ReferenceImagePath) + 1);
+    //         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 360 - 64) * 0.5f);
+    //         ReferenceImagePos = ImGui::GetCursorScreenPos();
+    //         if (ImGui::Button(ICON_FA_ARROW_LEFT, ImVec2(32, 0)))
+    //         {
+    //             CurrentRefImgIndex++;
+    //             if (CurrentRefImgIndex >= ReferenceImages.size())
+    //                 CurrentRefImgIndex = 0;
+    //             UpdateReferenceImage();
+    //         }
+    //         Utils::AddSimpleTooltip("Previous");
+    //         ImGui::SameLine();
+    //         ImGui::BeginChildFrame(ImGui::GetID("ReferenceImageFileName"), ImVec2(360, ImGui::GetTextLineHeightWithSpacing() + 2));
+    //         float TextWidth = ImGui::CalcTextSize(ImgName.c_str()).x;
+    //         ImGui::SetCursorPosX(180 - TextWidth * 0.5f);
+    //         ImGui::Text("%s", ImgName.c_str());
+    //         ImGui::EndChildFrame();
+    //         ImGui::SameLine();
+    //         if (ImGui::Button(ICON_FA_ARROW_RIGHT, ImVec2(32, 0)))
+    //         {
+    //             CurrentRefImgIndex--;
+    //             if (CurrentRefImgIndex < 0)
+    //                 CurrentRefImgIndex = static_cast<int>(ReferenceImages.size()) - 1;
+    //             UpdateReferenceImage();
+    //         }
+    //         Utils::AddSimpleTooltip("Next");
+    //         ImGui::SameLine();
+    //         ImGui::ColorEdit3("##hint", (float*)&HintColor, ImGuiColorEditFlags_NoInputs);
+    //     }
+    //
+    //     if (Data.Cameras[CameraIndex_FT].FeasibleZones.empty())
+    //     {
+    //         ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "No feasibility test zone is registered!");
+    //         return;
+    //     }
+    //     ImGui::Separator();
+    //     ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x * 0.5f - ImGui::CalcTextSize("PASS").x * 0.5f );
+    //     ImGui::PushFont(Setting::Get().TitleFont);
+    //     if (IsTestZonesPassRefImg())
+    //         ImGui::TextColored(Style::GREEN(400, Setting::Get().Theme) ,"PASS");
+    //     else
+    //         ImGui::TextColored(Style::RED(400, Setting::Get().Theme) ,"FAIL");
+    //     ImGui::PopFont();
+    //     
+    //     static const ImVec2 SmallBtnSize = {32.f, 32.f};
+    //     static const ImVec2 ColorBtnSize = {64.f, 32.f};
+    //     static ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable| ImGuiTableFlags_NoHostExtendX | ImGuiTableFlags_SizingFixedFit;
+    //     ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x * 0.5f - 480.f);
+    //     if (ImGui::BeginTable("##ColorEditTable", 6, flags))
+    //     {
+    //         ImGui::TableSetupColumn("Zone ID", ImGuiTableColumnFlags_WidthFixed, 128.f);
+    //         ImGui::TableSetupColumn("Color in Ref", ImGuiTableColumnFlags_WidthFixed, 128.f);
+    //         ImGui::TableSetupColumn("Lower Color Limit", ImGuiTableColumnFlags_WidthFixed, 256.f);
+    //         ImGui::TableSetupColumn("Upper Color Limit", ImGuiTableColumnFlags_WidthFixed, 256.f);
+    //         ImGui::TableSetupColumn("Is Pass?", ImGuiTableColumnFlags_WidthFixed, 128.f);
+    //         ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 64.f);
+    //         ImGui::TableHeadersRow();
+    //         static ImGuiColorEditFlags flags = ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_NoAlpha |
+    //             ImGuiColorEditFlags_NoOptions | ImGuiColorEditFlags_NoDragDrop;
+    //         static ImVec4 BackupColor;
+    //         ImGui::PushID("ColorEdit");
+    //         for (int i = 0; i < Data.Cameras[CameraIndex_FT].FeasibleZones.size(); i++)
+    //         {
+    //             ImGui::PushID(i);
+    //             FFeasibleZone& Zone = Data.Cameras[CameraIndex_FT].FeasibleZones[i]; 
+    //             ImGui::TableNextRow();
+    //             ImGui::TableSetColumnIndex(0);
+    //             ImGui::Text("%d", i);
+    //             ImGui::TableSetColumnIndex(1);
+    //             ImGui::ColorButton("##Color", GetAverageColor(Zone.XYWH), ImGuiColorEditFlags_None, ColorBtnSize);
+    //             ImGui::TableSetColumnIndex(2);
+    //             if (ImGui::ColorButton("##LowerColor", Zone.ColorLower, ImGuiColorEditFlags_None, ColorBtnSize))
+    //             {
+    //                 ImGui::OpenPopup("LowerColorPicker");
+    //                 BackupColor = Zone.ColorLower;
+    //             }
+    //             if (ImGui::BeginPopup("LowerColorPicker"))
+    //             {
+    //                 ImGui::Text("Set lower color limit");
+    //                 ImGui::Separator();
+    //                 MakeColorPicker(&Zone.ColorLower, BackupColor);
+    //                 ImGui::EndPopup();
+    //             }
+    //             ImGui::SameLine();
+    //             if (ImGui::Button(ICON_FA_SYNC"##Lower", SmallBtnSize))
+    //             {
+    //                 Zone.ColorLower = GetAverageColor(Zone.XYWH); 
+    //             }
+    //             Utils::AddSimpleTooltip("Sync lower color limit to ref color");
+    //             ImGui::TableSetColumnIndex(3);
+    //             if (ImGui::ColorButton("##UpperColor", Zone.ColorUpper, ImGuiColorEditFlags_None, ColorBtnSize))
+    //             {
+    //                 ImGui::OpenPopup("UpperColorPicker");
+    //                 BackupColor = Zone.ColorUpper;
+    //             }
+    //             if (ImGui::BeginPopup("UpperColorPicker"))
+    //             {
+    //                 ImGui::Text("Set upper color limit");
+    //                 ImGui::Separator();
+    //                 MakeColorPicker(&Zone.ColorUpper, BackupColor);
+    //                 ImGui::EndPopup();
+    //             }
+    //             // ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 8));
+    //             // ImGui::ColorEdit3("##UpperColor", (float*)&Zone.ColorUpper, flags);
+    //             // ImGui::PopStyleVar();
+    //             ImGui::SameLine();
+    //             if(ImGui::Button(ICON_FA_SYNC"##Upper", SmallBtnSize))
+    //             {
+    //                 Zone.ColorUpper = GetAverageColor(Zone.XYWH);
+    //             }
+    //             Utils::AddSimpleTooltip("Sync upper color limit to ref color");
+    //             
+    //             ImGui::TableSetColumnIndex(4);
+    //             if (IsColorInRange(GetAverageColor(Zone.XYWH), Zone.ColorLower, Zone.ColorUpper))
+    //                 ImGui::TextColored(Style::GREEN(400, Setting::Get().Theme), "PASS");
+    //             else
+    //                 ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "FAIL");
+    //             ImGui::TableSetColumnIndex(5);
+    //             if (ImGui::Button(ICON_FA_TIMES, SmallBtnSize))
+    //             {
+    //                 Data.Cameras[CameraIndex_FT].FeasibleZones.erase(Data.Cameras[CameraIndex_FT].FeasibleZones.begin() + i);
+    //             }
+    //             Utils::AddSimpleTooltip("Remove this test zone?");
+    //             ImGui::PopID();
+    //         }
+    //         ImGui::PopID();
+    //         ImGui::EndTable();
+    //     }
+    //     ImGui::SameLine();
+    //     ImGui::PushStyleColor(ImGuiCol_Button, Style::RED(400, Setting::Get().Theme));
+    //     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Style::RED(600, Setting::Get().Theme));
+    //     ImGui::PushStyleColor(ImGuiCol_ButtonActive, Style::RED(700, Setting::Get().Theme));
+    //     if (ImGui::Button(ICON_FA_TRASH, SmallBtnSize))
+    //     {
+    //         Data.Cameras[CameraIndex_FT].FeasibleZones.clear();
+    //     }
+    //     ImGui::PopStyleColor(3);
+    //     Utils::AddSimpleTooltip("Clear all feasibility test zones");
+    //
+    //
+    // }
 
     void Deploy::UpdateReferenceImage()
     {
@@ -834,9 +886,10 @@ namespace IFCS
             ImGui::SameLine();
             if (ImGui::Button("...##Btn_ExternModelFile"))
             {
-                Modals::Get().IsChoosingFolder = true;
-                ifd::FileDialog::Instance().Open("ChooseExternalModelPath_Deploy", "Choose external model file",
-                    "Model {.pt}", false, Setting::Get().ProjectPath);
+                //     ImGuiFileDialog::Instance()->OpenDialog("ChooseTaskOutputDir", "Choose automation task output directory", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
+                // Modals::Get().IsChoosingFolder = true;
+                // ifd::FileDialog::Instance().Open("ChooseExternalModelPath_Deploy", "Choose external model file",
+                //     "Model {.pt}", false, Setting::Get().ProjectPath);
             }
             ImGui::SameLine();
             ImGui::Text("Choose external model file");

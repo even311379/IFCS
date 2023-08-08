@@ -14,7 +14,6 @@ namespace IFCS
     public:
         MAKE_SINGLETON(Modals)
         void Render();
-        bool IsChoosingFolder = false;
         void Sync();
         bool IsModalOpen_Welcome;
         bool IsModalOpen_NewProject;

@@ -31,6 +31,9 @@ namespace IFCS
 
         bool InsensitiveStringCompare(const std::string& InStr1, const std::string& InStr2);
 
+        // ImFileDialog always result in wrong path format... 
+        std::string ChangePathSlash(const std::string& InString);
+
         // std::wstring ToWString(const std::string& InString);
         //
         // std::wstring ToWString(const char* InChars);
