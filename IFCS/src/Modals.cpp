@@ -6,6 +6,7 @@
 #include "ImGuiFileDialog/ImGuiFileDialog.h"
 #include "ImguiMD/imgui_markdown.h"
 #include "yaml-cpp/yaml.h"
+#include "misc/cpp/imgui_stdlib.h"
 
 #include "Style.h"
 #include "Setting.h"
@@ -16,8 +17,10 @@
 
 #include <locale>
 #include <codecvt>
+#include <IconFontCppHeaders/IconsFontAwesome5.h>
 
 #include "Annotation.h"
+#include "Application.h"
 
 namespace IFCS
 {
@@ -721,11 +724,30 @@ namespace IFCS
                     Setting::Get().Theme = ETheme::Dark;
                     Style::ApplyTheme(ETheme::Dark);
                 }
+                ImGui::InputTextWithHint("Font file", "Default (NotoSansCJKtc-Black.otf)", &Setting::Get().Font, ImGuiInputTextFlags_ReadOnly);
+                ImGui::SameLine();
+                if (ImGui::Button("..."))
+                {
+                    ImGuiFileDialog::Instance()->OpenDialog("SetNewFontFile", "Choose font file", ".ttf,.otf", Setting::Get().ProjectPath,
+                        1, nullptr, ImGuiFileDialogFlags_Modal);
+                }
+                ImGui::SameLine();
+                if (ImGui::Button(ICON_FA_TIMES))
+                {
+                    if (!Setting::Get().Font.empty())
+                    {
+                        Setting::Get().Font.clear();
+                        NeedToRestartApp = true;
+                    }
+                }
+                if (NeedToRestartApp)
+                {
+                    ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "Restart to activate change in font!");
+                }
                 ImGui::TreePop();
             }
             if (ImGui::TreeNodeEx("Editor", ImGuiTreeNodeFlags_DefaultOpen))
             {
-
                 ImGui::Checkbox("Auto Save", &Setting::Get().bEnableAutoSave);
                 if (Setting::Get().bEnableAutoSave)
                 {
@@ -789,6 +811,7 @@ namespace IFCS
                 ImGui::CloseCurrentPopup();
                 IsModalOpen_Setting = false;
             }
+            // handle file dialogs...
             if (ImGuiFileDialog::Instance()->Display("ChoosePythonPath", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
             {
                 if (ImGuiFileDialog::Instance()->IsOk())
@@ -806,6 +829,15 @@ namespace IFCS
                     std::string RawString = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
                     strcpy(TempYoloV7Path, RawString.c_str());
                     Setting::Get().YoloV7Path = RawString;
+                }
+                ImGuiFileDialog::Instance()->Close();
+            }
+            if (ImGuiFileDialog::Instance()->Display("SetNewFontFile", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
+            {
+                if (ImGuiFileDialog::Instance()->IsOk())
+                {
+                    Setting::Get().Font = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetFilePathName());
+                    NeedToRestartApp = true;
                 }
                 ImGuiFileDialog::Instance()->Close();
             }
@@ -959,6 +991,9 @@ namespace IFCS
             }
         }
     }
+
+    // TODO: maybe handle file dialog display at the place where the window is summoned?
+    // or only leave the dialog that are used multiple times?
     
     void Modals::HandleFileDialogClose()
     {
@@ -992,25 +1027,6 @@ namespace IFCS
             }
             ImGuiFileDialog::Instance()->Close();
         }
-        if (ImGuiFileDialog::Instance()->Display("ChooseTaskInputDir", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
-        {
-            // action if OK
-            if (ImGuiFileDialog::Instance()->IsOk())
-            {
-                std::string TargerPath = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
-                Deploy::Get().SetInputPath(TargerPath);
-            }
-            // close
-            ImGuiFileDialog::Instance()->Close();
-        }
-        if (ImGuiFileDialog::Instance()->Display("ChooseTaskOutputDir", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
-        {
-            if (ImGuiFileDialog::Instance()->IsOk())
-            {
-                Deploy::Get().SetOutputPath(Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath()));
-            }
-            ImGuiFileDialog::Instance()->Close();
-        }
         if (ImGuiFileDialog::Instance()->Display("SaveDeployConfigFile", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
         {
             if (ImGuiFileDialog::Instance()->IsOk())
@@ -1027,14 +1043,7 @@ namespace IFCS
             }
             ImGuiFileDialog::Instance()->Close();
         }
-        if (ImGuiFileDialog::Instance()->Display("ChooseExternalModelPath_Deploy", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
-        {
-            if (ImGuiFileDialog::Instance()->IsOk())
-            {
-                Deploy::Get().SetExternalModelFile(Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentFileName()));
-            }
-            ImGuiFileDialog::Instance()->Close();
-        }
+
         if (ImGuiFileDialog::Instance()->Display("GenerateDeployScriptsLocation", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
         {
             if (ImGuiFileDialog::Instance()->IsOk())

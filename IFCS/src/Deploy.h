@@ -8,42 +8,22 @@ namespace IFCS
     {
     public:
         MAKE_SINGLETON(Deploy)
-        void SetInputPath(const std::string& NewPath);
-        void SetOutputPath(const std::string& NewPath);
         void LoadConfigFile(const std::string& ConfigFilePath);
         void SaveConfigFile(const std::string& ConfigFilePath);
-        void SetExternalModelFile(const std::string& NewModelFile);
+        // void SetExternalModelFile(const std::string& NewModelFile);
         void GenerateRunScript(const std::string& ScriptsLocation);
 
     protected:
         void RenderContent() override;
         
     private:
-        void RenderAutomation();
-        
-        int CurrentRefImgIndex = 0;
-        char ReferenceImagePath[255] = "";
-        std::vector<std::string> ReferenceImages;
-        unsigned int ReferenceImagePtr;
-        
-        void CleanRegisteredCameras();
-        
-        size_t CameraIndex_FT = 0;
-        void RenderFeasibilityTest();
-        void RenderAddingProgress(ImVec2 StartPos);
-        void MakeColorPicker(ImVec4* TargetColor, ImVec4 BackupColor);
-        cv::Mat ImgData;
-        void UpdateReferenceImage();
-        ImColor GetAverageColor(const std::array<float, 4>& InXYWH);
-        void RenderTestZones(ImVec2 StartPos);
-        bool IsTestZonesPassRefImg();
-        bool IsColorInRange(ImVec4 TestColor, ImVec4 LowerColor, ImVec4 UpperColor);
-
-        size_t CameraIndex_DP = 0;
-        void RenderDataPipeline();
-        void RenderSMSNotification();
-
+        void RenderInputOutput();
+        void RenderConfigureTask();
+        void RenderNotification();
+        std::string OutputDir;
         FDeploymentData Data;
+        std::vector<std::string> InternalModelOptions;
+
         
     };
 }

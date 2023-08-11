@@ -1,25 +1,15 @@
 ﻿#include "Deploy.h"
-
 #include <fstream>
-
-#include "opencv2/opencv.hpp"
-#include "backends/imgui_impl_glfw.h"
-#include <GLFW/glfw3.h>
-
+#include <shellapi.h>
 #include "misc/cpp/imgui_stdlib.h"
-
 #include <IconFontCppHeaders/IconsFontAwesome5.h>
 #include "yaml-cpp/yaml.h"
-
 #include "addons/imguidatechooser.h"
 #include "ImGuiFileDialog/ImGuiFileDialog.h"
-
 #include "DataBrowser.h"
-#include "imgui_internal.h"
 #include "Modals.h"
 #include "Setting.h"
 #include "Style.h"
-
 
 namespace IFCS
 {
@@ -33,16 +23,6 @@ namespace IFCS
     
     static EActiveDeployTab ActiveDeployTab = EActiveDeployTab::Automation;
 
-    void Deploy::SetInputPath(const std::string& NewPath)
-    {
-        Data.TaskInputDir = NewPath;
-    }
-
-    void Deploy::SetOutputPath(const std::string& NewPath)
-    {
-        Data.TaskOutputDir = NewPath;
-    }
-
     void Deploy::LoadConfigFile(const std::string& ConfigFilePath)
     {
         const YAML::Node ConfigFile = YAML::LoadFile(ConfigFilePath);
@@ -55,11 +35,6 @@ namespace IFCS
         YAML::Emitter Out;
         Out << Data.Serialize();
         std::ofstream(ConfigFilePath + "/DeployConfig.yaml") << Out.c_str();
-    }
-
-    void Deploy::SetExternalModelFile(const std::string& NewModelFile)
-    {
-        Data.Cameras[CameraIndex_DP].ModelFilePath = NewModelFile;
     }
 
     void Deploy::GenerateRunScript(const std::string& ScriptsLocation)
@@ -87,110 +62,23 @@ namespace IFCS
         {
             if (ImGui::TreeNodeEx("Input & Output", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                ImGui::SetNextItemWidth(480.f);
-                ImGui::InputText("", &Data.TaskInputDir, ImGuiInputTextFlags_ReadOnly);
-                ImGui::SameLine();
-                if (ImGui::Button("...##Btn_TaskInputDir"))
-                {
-                    // ifd::FileDialog::Instance().Open("ChooseTaskInputDir", "Choose automation task input directory (DVR clips repo)",
-                    //     "", false, Setting::Get().ProjectPath);
-                    ImGuiFileDialog::Instance()->OpenDialog("ChooseTaskInputDir", "Choose path which contains folders for each camera",
-                        nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
-                }
-                ImGui::SameLine();
-                ImGui::Text("Input Path");
-                ImGui::Indent();
-                if (!Data.TaskInputDir.empty())
-                {
-                    ImGui::BulletText("Camera clips folders:");
-                    for (const auto& entry : std::filesystem::directory_iterator(Data.TaskInputDir))
-                    {
-                        if (!is_directory(entry.path()))
-                            continue;
-                        ImGui::Text(entry.path().string().c_str());
-                    }
-                }
-                ImGui::Unindent();
-                
-                // choose store repo
-                ImGui::SetNextItemWidth(480.f);
-                ImGui::InputText("", &Data.TaskOutputDir, ImGuiInputTextFlags_ReadOnly);
-                ImGui::SameLine();
-                if (ImGui::Button("...##Btn_TaskOutputDir"))
-                {
-                    // Modals::Get().IsChoosingFolder = true;
-                    ImGuiFileDialog::Instance()->OpenDialog("ChooseTaskOutputDir", "Choose automation task output directory", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
-                    // ifd::FileDialog::Instance().Open("ChooseTaskOutputDir", "Choose automation task output directory",
-                    //     "", false, Setting::Get().ProjectPath);
-                }
-                ImGui::SameLine();
-                ImGui::Text("Output Path");
-                 // // open Dialog Simple
-                // if (ImGui::Button("Open File Dialog"))
-                // {
-                //     ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".cpp,.h,.hpp", ".");
-                // }
-                      //
-                      // // display
-                      // if (ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey")) 
-                      // {
-                      //   // action if OK
-                      //   if (ImGuiFileDialog::Instance()->IsOk())
-                      //   {
-                      //     std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
-                      //     std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
-                      //     // action
-                      //   }
-                      //   
-                      //   // close
-                      //   ImGuiFileDialog::Instance()->Close();
-                      // }
-
+                RenderInputOutput();
                 ImGui::TreePop();
             }
             if (ImGui::TreeNodeEx("Configure Task", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                ImGui::Text("TESTSTT");
+                RenderConfigureTask();
                 ImGui::TreePop();
             }
-            if (ImGui::TreeNodeEx("Generate Python Script", ImGuiTreeNodeFlags_DefaultOpen))
+            if (ImGui::TreeNode("Notification"))
             {
-                ImGui::Text("加一些中文字？");
+                RenderNotification();
                 ImGui::TreePop();
             }
-            // if (ImGui::BeginTabBar("DeployTabs"))
-            // {
-            //     if (ImGui::BeginTabItem("Automation"))
-            //     {
-            //         RenderAutomation();
-            //         ActiveDeployTab = EActiveDeployTab::Automation;
-            //         ImGui::EndTabItem();
-            //     }
-            //     if (ImGui::BeginTabItem("Feasibility Test"))
-            //     {
-            //         RenderFeasibilityTest();
-            //         ActiveDeployTab = EActiveDeployTab::FeasibilityTest;
-            //         ImGui::EndTabItem();
-            //     }
-            //     if (ImGui::BeginTabItem("Data pipeline"))
-            //     {
-            //         RenderDataPipeline();
-            //         ActiveDeployTab = EActiveDeployTab::DataPipeline;
-            //         ImGui::EndTabItem();
-            //     }
-            //     if (ImGui::BeginTabItem("SMS Notification"))
-            //     {
-            //         RenderSMSNotification();
-            //         ActiveDeployTab = EActiveDeployTab::SMSNotification;
-            //         ImGui::EndTabItem();
-            //     }
-            //     ImGui::EndTabBar();
-            // }
         }
         ImGui::EndChild();
         ImGui::Separator();
         ImGui::Spacing();
-        
         if (ImGui::Button(ICON_FA_UPLOAD))
         {
             ImGuiFileDialog::Instance()->OpenDialog("SaveDeployConfigFile", "Choose path to save configuration file", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
@@ -203,186 +91,139 @@ namespace IFCS
         }
         Utils::AddSimpleTooltip("Load configuration from file");
         ImGui::SameLine(ImGui::GetContentRegionAvail().x - 280);
-        if (ImGui::Button("generate script", ImVec2(270, 0)))
+        if (ImGui::Button("Generate Script", ImVec2(270, 0)))
         {
-            // TODO: maybe just place the run script at output dir??
-                    ImGuiFileDialog::Instance()->OpenDialog("GenerateDeployScriptsLocation", "Choose location to generate run script", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
-            // Modals::Get().IsChoosingFolder = true;
-            // ifd::FileDialog::Instance().Open("GenerateDeployScriptsLocation", "Choose location to generate run script",
-            //     "", false, Setting::Get().ProjectPath);
+            if (OutputDir.empty()) return;
+            // write config file
+            YAML::Emitter Out;
+            YAML::Node OutNode = Data.Serialize();
+            OutNode["YoloV7Path"] = Setting::Get().YoloV7Path;
+            Out << OutNode;
+            std::ofstream(OutputDir + "/IFCS_DeployConfig.yaml") << Out.c_str();
+            // copy python file
+            std::filesystem::copy_file("Scripts/IFCS_Deploy.py", OutputDir + "/IFCS_Deploy.py", std::filesystem::copy_options::overwrite_existing);
+            // write run script
+            std::ofstream ofs;
+            ofs.open(OutputDir + "/RUN.bat");
+            ofs << Setting::Get().PythonPath << "/python.exe IFCS_Deploy.py";
+            ofs.close();
+            ShellExecuteA(NULL, "open", OutputDir.c_str(), NULL, NULL, SW_SHOWDEFAULT);
         }
     }
 
-
-    
-    void Deploy::RenderAutomation()
+    void Deploy::RenderInputOutput()
     {
-        // setup for which camera?
-        if (ActiveDeployTab != EActiveDeployTab::Automation)
-        {
-            if (Data.Cameras.empty())
-            {
-                Data.Cameras.emplace_back();
-            }
-        }
-
-        // TODO: maybe replace file dialog by native file dialoge to prevent trailing slash issues?
-        ImGui::BulletText("Choose input and output paths for the automation task");
-        ImGui::Indent();
-
-        // choose target clips repo (input)
         ImGui::SetNextItemWidth(480.f);
         ImGui::InputText("", &Data.TaskInputDir, ImGuiInputTextFlags_ReadOnly);
         ImGui::SameLine();
         if (ImGui::Button("...##Btn_TaskInputDir"))
         {
-            // ImGuiFileDialog::Instance()->OpenDialog("ChooseTaskOutputDir", "Choose automation task output directory", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
-            // Modals::Get().IsChoosingFolder = true;
-            // ifd::FileDialog::Instance().Open("ChooseTaskInputDir", "Choose automation task input directory (DVR clips repo)",
-            //     "", false, Setting::Get().ProjectPath);
+            ImGuiFileDialog::Instance()->OpenDialog("ChooseTaskInputDir", "Choose path which contains folders for each camera",
+                                                    nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
         }
         ImGui::SameLine();
         ImGui::Text("Input Path");
-        
+        if (!Data.Cameras.empty())
+        {
+            ImGui::BulletText("Detected Cameras:");
+            ImGui::Indent();
+            for (const auto& C : Data.Cameras)
+            {
+                 ImGui::Text(C.CameraName.c_str());
+            }
+            ImGui::Unindent();
+            ImGui::TextColored(Style::RED(400, Setting::Get().Theme),"The names MUST be the same with the data base!");
+        }
+                
         // choose store repo
         ImGui::SetNextItemWidth(480.f);
-        ImGui::InputText("", &Data.TaskOutputDir, ImGuiInputTextFlags_ReadOnly);
+        ImGui::InputText("", &OutputDir, ImGuiInputTextFlags_ReadOnly);
         ImGui::SameLine();
         if (ImGui::Button("...##Btn_TaskOutputDir"))
         {
-            //         ImGuiFileDialog::Instance()->OpenDialog("ChooseTaskOutputDir", "Choose automation task output directory", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
-            // Modals::Get().IsChoosingFolder = true;
-            // ifd::FileDialog::Instance().Open("ChooseTaskOutputDir", "Choose automation task output directory",
-            //     "", false, Setting::Get().ProjectPath);
+            ImGuiFileDialog::Instance()->OpenDialog("ChooseTaskOutputDir", "Choose automation task output directory", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
         }
         ImGui::SameLine();
         ImGui::Text("Output Path");
-        ImGui::Unindent();
 
-        static bool IsDVRNameDifferent = true;
-        // register cameras
-        ImGui::BulletText("Register cameras");
-        ImGui::Indent();
-        ImGui::Checkbox("Camera name in DVR and in DataBase is different?", &IsDVRNameDifferent);
-        Utils::AddSimpleTooltip("In case your DVR system uses a different name for the camera than the name in the database, "
-                                "check this option and fill the DVR name in the right column");
-        ImGui::PushID("CameraName");
-        int i = 0;
-        for (auto& Camera : Data.Cameras)
+        // server data
+        ImGui::Text("Data Visualization in web application");
+        // server
+        ImGui::SetNextItemWidth(256.f);
+        ImGui::InputTextWithHint("Server address", "samplesite.com or 143.198.216.92", &Data.ServerAddress);
+        Utils::AddSimpleTooltip("The server address of your web application");
+        // account
+        ImGui::SetNextItemWidth(256.f);
+        ImGui::InputText("User account", &Data.ServerAccount);
+        Utils::AddSimpleTooltip("The user account in your web application");
+        // password
+        ImGui::SetNextItemWidth(256.f);
+        ImGui::InputText("User password", &Data.ServerPassword, ImGuiInputTextFlags_Password);
+
+        // dialogs in this section
+        if (ImGuiFileDialog::Instance()->Display("ChooseTaskInputDir", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
         {
-            ImGui::PushID(i);
-            ImGui::SetNextItemWidth(240.f);
-            ImGui::InputText("", &Camera.CameraName);
-            if (IsDVRNameDifferent)
+            if (ImGuiFileDialog::Instance()->IsOk())
             {
-                ImGui::SameLine();
-                ImGui::Text(ICON_FA_ARROW_LEFT);
-                ImGui::SameLine();
-                ImGui::SetNextItemWidth(240.f);
-                ImGui::InputText("(DVR)", &Camera.DVRName);
+                Data.TaskInputDir = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
+                Data.Cameras.clear();
+                for (const auto& entry : std::filesystem::directory_iterator(Data.TaskInputDir))
+                {
+                    if (!is_directory(entry.path()))
+                        continue;
+                    FCameraSetup NewCamera;
+                    NewCamera.CameraName = entry.path().filename().string();
+                    Data.Cameras.emplace_back(NewCamera);
+                }
             }
-            ImGui::PopID();
-            i++;
+            // close
+            ImGuiFileDialog::Instance()->Close();
         }
-        ImGui::PopID();
+        if (ImGuiFileDialog::Instance()->Display("ChooseTaskOutputDir", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
+        {
+            if (ImGuiFileDialog::Instance()->IsOk())
+            {
+                OutputDir = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
+            }
+            ImGuiFileDialog::Instance()->Close();
+        }
         
-        if (ImGui::Button(ICON_FA_PLUS))
-        {
-            if (Data.Cameras.size() < 6)
-            {
-                Data.Cameras.emplace_back();
-            }
-            
-        }
-        ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_MINUS))
-        {
-            if (Data.Cameras.size() > 1)
-            {
-                Data.Cameras.pop_back();
-            }
-        }
-        ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_SYNC))
-        {
-            Data.Cameras.clear();
-            Data.Cameras.emplace_back();
-        }
-        ImGui::Unindent();
+    }
 
-        // choose task mode
-        /*
-         * 1) run it for particular dates right now
-         * 2) run it for yesterday everyday
-         */
-        ImGui::BulletText("Task mode");
-        ImGui::Indent();
-        if (ImGui::RadioButton("Schedule", Data.IsTaskStartNow == false)) { Data.IsTaskStartNow = false; } ImGui::SameLine();
-        if (ImGui::RadioButton("Now", Data.IsTaskStartNow == true)) { Data.IsTaskStartNow = true; }
+
+    
+    void Deploy::RenderConfigureTask()
+    {
+        if (ImGui::RadioButton("Now", Data.IsTaskStartNow == true)) { Data.IsTaskStartNow = true; } ImGui::SameLine();
+        if (ImGui::RadioButton("Schedule", Data.IsTaskStartNow == false)) { Data.IsTaskStartNow = false; }
         if (Data.IsTaskStartNow)
         {
-            ImGui::TextColored(Style::RED(400, Setting::Get().Theme),"Run right now for given dates");
+            ImGui::TextColored(Style::RED(400, Setting::Get().Theme),"Target for given dates");
         }
         else
         {
-            ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "Run at given time everyday for yesterday's clips");
+            ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "Routinely run it everyday at %d:%d. Target on clips from previous day.", Data.ScheduledRuntime[0], Data.ScheduledRuntime[1]);
         }
         
-        if (!Data.IsTaskStartNow)
+        if (Data.IsTaskStartNow)
         {
-            // mode 1
-            // choose start time
-
-            ImGui::SetNextItemWidth(240.f);
-            if (ImGui::DragInt2("Scheduled Runtime (hour : minute)", Data.ScheduledRuntime, 1, 0, 59))
-            {
-                if (Data.ScheduledRuntime[0] > 23)
-                {
-                    Data.ScheduledRuntime[0] = 23;
-                }
-                if (Data.ScheduledRuntime[1] > 59)
-                {
-                    Data.ScheduledRuntime[1] = 59;
-                }
-            }
-        }
-        else
-        {
-            // mode 2
-            // choose date range or mutiple dates
+            // choose date range or multiple dates
             if (ImGui::RadioButton("Choose interval", Data.IsRunSpecifiedDates == false))
-                { Data.IsRunSpecifiedDates = false; }
+            {
+                Data.IsRunSpecifiedDates = false;
+            }
             ImGui::SameLine();
             if (ImGui::RadioButton("Pick dates", Data.IsRunSpecifiedDates == true))
             {
                 Data.IsRunSpecifiedDates = true;
             }
-            if (!Data.IsRunSpecifiedDates)
-            {
-                ImGui::SetNextItemWidth(360.f);
-                if (ImGui::DateChooser("Start Date", Data.StartDate, "%Y/%m/%d"))
-                {
-                    if (std::difftime(std::mktime(&Data.StartDate), std::mktime(&Data.EndDate)) > 0)
-                    {
-                        Data.EndDate = Data.StartDate;
-                    }
-                }
-                ImGui::SetNextItemWidth(360.f);
-                if (ImGui::DateChooser("End Date", Data.EndDate, "%Y/%m/%d"))
-                {
-                    if (std::difftime(std::mktime(&Data.StartDate), std::mktime(&Data.EndDate)) > 0)
-                    {
-                        Data.EndDate = Data.StartDate;
-                    }
-                }
-            }
-            else
+            if (Data.IsRunSpecifiedDates)
             {
                 ImGui::PushID("DatesChooser");
                 for (size_t j = 0; j < Data.RunDates.size(); j++)
                 {
                     ImGui::PushID(static_cast<int>(j));
-                    ImGui::SetNextItemWidth(240.f);
+                    ImGui::SetNextItemWidth(256.f);
                     ImGui::DateChooser("", Data.RunDates[j], "%Y/%m/%d");
                     ImGui::PopID();
                 }
@@ -396,8 +237,8 @@ namespace IFCS
                 ImGui::SameLine();
                 if (ImGui::Button(ICON_FA_MINUS))
                 {
-                    if (Data.RunDates.size() == 1) return;
-                    Data.RunDates.pop_back();
+                    if (Data.RunDates.size() > 1)
+                        Data.RunDates.pop_back();
                 }
                 ImGui::SameLine();
                 if (ImGui::Button(ICON_FA_SYNC))
@@ -407,617 +248,368 @@ namespace IFCS
                 }
                 ImGui::PopID();
             }
-        }
-        ImGui::Unindent();
-        
-        // how to handle these clips when done?
-        ImGui::BulletText("Post processing");
-        ImGui::Indent();
-        // enable important region backup
-        ImGui::Checkbox("Backup clips with important regions", &Data.ShouldBackupImportantRegions);
-        ImGui::SameLine();
-        ImGui::Text("(Minimum time for important region ");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(32.f);
-        ImGui::DragInt(" minutes)", &Data.BackupMinimumTime, 1, 1, 20, "%d");
-        Utils::AddSimpleTooltip("Minimum time for important region");
-        // enable combined clips backup
-        ImGui::Checkbox("Backup combinded clip", &Data.ShouldBackupCombinedClips);
-        // delete raw clips after backup?
-        if (Data.ShouldBackupImportantRegions || Data.ShouldBackupCombinedClips)
-        {
-            ImGui::Checkbox("Delete raw clips after backup?", &Data.ShouldDeleteRawClips);
+            else
+            {
+                ImGui::SetNextItemWidth(256.f);
+                if (ImGui::DateChooser("Start Date", Data.StartDate, "%Y/%m/%d"))
+                {
+                    if (std::difftime(std::mktime(&Data.StartDate), std::mktime(&Data.EndDate)) > 0)
+                    {
+                        Data.EndDate = Data.StartDate;
+                    }
+                }
+                ImGui::SetNextItemWidth(256.f);
+                if (ImGui::DateChooser("End Date", Data.EndDate, "%Y/%m/%d"))
+                {
+                    if (std::difftime(std::mktime(&Data.StartDate), std::mktime(&Data.EndDate)) > 0)
+                    {
+                        Data.EndDate = Data.StartDate;
+                    }
+                }
+            }
         }
         else
         {
-            Data.ShouldDeleteRawClips = false;
-        }
-        ImGui::Unindent();
-    }
-
-    static ImVec2 ReferenceImagePos;
-    static bool bAdding;
-    static ImVec2 AddPointStart;
-    static ImVec2 AddPointEnd;
-    static ImVec4 HintColor = Style::RED(400, Setting::Get().Theme);
-
-    void Deploy::CleanRegisteredCameras()
-    {
-        Data.Cameras.erase(
-            std::remove_if( Data.Cameras.begin(), Data.Cameras.end(), [](const FCameraSetup& camera) { return camera.CameraName.empty(); } ),
-            Data.Cameras.end()
-            );
-    }
-
-
-    // void Deploy::RenderFeasibilityTest()
-    // {
-    //     // setup for which camera?
-    //     if (ActiveDeployTab != EActiveDeployTab::FeasibilityTest)
-    //     {
-    //         CleanRegisteredCameras();
-    //     }
-    //
-    //     if (Data.Cameras.size() == 0)
-    //     {
-    //         ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "No camera is registered! Checkout autotation tab first!");
-    //         return;
-    //     }
-    //
-    //     // Choose camera combo
-    //     ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x * 0.5f - 180.f);
-    //     ImGui::SetNextItemWidth(360.f);
-    //     if (ImGui::BeginCombo("Choose Camera", Data.Cameras[CameraIndex_FT].CameraName.c_str()))
-    //     {
-    //         for (size_t i = 0; i < Data.Cameras.size(); i++)
-    //         {
-    //             if (ImGui::Selectable(Data.Cameras[i].CameraName.c_str(), CameraIndex_FT == i))
-    //             {
-    //                 CameraIndex_FT = i;
-    //             }
-    //         }
-    //         ImGui::EndCombo();
-    //     }
-    //     
-    //
-    //     // image widget and draw boxes
-    //     ImGui::SetCursorPosX((ImGui::GetWindowWidth() - WorkArea[0]) * 0.5f);
-    //     ReferenceImagePos = ImGui::GetCursorScreenPos();
-    //     ImGui::BeginChild("ReferenceImage", WorkArea);
-    //     {
-    //         ImGui::Image((void*)(intptr_t)ReferenceImagePtr, WorkArea);
-    //         if (bAdding)
-    //             RenderAddingProgress(AddPointStart);
-    //         RenderTestZones(ReferenceImagePos);
-    //     }
-    //     ImGui::EndChild();
-    //     if (ImGui::IsItemHovered())
-    //     {
-    //         if (ImGui::IsMouseClicked(0))
-    //         {
-    //             AddPointStart = ImGui::GetMousePos();
-    //             bAdding = true;
-    //         }
-    //     }
-    //     
-    //     // handle final input
-    //     if (bAdding && ImGui::IsMouseReleased(0))
-    //     {
-    //         bAdding = false;
-    //         
-    //         // add to feasible zones
-    //         FFeasibleZone NewZone;
-    //         NewZone.XYWH[0] = (abs(AddPointStart.x + AddPointEnd.x) / 2.f - ReferenceImagePos.x) / WorkArea.x; 
-    //         NewZone.XYWH[1] = (abs(AddPointStart.y + AddPointEnd.y) / 2.f - ReferenceImagePos.y) / WorkArea.y; 
-    //         NewZone.XYWH[2] = abs(AddPointStart.x - AddPointEnd.x) / WorkArea.x;
-    //         NewZone.XYWH[3] = abs(AddPointStart.y - AddPointEnd.y) / WorkArea.y;
-    //         // spdlog::info("is adding new zone with xywh: {}, {}, {}, {}  ... correct?", NewZone.XYWH[0], NewZone.XYWH[1], NewZone.XYWH[2], NewZone.XYWH[3]);
-    //         NewZone.ColorLower = NewZone.ColorUpper = GetAverageColor(NewZone.XYWH);
-    //         Data.Cameras[CameraIndex_FT].FeasibleZones.emplace_back(NewZone);
-    //     }
-    //
-    //     // choose image from some where
-    //     ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x * 0.5f - 325.f);
-    //     ImGui::Text("Reference Images Path");
-    //     ImGui::SameLine();
-    //     ImGui::SetNextItemWidth(325.f);
-    //     ImGui::InputText("", ReferenceImagePath, IM_ARRAYSIZE(ReferenceImagePath), ImGuiInputTextFlags_ReadOnly);
-    //     ImGui::SameLine();
-    //     if (ImGui::Button("...##Btn_FeasibilityRefImgDir"))
-    //     {
-    //                 ImGuiFileDialog::Instance()->OpenDialog("ChooseTaskOutputDir", "Choose automation task output directory", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
-    //         Modals::Get().IsChoosingFolder = true;
-    //         ifd::FileDialog::Instance().Open("ChooseFeasibilityReferenceImagePath", "Choose path to reference images",
-    //             "", false, Setting::Get().ProjectPath);
-    //     }
-    //     // draw control buttons
-    //     if (!ReferenceImages.empty())
-    //     {
-    //         std::string ImgName = ReferenceImages[CurrentRefImgIndex].substr(std::strlen(ReferenceImagePath) + 1);
-    //         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 360 - 64) * 0.5f);
-    //         ReferenceImagePos = ImGui::GetCursorScreenPos();
-    //         if (ImGui::Button(ICON_FA_ARROW_LEFT, ImVec2(32, 0)))
-    //         {
-    //             CurrentRefImgIndex++;
-    //             if (CurrentRefImgIndex >= ReferenceImages.size())
-    //                 CurrentRefImgIndex = 0;
-    //             UpdateReferenceImage();
-    //         }
-    //         Utils::AddSimpleTooltip("Previous");
-    //         ImGui::SameLine();
-    //         ImGui::BeginChildFrame(ImGui::GetID("ReferenceImageFileName"), ImVec2(360, ImGui::GetTextLineHeightWithSpacing() + 2));
-    //         float TextWidth = ImGui::CalcTextSize(ImgName.c_str()).x;
-    //         ImGui::SetCursorPosX(180 - TextWidth * 0.5f);
-    //         ImGui::Text("%s", ImgName.c_str());
-    //         ImGui::EndChildFrame();
-    //         ImGui::SameLine();
-    //         if (ImGui::Button(ICON_FA_ARROW_RIGHT, ImVec2(32, 0)))
-    //         {
-    //             CurrentRefImgIndex--;
-    //             if (CurrentRefImgIndex < 0)
-    //                 CurrentRefImgIndex = static_cast<int>(ReferenceImages.size()) - 1;
-    //             UpdateReferenceImage();
-    //         }
-    //         Utils::AddSimpleTooltip("Next");
-    //         ImGui::SameLine();
-    //         ImGui::ColorEdit3("##hint", (float*)&HintColor, ImGuiColorEditFlags_NoInputs);
-    //     }
-    //
-    //     if (Data.Cameras[CameraIndex_FT].FeasibleZones.empty())
-    //     {
-    //         ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "No feasibility test zone is registered!");
-    //         return;
-    //     }
-    //     ImGui::Separator();
-    //     ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x * 0.5f - ImGui::CalcTextSize("PASS").x * 0.5f );
-    //     ImGui::PushFont(Setting::Get().TitleFont);
-    //     if (IsTestZonesPassRefImg())
-    //         ImGui::TextColored(Style::GREEN(400, Setting::Get().Theme) ,"PASS");
-    //     else
-    //         ImGui::TextColored(Style::RED(400, Setting::Get().Theme) ,"FAIL");
-    //     ImGui::PopFont();
-    //     
-    //     static const ImVec2 SmallBtnSize = {32.f, 32.f};
-    //     static const ImVec2 ColorBtnSize = {64.f, 32.f};
-    //     static ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable| ImGuiTableFlags_NoHostExtendX | ImGuiTableFlags_SizingFixedFit;
-    //     ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x * 0.5f - 480.f);
-    //     if (ImGui::BeginTable("##ColorEditTable", 6, flags))
-    //     {
-    //         ImGui::TableSetupColumn("Zone ID", ImGuiTableColumnFlags_WidthFixed, 128.f);
-    //         ImGui::TableSetupColumn("Color in Ref", ImGuiTableColumnFlags_WidthFixed, 128.f);
-    //         ImGui::TableSetupColumn("Lower Color Limit", ImGuiTableColumnFlags_WidthFixed, 256.f);
-    //         ImGui::TableSetupColumn("Upper Color Limit", ImGuiTableColumnFlags_WidthFixed, 256.f);
-    //         ImGui::TableSetupColumn("Is Pass?", ImGuiTableColumnFlags_WidthFixed, 128.f);
-    //         ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 64.f);
-    //         ImGui::TableHeadersRow();
-    //         static ImGuiColorEditFlags flags = ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_NoAlpha |
-    //             ImGuiColorEditFlags_NoOptions | ImGuiColorEditFlags_NoDragDrop;
-    //         static ImVec4 BackupColor;
-    //         ImGui::PushID("ColorEdit");
-    //         for (int i = 0; i < Data.Cameras[CameraIndex_FT].FeasibleZones.size(); i++)
-    //         {
-    //             ImGui::PushID(i);
-    //             FFeasibleZone& Zone = Data.Cameras[CameraIndex_FT].FeasibleZones[i]; 
-    //             ImGui::TableNextRow();
-    //             ImGui::TableSetColumnIndex(0);
-    //             ImGui::Text("%d", i);
-    //             ImGui::TableSetColumnIndex(1);
-    //             ImGui::ColorButton("##Color", GetAverageColor(Zone.XYWH), ImGuiColorEditFlags_None, ColorBtnSize);
-    //             ImGui::TableSetColumnIndex(2);
-    //             if (ImGui::ColorButton("##LowerColor", Zone.ColorLower, ImGuiColorEditFlags_None, ColorBtnSize))
-    //             {
-    //                 ImGui::OpenPopup("LowerColorPicker");
-    //                 BackupColor = Zone.ColorLower;
-    //             }
-    //             if (ImGui::BeginPopup("LowerColorPicker"))
-    //             {
-    //                 ImGui::Text("Set lower color limit");
-    //                 ImGui::Separator();
-    //                 MakeColorPicker(&Zone.ColorLower, BackupColor);
-    //                 ImGui::EndPopup();
-    //             }
-    //             ImGui::SameLine();
-    //             if (ImGui::Button(ICON_FA_SYNC"##Lower", SmallBtnSize))
-    //             {
-    //                 Zone.ColorLower = GetAverageColor(Zone.XYWH); 
-    //             }
-    //             Utils::AddSimpleTooltip("Sync lower color limit to ref color");
-    //             ImGui::TableSetColumnIndex(3);
-    //             if (ImGui::ColorButton("##UpperColor", Zone.ColorUpper, ImGuiColorEditFlags_None, ColorBtnSize))
-    //             {
-    //                 ImGui::OpenPopup("UpperColorPicker");
-    //                 BackupColor = Zone.ColorUpper;
-    //             }
-    //             if (ImGui::BeginPopup("UpperColorPicker"))
-    //             {
-    //                 ImGui::Text("Set upper color limit");
-    //                 ImGui::Separator();
-    //                 MakeColorPicker(&Zone.ColorUpper, BackupColor);
-    //                 ImGui::EndPopup();
-    //             }
-    //             // ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 8));
-    //             // ImGui::ColorEdit3("##UpperColor", (float*)&Zone.ColorUpper, flags);
-    //             // ImGui::PopStyleVar();
-    //             ImGui::SameLine();
-    //             if(ImGui::Button(ICON_FA_SYNC"##Upper", SmallBtnSize))
-    //             {
-    //                 Zone.ColorUpper = GetAverageColor(Zone.XYWH);
-    //             }
-    //             Utils::AddSimpleTooltip("Sync upper color limit to ref color");
-    //             
-    //             ImGui::TableSetColumnIndex(4);
-    //             if (IsColorInRange(GetAverageColor(Zone.XYWH), Zone.ColorLower, Zone.ColorUpper))
-    //                 ImGui::TextColored(Style::GREEN(400, Setting::Get().Theme), "PASS");
-    //             else
-    //                 ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "FAIL");
-    //             ImGui::TableSetColumnIndex(5);
-    //             if (ImGui::Button(ICON_FA_TIMES, SmallBtnSize))
-    //             {
-    //                 Data.Cameras[CameraIndex_FT].FeasibleZones.erase(Data.Cameras[CameraIndex_FT].FeasibleZones.begin() + i);
-    //             }
-    //             Utils::AddSimpleTooltip("Remove this test zone?");
-    //             ImGui::PopID();
-    //         }
-    //         ImGui::PopID();
-    //         ImGui::EndTable();
-    //     }
-    //     ImGui::SameLine();
-    //     ImGui::PushStyleColor(ImGuiCol_Button, Style::RED(400, Setting::Get().Theme));
-    //     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Style::RED(600, Setting::Get().Theme));
-    //     ImGui::PushStyleColor(ImGuiCol_ButtonActive, Style::RED(700, Setting::Get().Theme));
-    //     if (ImGui::Button(ICON_FA_TRASH, SmallBtnSize))
-    //     {
-    //         Data.Cameras[CameraIndex_FT].FeasibleZones.clear();
-    //     }
-    //     ImGui::PopStyleColor(3);
-    //     Utils::AddSimpleTooltip("Clear all feasibility test zones");
-    //
-    //
-    // }
-
-    void Deploy::UpdateReferenceImage()
-    {
-        // imread and update info
-        ImgData = cv::imread(ReferenceImages[CurrentRefImgIndex]);
-
-        if (ImgData.empty())
-        {
-            // Solution to unicode path in opencv: https://stackoverflow.com/a/43369056
-            std::wstring wpath = Utils::ConvertUtf8ToWide(ReferenceImages[CurrentRefImgIndex]);
-            
-            std::ifstream f(wpath, std::iostream::binary);
-            // Get its size
-            std::filebuf* pbuf = f.rdbuf();
-            size_t size = pbuf->pubseekoff(0, f.end, f.in);
-            pbuf->pubseekpos(0, f.in);
-
-            // Put it in a vector
-            std::vector<uchar> buffer(size);
-            pbuf->sgetn((char*)buffer.data(), size);
-
-            // Decode the vector
-            ImgData = cv::imdecode(buffer, cv::IMREAD_COLOR);
-        }
-        cv::cvtColor(ImgData, ImgData, cv::COLOR_BGR2RGB);
-        cv::resize(ImgData, ImgData, cv::Size((int)WorkArea.x, (int)WorkArea.y));
-        glGenTextures(1, &ReferenceImagePtr);
-        glBindTexture(GL_TEXTURE_2D, ReferenceImagePtr);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); // Same
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, ImgData.cols, ImgData.rows, 0, GL_RGB,
-                     GL_UNSIGNED_BYTE, ImgData.data);
-    }
-
-    ImColor Deploy::GetAverageColor(const std::array<float, 4>& InXYWH)
-    {
-        if (ImgData.empty())
-            return {0.f ,0.f, 0.f, 1.f};
-        const int Width = ImgData.cols;
-        const int Height = ImgData.rows;
-        const cv::Rect ROI = cv::Rect(
-            static_cast<int>((InXYWH[0] - InXYWH[2] * 0.5f) * static_cast<float>(Width)),
-            static_cast<int>((InXYWH[1] - InXYWH[3] * 0.5f) * static_cast<float>(Height)),
-            static_cast<int>(InXYWH[2] * static_cast<float>(Width)),
-            static_cast<int>(InXYWH[3] * static_cast<float>(Height)));
-        const cv::Mat ImgRoi = ImgData(ROI);
-        cv::Scalar Avg = cv::mean(ImgRoi);
-        return ImColor(static_cast<int>(Avg[0]), static_cast<int>(Avg[1]), static_cast<int>(Avg[2]), 255);
-    }
-
-    void Deploy::RenderTestZones(ImVec2 StartPos)
-    {
-        int i = 0;
-        for (const FFeasibleZone& Zone : Data.Cameras[CameraIndex_FT].FeasibleZones)
-        {
-            float X = Zone.XYWH[0];
-            float Y = Zone.XYWH[1];
-            float W = Zone.XYWH[2];
-            float H = Zone.XYWH[3];
-            ImVec2 ZoneStartPos = StartPos + (ImVec2(X, Y) - ImVec2(W * 0.5f, H * 0.5f)) * WorkArea;
-            ImVec2 ZoneEndPos = ZoneStartPos + ImVec2(W, H) * WorkArea;
-            ImGui::GetWindowDrawList()->AddRectFilled(ZoneStartPos, ZoneEndPos, ImGui::ColorConvertFloat4ToU32(HintColor));
-            // render ID
-            ImVec2 LabelSize = ImGui::CalcTextSize(std::to_string(i).c_str());
-            ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), 18.f, (ZoneStartPos + ZoneEndPos - LabelSize)/2,
-                ImColor(1.f, 1.f, 1.f, 1.f), std::to_string(i).c_str());
-            i++;
-        }
-    }
-
-    void Deploy::RenderAddingProgress(ImVec2 StartPos)
-    {
-        AddPointEnd = ImGui::GetMousePos();
-        if (AddPointEnd.x > WorkArea.x + ReferenceImagePos.x)
-        {
-            AddPointEnd.x = WorkArea.x + ReferenceImagePos.x;
-        }
-        if (AddPointEnd.x < ReferenceImagePos.x)
-        {
-            AddPointEnd.x = ReferenceImagePos.x;
-        }
-        if (AddPointEnd.y > WorkArea.y + ReferenceImagePos.y)
-        {
-            AddPointEnd.y = WorkArea.y + ReferenceImagePos.y;
-        }
-        if (AddPointEnd.y < ReferenceImagePos.y)
-        {
-            AddPointEnd.y = ReferenceImagePos.y;
-        }
-        
-        ImGui::GetWindowDrawList()->AddRect(AddPointStart, AddPointEnd, ImColor(1.f, 0.f, 0.f, 1.f), 0, 0, 3);
-    }
-
-    void Deploy::MakeColorPicker(ImVec4* TargetColor, ImVec4 BackupColor)
-    {
-        ImGui::ColorPicker3("##picker", (float*)TargetColor, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoSmallPreview);
-        ImGui::SameLine();
-
-        ImGui::BeginGroup(); // Lock X position
-        ImGui::Text("Current");
-        ImGui::ColorButton("##current", *TargetColor, ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_AlphaPreviewHalf, ImVec2(60, 40));
-        ImGui::Text("Previous");
-        if (ImGui::ColorButton("##previous", BackupColor, ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_AlphaPreviewHalf, ImVec2(60, 40)))
-            *TargetColor = BackupColor;
-        ImGui::EndGroup();
-    }
-
-    bool Deploy::IsTestZonesPassRefImg()
-    {
-        for (const FFeasibleZone& Zone : Data.Cameras[CameraIndex_FT].FeasibleZones)
-        {
-            if (IsColorInRange(GetAverageColor(Zone.XYWH), Zone.ColorLower, Zone.ColorUpper))
+            // choose start time
+            ImGui::SetNextItemWidth(256.f);
+            if (ImGui::DragInt2("Scheduled Runtime (hour : minute)", Data.ScheduledRuntime, 1, 0, 59))
             {
-                return true;
-            } 
+                if (Data.ScheduledRuntime[0] > 23)
+                {
+                    Data.ScheduledRuntime[0] = 23;
+                }
+                if (Data.ScheduledRuntime[1] > 59)
+                {
+                    Data.ScheduledRuntime[1] = 59;
+                }
+            }
         }
-        return false;
-    }
+        // the data for each camera?
 
-    bool Deploy::IsColorInRange(ImVec4 TestColor, ImVec4 LowerColor, ImVec4 UpperColor)
-    {
-        return TestColor.x >= LowerColor.x && TestColor.x <= UpperColor.x &&
-               TestColor.y >= LowerColor.y && TestColor.y <= UpperColor.y &&
-               TestColor.z >= LowerColor.z && TestColor.z <= UpperColor.z;
-    }
-
-    static float TempFPS = 30.f;
-    
-    void Deploy::RenderDataPipeline()
-    {
-        if (ActiveDeployTab != EActiveDeployTab::DataPipeline)
+        ImGui::SetNextItemWidth(256.f);
+        ImGui::DragInt("Detection Period", &Data.DetectionPeriodInSecond, 1, 1, 120, "%d Seconds");
+        ImGui::SetNextItemWidth(256.f);
+        ImGui::DragInt("Pass Count Duration (minutes per hour)", &Data.PassCountDurationInMinutes, 1, 1, 59, "%d Minute");
+        ImGui::Text("Camera Setup:");
+        if (Data.Cameras.empty())
         {
-            CleanRegisteredCameras();
-        }
-        ImGui::BulletText("Time");
-        ImGui::Indent();
-        ImGui::DragInt("Detection Frequency", &Data.DetectionFrequency, 1, 1, 600, "%d Frames");
-        ImGui::Indent();
-        ImGui::Text("If your frame rate is ");ImGui::SameLine();
-        ImGui::SetNextItemWidth(64.f);
-        ImGui::DragFloat("##FPS_Count", &TempFPS, 0.1f, 0.f, 360.f, "%.1f"); ImGui::SameLine();
-        ImGui::Text(" , the detection will be performed every %.1f seconds.", static_cast<float>(Data.DetectionFrequency) / TempFPS);
-        ImGui::Unindent();
-        
-        ImGui::Checkbox("Day time only?", &Data.IsDaytimeOnly);
-        Utils::AddSimpleTooltip("The dectection will only be performed during day time only? (X AM to Y PM)");
-        if (Data.IsDaytimeOnly)
-        {
-            ImGui::DragInt("Detection Start Time", &Data.DetectionStartTime, 1, 0, 12, "%d AM");
-            ImGui::DragInt("Detection End Time", &Data.DetectionEndTime, 1, 0, 12, "%d PM");
-        }
-        
-        // count duration
-        ImGui::DragInt("Pass Count Duration", &Data.PassCountDuration, 1, 0, 60, "%d Minutes");
-        Utils::AddSimpleTooltip("Will performe per frame detection for X minutes at the start of every hour to estimate pass count.");
-
-        // count feasibility
-        ImGui::BulletText("Pass Count Feasibility");
-        ImGui::DragFloat("Feasibility Failure Threshold", &Data.PassCountFeasiblityThreshold, 0.01f, 0.f, 1.f, "%.2f");
-        Utils::AddSimpleTooltip("If the X/% of detections during the pass count duration failed the feasibility test, the pass count for this hour will be a infeasible.");
-        ImGui::Indent();
-        const float TotalDetectionsInPassCountDuration = static_cast<float>(Data.PassCountDuration) * 60 * TempFPS / static_cast<float>(Data.DetectionFrequency);
-        ImGui::Text("Over %.0f of %.0f infeasible detections will be considered as infeasible pass count.", Data.PassCountFeasiblityThreshold * TotalDetectionsInPassCountDuration, TotalDetectionsInPassCountDuration);
-        ImGui::Unindent();
-        ImGui::Unindent();
-
-        ImGui::Separator();
-        // model parameters
-        ImGui::BulletText("Model Parameters");
-        if (Data.Cameras.size() == 0)
-        {
-            ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "No camera is registered! Checkout autotation tab first!");
+            ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "No camera clips folder detected! Choose input folder first!");
             return;
         }
+        static bool UseSameCameraSetup = true;
+        static int SelectedCameraIdx = 0;
+        
+        ImGui::Checkbox("Apply same model / detection parameters / pass count parameters to all cameras?", &UseSameCameraSetup);
 
-        // for each camera...
-        // Choose camera combo
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(360.f);
-        if (ImGui::BeginCombo("Choose Camera", Data.Cameras[CameraIndex_DP].CameraName.c_str()))
+        ImGui::SetNextItemWidth(256.f);
+        if (ImGui::BeginCombo("Select Camera", Data.Cameras[SelectedCameraIdx].CameraName.c_str()))
         {
-            for (size_t i = 0; i < Data.Cameras.size(); i++)
+            for (int i = 0; i < Data.Cameras.size(); i++)
             {
-                if (ImGui::Selectable(Data.Cameras[i].CameraName.c_str(), CameraIndex_DP == i))
+                if (ImGui::Selectable(Data.Cameras[i].CameraName.c_str()))
                 {
-                    CameraIndex_DP = i;
+                    SelectedCameraIdx = i;   
                 }
             }
             ImGui::EndCombo();
         }
-        ImGui::Indent();
-
-        // choose model
+        
+        // model parameters
         static bool bUseExternalModelFile = false;
-        static bool bOverrideModelName = false;
-        static char SelectedModel[256] = "";
-
-        FCameraSetup* SelectedCamera = &Data.Cameras[CameraIndex_DP];
-        ImGui::BulletText("Common Parameters");
-        ImGui::Indent();
-
-        // TODO: make the model path correctly set...
-        // internal model name
-        if (bUseExternalModelFile)
+        if (InternalModelOptions.empty())
         {
-            ImGui::SetNextItemWidth(480.f);
-            ImGui::InputText("", &SelectedCamera->ModelFilePath, ImGuiInputTextFlags_ReadOnly);
-            ImGui::SameLine();
-            if (ImGui::Button("...##Btn_ExternModelFile"))
+            YAML::Node ModelData = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
+            for (YAML::const_iterator it = ModelData.begin(); it != ModelData.end(); ++it)
             {
-                //     ImGuiFileDialog::Instance()->OpenDialog("ChooseTaskOutputDir", "Choose automation task output directory", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
-                // Modals::Get().IsChoosingFolder = true;
-                // ifd::FileDialog::Instance().Open("ChooseExternalModelPath_Deploy", "Choose external model file",
-                //     "Model {.pt}", false, Setting::Get().ProjectPath);
+                InternalModelOptions.emplace_back(it->first.as<std::string>());
             }
-            ImGui::SameLine();
-            ImGui::Text("Choose external model file");
         }
-        else
+        if (ImGui::TreeNode("Choose model:"))
         {
-            if (SelectedModel[0] == '\0')
+            if (bUseExternalModelFile)
             {
-                YAML::Node ModelData = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
-                for (YAML::const_iterator it = ModelData.begin(); it != ModelData.end(); ++it)
+                ImGui::SetNextItemWidth(480.f);
+                ImGui::InputText("", &Data.Cameras[SelectedCameraIdx].ModelFilePath, ImGuiInputTextFlags_ReadOnly);
+                ImGui::SameLine();
+                if (ImGui::Button("...##Btn_ExternModelFile"))
                 {
-                    strcpy(SelectedModel, it->first.as<std::string>().c_str());
-                    break;
+                    ImGuiFileDialog::Instance()->OpenDialog("ChooseExternalModelPath_Deploy", "Choose external model file", ".pt", Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
+                }
+                ImGui::SameLine();
+                ImGui::Text("Choose external model file");
+
+                // the impl of file dialog
+                if (ImGuiFileDialog::Instance()->Display("ChooseExternalModelPath_Deploy", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
+                {
+                    if (ImGuiFileDialog::Instance()->IsOk())
+                    {
+                        const std::string ModelFilePath = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentFileName());
+                        if (UseSameCameraSetup)
+                        {
+                            for (auto& C : Data.Cameras)
+                            {
+                                C.ModelFilePath = ModelFilePath;
+                            }
+                        }
+                        else
+                        {
+                            Data.Cameras[SelectedCameraIdx].ModelFilePath = ModelFilePath;
+                        }
+                    }
+                    ImGuiFileDialog::Instance()->Close();
                 }
             }
-            if (ImGui::BeginCombo("Choose Model", SelectedModel))
+            else
             {
-                YAML::Node ModelData = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
-                for (YAML::const_iterator it = ModelData.begin(); it != ModelData.end(); ++it)
+                ImGui::SetNextItemWidth(256.f);
+                if (ImGui::BeginCombo("Choose Model", Data.Cameras[SelectedCameraIdx].ModelName.c_str()))
                 {
-                    auto Name = it->first.as<std::string>();
-                    if (ImGui::Selectable(Name.c_str(), Name == SelectedModel))
+                    for (const std::string& Name : InternalModelOptions)
                     {
-                        strcpy(SelectedModel, Name.c_str());
-                        SelectedCamera->ModelName = Name;
-                        SelectedCamera->ModelFilePath = Setting::Get().ProjectPath + "/Models/" + Name + "/weights/best.pt";
+                        if (ImGui::Selectable(Name.c_str(), Name == Data.Cameras[SelectedCameraIdx].ModelName))
+                        {
+                            if (UseSameCameraSetup)
+                            {
+                                for (auto& C : Data.Cameras)
+                                {
+                                    C.ModelName = Name;
+                                    C.ModelFilePath = Setting::Get().ProjectPath + "/Models/" + Name + "/weights/best.pt";
+                                }
+                                
+                            }
+                            else
+                            {
+                                Data.Cameras[SelectedCameraIdx].ModelName = Name;
+                                Data.Cameras[SelectedCameraIdx].ModelFilePath = Setting::Get().ProjectPath + "/Models/" + Name + "/weights/best.pt";
+                            }
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+            }
+            if (ImGui::Checkbox("Use external model?", &bUseExternalModelFile))
+            {
+                for (auto& C : Data.Cameras)
+                {
+                    C.ModelName.clear();
+                    C.ModelFilePath.clear();
+                }
+            }
+            ImGui::SetNextItemWidth(256.f);
+            if (ImGui::InputText("Model name", &Data.Cameras[SelectedCameraIdx].ModelName) && UseSameCameraSetup)
+            {
+                std::string NewName = Data.Cameras[SelectedCameraIdx].ModelName; 
+                for (auto& C : Data.Cameras)
+                {
+                    C.ModelName = NewName;
+                }
+            }
+            ImGui::TreePop();
+        }
+    
+        
+        // TODO: Should edit the category here?
+        /*
+         * this will be easier for me, but not the user...
+         * still need to spent some time to figure out get access to the categories in yolov7 model throught *.pt file
+         */
+
+        
+        // detection parameters
+        static std::string LoadedDetectionParamName = "";
+        if (ImGui::TreeNode("Set detection parameter"))
+        {
+            ImGui::SetNextItemWidth(256.f);
+            if (ImGui::BeginCombo("Load detection parameters from existing one?", LoadedDetectionParamName.c_str()))
+            {
+                YAML::Node DetectionData = YAML::LoadFile(Setting::Get().ProjectPath + "/Detections/Detections.yaml");
+                for (YAML::const_iterator it = DetectionData.begin(); it != DetectionData.end(); ++it)
+                {
+                    std::string DetectionName = it->first.as<std::string>();
+                    if (ImGui::Selectable(DetectionName.c_str(), DetectionName == LoadedDetectionParamName))
+                    {
+                        LoadedDetectionParamName = DetectionName;
+                        if (UseSameCameraSetup)
+                        {
+                            for (auto& C : Data.Cameras)
+                            {
+                                C.ImageSize = it->second["ImageSize"].as<int>();
+                                C.Confidence = it->second["Confidence"].as<float>();
+                                C.IOU = it->second["IOU"].as<float>();
+                            }
+                        }
+                        else
+                        {
+                            Data.Cameras[SelectedCameraIdx].ImageSize = it->second["ImageSize"].as<int>();
+                            Data.Cameras[SelectedCameraIdx].Confidence = it->second["Confidence"].as<float>();
+                            Data.Cameras[SelectedCameraIdx].IOU = it->second["IOU"].as<float>();
+                        }
                     }
                 }
                 ImGui::EndCombo();
             }
-            if (ImGui::Checkbox("Override Model Name?", &bOverrideModelName))
+            if (UseSameCameraSetup)
             {
-                SelectedCamera->ModelName = SelectedModel;
-            }
-        }
-        if (bUseExternalModelFile || bOverrideModelName)
-        {
-            ImGui::InputText("Model name", &SelectedCamera->ModelName);
-        }
-        if (ImGui::Checkbox("Use external model?", &bUseExternalModelFile))
-        {
-            if (bUseExternalModelFile)
+                ImGui::SetNextItemWidth(256.f);
+                if (ImGui::DragInt("Image Size", &Data.Cameras[0].ImageSize, 32, 128, 1024))
+                {
+                    int NewValue = Data.Cameras[0].ImageSize;
+                    for (auto& C : Data.Cameras)
+                        C.ImageSize = NewValue;
+                }
+                ImGui::SetNextItemWidth(256.f);
+                if (ImGui::DragFloat("Confidence", &Data.Cameras[0].Confidence, 0.05f, 0.01f, 0.95f, "%.2f"))
+                {
+                    float NewValue = Data.Cameras[0].Confidence;
+                    for (auto& C : Data.Cameras)
+                        C.Confidence = NewValue;
+                }
+                ImGui::SetNextItemWidth(256.f);
+                if (ImGui::DragFloat("IOU", &Data.Cameras[0].IOU, 0.05f, 0.01f, 0.95f, "%.2f"))
+                {
+                    float NewValue = Data.Cameras[0].IOU;
+                    for (auto& C : Data.Cameras)
+                        C.IOU = NewValue;
+                }
+            } else
             {
-                SelectedCamera->ModelName = "";
-                SelectedCamera->ModelFilePath = "";
+                ImGui::SetNextItemWidth(256.f);
+                ImGui::DragInt("Image Size", &Data.Cameras[0].ImageSize, 32, 128, 1024);
+                ImGui::SetNextItemWidth(256.f);
+                ImGui::DragFloat("Confidence", &Data.Cameras[0].Confidence, 0.05f, 0.01f, 0.95f, "%.2f");
+                ImGui::SetNextItemWidth(256.f);
+                ImGui::DragFloat("IOU", &Data.Cameras[0].IOU, 0.05f, 0.01f, 0.95f, "%.2f");
             }
-            else
+            if (ImGui::Checkbox("Should apply ROI on detection?", &Data.Cameras[SelectedCameraIdx].ShouldApplyDetectionROI))
             {
-                SelectedCamera->ModelName = SelectedModel;
-                SelectedCamera->ModelFilePath = Setting::Get().ProjectPath + "/Models/" + SelectedModel + "/weights/best.pt";
+                if (UseSameCameraSetup)
+                {
+                    bool NewValue = Data.Cameras[SelectedCameraIdx].ShouldApplyDetectionROI;
+                    for (auto& C : Data.Cameras)
+                    {
+                        C.ShouldApplyDetectionROI = NewValue;
+                        C.DetectionROI = {0.f, 0.f, 1.f, 1.f};
+                    }
+                }
+                else
+                {
+                    Data.Cameras[SelectedCameraIdx].DetectionROI = {0.f, 0.f, 1.f, 1.f};
+                }
             }
+            if (Data.Cameras[SelectedCameraIdx].ShouldApplyDetectionROI)
+            {
+                if (ImGui::SliderFloat4("ROI (x1, y1, x2, y2)", Data.Cameras[SelectedCameraIdx].DetectionROI.data(), 0.f, 1.0f) && UseSameCameraSetup)
+                {
+                    std::array<float,4> NewValue = Data.Cameras[SelectedCameraIdx].DetectionROI;
+                    for (auto& C : Data.Cameras)
+                    {
+                        C.DetectionROI = NewValue;
+                    }
+                }
+            }
+            ImGui::TreePop();
         }
-        
-        // image size
-        ImGui::DragInt("Image Size (Test)", &SelectedCamera->ImageSize, 32, 128, 1024);
-        // confidence threshold
-        ImGui::DragFloat("Confidence", &SelectedCamera->Confidence, 0.05f, 0.01f,0.95f, "%.2f");
-        // IOU
-        ImGui::DragFloat("IOU", &SelectedCamera->IOU, 0.05f, 0.01f,0.95f, "%.2f");
-        ImGui::Unindent();
 
-        
-        // detection ROI
-        ImGui::BulletText("Detection parameters");
-        ImGui::Indent();
-        ImGui::Checkbox("Set Detection ROI?", &SelectedCamera->ShouldApplyDetectionROI);
-        Utils::AddSimpleTooltip("Detection only applied to the region of interest (ROI)?");
-        if (SelectedCamera->ShouldApplyDetectionROI)
+        // pass count parameters
+        if (ImGui::TreeNode("Set pass count parameters"))
         {
-            ImGui::SliderFloat4("ROI (x1, y1, x2, y2)", SelectedCamera->DetectionROI, 0.f, 1.0f);
+            if (ImGui::RadioButton("Vertical", Data.Cameras[SelectedCameraIdx].IsPassVertical))
+            {
+                if (UseSameCameraSetup)
+                {
+                    for (auto& C : Data.Cameras)
+                        C.IsPassVertical = true;
+                }
+                else
+                {
+                    Data.Cameras[SelectedCameraIdx].IsPassVertical = true;
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Horizontal", !Data.Cameras[SelectedCameraIdx].IsPassVertical))
+            {
+                if (UseSameCameraSetup)
+                {
+                    for (auto& C : Data.Cameras)
+                        C.IsPassVertical = false;
+                }
+                else
+                {
+                    Data.Cameras[SelectedCameraIdx].IsPassVertical = false;
+                }
+            }
+            ImGui::SetNextItemWidth(256.f);
+            if (ImGui::SliderFloat2("Fish way start / end", Data.Cameras[SelectedCameraIdx].FishwayStartEnd.data() , 0.f, 1.f) && UseSameCameraSetup)
+            {
+                std::array<float, 2> NewValue = Data.Cameras[SelectedCameraIdx].FishwayStartEnd;
+                for (auto& C : Data.Cameras)
+                    C.FishwayStartEnd = NewValue;
+            }
+            if (ImGui::Checkbox("Enable max speed threshold?", &Data.Cameras[SelectedCameraIdx].ShouldEnableSpeedThreshold) && UseSameCameraSetup)
+            {
+                bool NewValue = Data.Cameras[SelectedCameraIdx].ShouldEnableSpeedThreshold;
+                for (auto& C : Data.Cameras)
+                    C.ShouldEnableSpeedThreshold = NewValue;
+                
+            }
+            if (ImGui::Checkbox("Enable similar body size threshold?", &Data.Cameras[SelectedCameraIdx].ShouldEnableBodySizeThreshold) && UseSameCameraSetup)
+            {
+                bool NewValue = Data.Cameras[SelectedCameraIdx].ShouldEnableBodySizeThreshold;
+                for (auto& C : Data.Cameras)
+                    C.ShouldEnableBodySizeThreshold = NewValue;
+                
+            }
+            if (Data.Cameras[SelectedCameraIdx].ShouldEnableSpeedThreshold)
+            {
+                ImGui::SetNextItemWidth(256.f);
+                if (ImGui::DragFloat("Max speed threshold", &Data.Cameras[SelectedCameraIdx].SpeedThreshold, 0.01f, 0.01f, 0.5f, "%.2f") && UseSameCameraSetup)
+                {
+                float NewValue = Data.Cameras[SelectedCameraIdx].SpeedThreshold;
+                for (auto& C : Data.Cameras)
+                    C.SpeedThreshold = NewValue;
+                    
+                }
+            }
+            if (Data.Cameras[SelectedCameraIdx].ShouldEnableBodySizeThreshold)
+            {
+                ImGui::SetNextItemWidth(256.f);
+                if (ImGui::DragFloat("Body size threshold", &Data.Cameras[SelectedCameraIdx].BodySizeThreshold, 0.01f, 0.01f, 0.5f, "%.2f") && UseSameCameraSetup)
+                {
+                float NewValue = Data.Cameras[SelectedCameraIdx].BodySizeThreshold;
+                for (auto& C : Data.Cameras)
+                    C.BodySizeThreshold = NewValue;
+                    
+                }
+            }
+            ImGui::SetNextItemWidth(256.f);
+            if (ImGui::DragFloat("Confidence threshold", &Data.Cameras[SelectedCameraIdx].SpeciesDetermineThreshold, 0.01f, 0.01f, 0.5f, "%.2f") && UseSameCameraSetup)
+            {
+                float NewValue = Data.Cameras[SelectedCameraIdx].SpeciesDetermineThreshold;
+                for (auto& C : Data.Cameras)
+                    C.SpeciesDetermineThreshold = NewValue;
+                
+            }
+            ImGui::SetNextItemWidth(256.f);
+            if (ImGui::DragInt("Frames buffer threshold", &Data.Cameras[SelectedCameraIdx].FrameBufferSize, 1, 1, 60) && UseSameCameraSetup)
+            {
+                float NewValue = Data.Cameras[SelectedCameraIdx].FrameBufferSize;
+                for (auto& C : Data.Cameras)
+                    C.FrameBufferSize = NewValue;
+            }
         }
-        ImGui::Unindent();
-        // count direction vertical or horizontal
-        ImGui::BulletText("Pass count parameters");
-        ImGui::Indent();
-        ImGui::Text("Set Fish way start and end:");
-        if (ImGui::RadioButton("Vertical", SelectedCamera->IsPassVertical))
-        {
-            SelectedCamera->IsPassVertical = true;
-        }
-        ImGui::SameLine();
-        if (ImGui::RadioButton("Horizontal", !SelectedCamera->IsPassVertical))
-        {
-            SelectedCamera->IsPassVertical = false;
-        }
-        ImGui::SameLine();
-        ImGui::SliderFloat2("Fish way start / end", SelectedCamera->FishwayStartEnd , 0.f, 1.f);
-        ImGui::Checkbox("Enable max speed threshould?", &SelectedCamera->ShouldEnableSpeedThreshold);
-        ImGui::Checkbox("Enable similar body size threshould?", &SelectedCamera->ShouldEnableBodySizeThreshold);
-        if (SelectedCamera->ShouldEnableSpeedThreshold)
-        {
-            ImGui::DragFloat("Max speed threshould", &SelectedCamera->SpeedThreshold, 0.01f, 0.01f, 0.5f, "%.2f");
-        }
-        if (SelectedCamera->ShouldEnableBodySizeThreshold)
-        {
-            ImGui::DragFloat("Body size threshould", &SelectedCamera->BodySizeThreshold, 0.01f, 0.01f, 0.5f, "%.2f");
-        }
-        ImGui::DragFloat("Confidence threshold", &SelectedCamera->SpeciesDetermineThreshold, 0.01f, 0.01f, 0.5f, "%.2f");
-        ImGui::DragInt("Frames buffer threshold", &SelectedCamera->FrameBufferSize, 1, 1, 60);
-        ImGui::Unindent();
-        ImGui::Unindent();
-        // count parameters? how to access?
-
-        ImGui::Separator();
-        // server settings
-        ImGui::BulletText("Server");
-        ImGui::Indent();
-        // server
-        ImGui::InputText("Server", &Data.Server);
-        Utils::AddSimpleTooltip("The server address of your web application");
-        // account
-        ImGui::InputText("User account", &Data.ServerAccount);
-        Utils::AddSimpleTooltip("The user account of your web application");
-        // passwordd
-        ImGui::InputText("Password", &Data.ServerPassword, ImGuiInputTextFlags_Password);
-        ImGui::Unindent();
-        
     }
 
-    void Deploy::RenderSMSNotification()
+    void Deploy::RenderNotification()
     {
+        // SMS notify groups
         // twilio account, api key, phone number
-        ImGui::BulletText("Twilio setup");
-        ImGui::Indent();
+        ImGui::SetNextItemWidth(256.f);
         ImGui::InputText("Twilio account SID", &Data.TwilioSID);
+        ImGui::SetNextItemWidth(256.f);
         ImGui::InputText("Twilio Auth Token", &Data.TwilioAuthToken, ImGuiInputTextFlags_Password);
+        ImGui::SetNextItemWidth(256.f);
         ImGui::InputText("Twilio phone number", &Data.TwilioPhoneNumber, ImGuiInputTextFlags_CharsDecimal);
-        ImGui::SetNextItemWidth(240.f);
+        ImGui::SetNextItemWidth(256.f);
         if (ImGui::DragInt2("When should SMS send?", Data.SMS_SendTime, 1, 0, 59))
         {
             if (Data.SMS_SendTime[0] > 23)
@@ -1029,13 +621,10 @@ namespace IFCS
                 Data.SMS_SendTime[1] = 59;
             }
         }
-        ImGui::Unindent();
-        
         // register receivers
-        ImGui::BulletText("Register receivers");
-        ImGui::Indent();
+        ImGui::Text("SMS receivers");
+        ImGui::SetNextItemWidth(256);
         ImGui::InputText("Area Code", &Data.ReceiverAreaCode, ImGuiInputTextFlags_CharsDecimal);
-
         ImGui::Text("Name");
         ImGui::SameLine(256, 32);
         ImGui::Text("Phone Numer");
@@ -1053,7 +642,7 @@ namespace IFCS
                 ImGui::SetNextItemWidth(256);
                 ImGui::InputText("##Receiver phone number", &Data.SMSReceivers[i].Phone, ImGuiInputTextFlags_CharsDecimal);
                 ImGui::TableNextColumn();
-                ImGui::SetNextItemWidth(128);
+                ImGui::SetNextItemWidth(256);
                 if (ImGui::BeginCombo("##group", Data.SMSReceivers[i].Group.c_str()))
                 {
                     if (ImGui::Selectable("Manager", Data.SMSReceivers[i].Group == "Manager"))
@@ -1067,13 +656,13 @@ namespace IFCS
                 ImGui::TableNextColumn();
                 if (ImGui::Button(ICON_FA_TIMES))
                 {
-                    Data.SMSReceivers.erase(Data.SMSReceivers.begin() + i);
+                    if (Data.SMSReceivers.size() > 1)
+                        Data.SMSReceivers.erase(Data.SMSReceivers.begin() + i);
                 }
                 ImGui::PopID();
             }
             ImGui::EndTable();
         }
-        
         if (ImGui::Button(ICON_FA_PLUS"##Btn_AddReceiver"))
         {
             Data.SMSReceivers.emplace_back();
@@ -1084,16 +673,11 @@ namespace IFCS
             Data.SMSReceivers.clear();
             Data.SMSReceivers.emplace_back();
         }
-        ImGui::Unindent();
-
         static bool TempBool;
-        ImGui::BulletText("Content");
-        ImGui::Indent();
+        ImGui::Text("Content");
         static bool ShouldReportDailySummary = false;
         static bool ShouldReportWeeklySummary = false;
         static bool ShouldReportMonthlySummary = false;
-        static bool ShouldReportFirstDayInfeasible = false;
-        static bool ShouldReportXDaysInfeasible = false;
         static bool ShouldReportLoseConnetion = false;
         static bool ShouldNotifyScriptStart = false;
         // condition and message and frequency
@@ -1156,46 +740,6 @@ namespace IFCS
                 ImGui::PopID();
             }
             ImGui::TableNextColumn();
-            ImGui::Text("Feasibility");
-            ImGui::TableNextColumn();
-            if (ImGui::Checkbox("First day", &ShouldReportFirstDayInfeasible))
-            {
-                Data.InFeasibleFirstDaySendGroup.GroupManager = false;
-                Data.InFeasibleFirstDaySendGroup.GroupClient = false;
-                Data.InFeasibleFirstDaySendGroup.GroupHelper = false;
-            }
-            ImGui::TableNextColumn();
-            if (ShouldReportFirstDayInfeasible)
-            {
-                ImGui::PushID("InfeasibleFirstDayGroup");
-                ImGui::Checkbox("Manager", &Data.InFeasibleFirstDaySendGroup.GroupManager);ImGui::SameLine();
-                ImGui::Checkbox("Client",  &Data.InFeasibleFirstDaySendGroup.GroupClient);ImGui::SameLine();
-                ImGui::Checkbox("Helper",  &Data.InFeasibleFirstDaySendGroup.GroupHelper);
-                ImGui::PopID();
-            }
-            ImGui::TableNextColumn();
-            ImGui::TableNextColumn();
-            if (ImGui::Checkbox("Continuing for", &ShouldReportXDaysInfeasible))
-            {
-                Data.InFeasibleXDaysSendGroup.GroupManager = false;
-                Data.InFeasibleXDaysSendGroup.GroupClient = false;
-                Data.InFeasibleXDaysSendGroup.GroupHelper = false;
-            }
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(48);
-            ImGui::DragInt("##ContinuingDays", &Data.InFeasibleTolerate, 1, 2, 14);
-            ImGui::SameLine();
-            ImGui::Text("days");
-            ImGui::TableNextColumn();
-            if (ShouldReportXDaysInfeasible)
-            {
-                ImGui::PushID("InfeasibleXDaysGroup");
-                ImGui::Checkbox("Manager", &Data.InFeasibleXDaysSendGroup.GroupManager);ImGui::SameLine();
-                ImGui::Checkbox("Client",  &Data.InFeasibleXDaysSendGroup.GroupClient);ImGui::SameLine();
-                ImGui::Checkbox("Helper",  &Data.InFeasibleXDaysSendGroup.GroupHelper);
-                ImGui::PopID();
-            }
-            ImGui::TableNextColumn();
             ImGui::Text("Server");
             ImGui::TableNextColumn();
             if (ImGui::Checkbox("Lose connection", &ShouldReportLoseConnetion))
@@ -1233,10 +777,5 @@ namespace IFCS
             }
             ImGui::EndTable();
         }
-        
-
-        ImGui::Unindent();
     }
-
-
 }

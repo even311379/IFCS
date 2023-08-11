@@ -12,10 +12,12 @@ namespace IFCS
 
         Application();
         ~Application();
-        
+
         void init();
 
         void run();
+
+        bool RequestToUpdateFont = false;
 
         bool RequestToChangeTitle = false;
         
@@ -27,7 +29,10 @@ namespace IFCS
 
 
     private:
+        void BuildFont();
+        
         GLFWwindow* Window;
+        
         ImVec4 ClearColor = ImVec4(0.45f,0.55f, 0.60f, 1.00f);
         
     };

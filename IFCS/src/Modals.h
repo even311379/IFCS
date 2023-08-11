@@ -50,6 +50,7 @@ namespace IFCS
         void RenderDoc(const char* DocName);
         void RenderDeleteModal(EAssetType AssetType);
         void HandleFileDialogClose();
+        bool NeedToRestartApp = false;
     };
     
 }
