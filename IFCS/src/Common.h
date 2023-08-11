@@ -299,6 +299,7 @@ namespace IFCS
         // feasible data
 
         // model data
+        bool UseExternalModel = false;
         std::string ModelName;
         std::string ModelFilePath;
         int ImageSize = 640;
@@ -350,7 +351,9 @@ namespace IFCS
         void Deserialize(const YAML::Node& InputNode);
         
         std::string TaskInputDir;
+        std::string TaskOutputDir;
         std::vector<FCameraSetup> Cameras = {FCameraSetup()}; // DB name -> camera setup
+        bool UseSameCameraSetup = false;
         bool IsTaskStartNow = false;
         int ScheduledRuntime[2] = {3, 0}; // default time: 3:00AM to start the task...
         bool IsRunSpecifiedDates = false;

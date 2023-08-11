@@ -1477,7 +1477,7 @@ namespace IFCS
                 std::string PtFile = Setting::Get().YoloV7Path + "/" + ModelOptions[SelectedModelIdx] + "_training.pt";
                 if (!std::filesystem::exists(PtFile))
                 {
-                    std::string AppPath = std::filesystem::current_path().u8string();
+                    std::string AppPath = Utils::ChangePathSlash(std::filesystem::current_path().u8string());
                     std::string DownloadWeightCommand = Setting::Get().PythonPath + "/python " + AppPath +
                         "/Scripts/DownloadWeight.py --model " + std::string(ModelOptions[SelectedModelIdx]);
                     std::ofstream ofs;

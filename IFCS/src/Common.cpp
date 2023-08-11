@@ -744,6 +744,8 @@ namespace IFCS
     {
         YAML::Node Out;
         Out["TaskInputDir"] = TaskInputDir;
+        Out["TaskOutputDir"] = TaskOutputDir;
+        Out["UseSameCameraSetup"] = UseSameCameraSetup;
         for (const auto& Camera : Cameras)
         {
             Out["Cameras"].push_back(Camera.Serialize());
@@ -800,6 +802,9 @@ namespace IFCS
     {
         // deserialize all
         TaskInputDir = InputNode["TaskInputDir"].as<std::string>();
+        TaskOutputDir = InputNode["TaskOutputDir"].as<std::string>();
+        UseSameCameraSetup = InputNode["UseSameCameraSetup"].as<bool>();
+        Cameras.clear();
         for (YAML::const_iterator it = InputNode["Cameras"].begin(); it != InputNode["Cameras"].end(); ++it)
         {
             Cameras.emplace_back(it->as<YAML::Node>());

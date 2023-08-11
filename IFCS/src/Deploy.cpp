@@ -37,23 +37,6 @@ namespace IFCS
         std::ofstream(ConfigFilePath + "/DeployConfig.yaml") << Out.c_str();
     }
 
-    void Deploy::GenerateRunScript(const std::string& ScriptsLocation)
-    {
-        // write config file
-        YAML::Emitter Out;
-        YAML::Node OutNode = Data.Serialize();
-        OutNode["YoloV7Path"] = Setting::Get().YoloV7Path;
-        Out << OutNode;
-        std::ofstream(ScriptsLocation + "/IFCS_DeployConfig.yaml") << Out.c_str();
-        // copy python file
-        std::filesystem::copy_file("Scripts/IFCS_Deploy.py", ScriptsLocation + "/IFCS_Deploy.py", std::filesystem::copy_options::overwrite_existing);
-        // write run script
-        std::ofstream ofs;
-        ofs.open(ScriptsLocation + "/RUN.bat");
-        ofs << Setting::Get().PythonPath << "/python.exe IFCS_Deploy.py";
-        ofs.close();
-    }
-
     void Deploy::RenderContent()
     {
         ImVec2 DeployWindowSize = ImGui::GetContentRegionAvail();
@@ -87,30 +70,33 @@ namespace IFCS
         ImGui::SameLine();
         if (ImGui::Button(ICON_FA_DOWNLOAD))
         {
-            ImGuiFileDialog::Instance()->OpenDialog("LoadDeployConfigFile", "Choose configuration file to load", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
+            ImGuiFileDialog::Instance()->OpenDialog("LoadDeployConfigFile", "Choose configuration file to load", ".yaml", Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
         }
         Utils::AddSimpleTooltip("Load configuration from file");
         ImGui::SameLine(ImGui::GetContentRegionAvail().x - 280);
         if (ImGui::Button("Generate Script", ImVec2(270, 0)))
         {
-            if (OutputDir.empty()) return;
+            if (Data.TaskOutputDir.empty()) return;
             // write config file
             YAML::Emitter Out;
             YAML::Node OutNode = Data.Serialize();
             OutNode["YoloV7Path"] = Setting::Get().YoloV7Path;
             Out << OutNode;
-            std::ofstream(OutputDir + "/IFCS_DeployConfig.yaml") << Out.c_str();
+            std::ofstream fout(Data.TaskOutputDir + "/IFCS_DeployConfig.yaml");
+            fout << Out.c_str();
             // copy python file
-            std::filesystem::copy_file("Scripts/IFCS_Deploy.py", OutputDir + "/IFCS_Deploy.py", std::filesystem::copy_options::overwrite_existing);
+            std::string AppPath = Utils::ChangePathSlash(std::filesystem::current_path().u8string());
+            std::filesystem::copy_file(AppPath + "/Scripts/IFCS_Deploy.py", Data.TaskOutputDir + "/IFCS_Deploy.py", std::filesystem::copy_options::overwrite_existing);
             // write run script
             std::ofstream ofs;
-            ofs.open(OutputDir + "/RUN.bat");
+            ofs.open(Data.TaskOutputDir + "/RUN.bat");
             ofs << Setting::Get().PythonPath << "/python.exe IFCS_Deploy.py";
             ofs.close();
-            ShellExecuteA(NULL, "open", OutputDir.c_str(), NULL, NULL, SW_SHOWDEFAULT);
+            ShellExecuteA(NULL, "open", Data.TaskOutputDir.c_str(), NULL, NULL, SW_SHOWDEFAULT);
         }
     }
 
+    
     void Deploy::RenderInputOutput()
     {
         ImGui::SetNextItemWidth(480.f);
@@ -137,7 +123,7 @@ namespace IFCS
                 
         // choose store repo
         ImGui::SetNextItemWidth(480.f);
-        ImGui::InputText("", &OutputDir, ImGuiInputTextFlags_ReadOnly);
+        ImGui::InputText("", &Data.TaskOutputDir, ImGuiInputTextFlags_ReadOnly);
         ImGui::SameLine();
         if (ImGui::Button("...##Btn_TaskOutputDir"))
         {
@@ -183,7 +169,7 @@ namespace IFCS
         {
             if (ImGuiFileDialog::Instance()->IsOk())
             {
-                OutputDir = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
+                Data.TaskOutputDir = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
             }
             ImGuiFileDialog::Instance()->Close();
         }
@@ -286,20 +272,22 @@ namespace IFCS
         }
         // the data for each camera?
 
+        ImGui::Text("Detection frequency");
         ImGui::SetNextItemWidth(256.f);
-        ImGui::DragInt("Detection Period", &Data.DetectionPeriodInSecond, 1, 1, 120, "%d Seconds");
+        ImGui::DragInt("Detection Period (every X seconds)", &Data.DetectionPeriodInSecond, 1, 1, 120, "%d Seconds");
+        Utils::AddSimpleTooltip("Detect targets in screen every X seconds");
         ImGui::SetNextItemWidth(256.f);
         ImGui::DragInt("Pass Count Duration (minutes per hour)", &Data.PassCountDurationInMinutes, 1, 1, 59, "%d Minute");
+        Utils::AddSimpleTooltip("Perform per frame detection to estimate pass count for first X minutes per hour");
         ImGui::Text("Camera Setup:");
         if (Data.Cameras.empty())
         {
             ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "No camera clips folder detected! Choose input folder first!");
             return;
         }
-        static bool UseSameCameraSetup = true;
         static int SelectedCameraIdx = 0;
         
-        ImGui::Checkbox("Apply same model / detection parameters / pass count parameters to all cameras?", &UseSameCameraSetup);
+        ImGui::Checkbox("Apply same model / detection parameters / pass count parameters to all cameras?", &Data.UseSameCameraSetup);
 
         ImGui::SetNextItemWidth(256.f);
         if (ImGui::BeginCombo("Select Camera", Data.Cameras[SelectedCameraIdx].CameraName.c_str()))
@@ -315,7 +303,7 @@ namespace IFCS
         }
         
         // model parameters
-        static bool bUseExternalModelFile = false;
+        static std::vector<std::string> InternalModelOptions;
         if (InternalModelOptions.empty())
         {
             YAML::Node ModelData = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
@@ -326,7 +314,23 @@ namespace IFCS
         }
         if (ImGui::TreeNode("Choose model:"))
         {
-            if (bUseExternalModelFile)
+            if (ImGui::Checkbox("Use external model?", &Data.Cameras[SelectedCameraIdx].UseExternalModel))
+            {
+                if (Data.UseSameCameraSetup)
+                {
+                    for (auto& C : Data.Cameras)
+                    {
+                        C.ModelName.clear();
+                        C.ModelFilePath.clear();
+                    }
+                }
+                else
+                {
+                    Data.Cameras[SelectedCameraIdx].ModelName.clear();
+                    Data.Cameras[SelectedCameraIdx].ModelFilePath.clear();
+                }
+            }
+            if (Data.Cameras[SelectedCameraIdx].UseExternalModel)
             {
                 ImGui::SetNextItemWidth(480.f);
                 ImGui::InputText("", &Data.Cameras[SelectedCameraIdx].ModelFilePath, ImGuiInputTextFlags_ReadOnly);
@@ -337,6 +341,16 @@ namespace IFCS
                 }
                 ImGui::SameLine();
                 ImGui::Text("Choose external model file");
+                
+                ImGui::SetNextItemWidth(256.f);
+                if (ImGui::InputText("Model name", &Data.Cameras[SelectedCameraIdx].ModelName) && Data.UseSameCameraSetup)
+                {
+                    std::string NewName = Data.Cameras[SelectedCameraIdx].ModelName; 
+                    for (auto& C : Data.Cameras)
+                    {
+                        C.ModelName = NewName;
+                    }
+                }
 
                 // the impl of file dialog
                 if (ImGuiFileDialog::Instance()->Display("ChooseExternalModelPath_Deploy", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
@@ -344,7 +358,7 @@ namespace IFCS
                     if (ImGuiFileDialog::Instance()->IsOk())
                     {
                         const std::string ModelFilePath = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentFileName());
-                        if (UseSameCameraSetup)
+                        if (Data.UseSameCameraSetup)
                         {
                             for (auto& C : Data.Cameras)
                             {
@@ -368,14 +382,13 @@ namespace IFCS
                     {
                         if (ImGui::Selectable(Name.c_str(), Name == Data.Cameras[SelectedCameraIdx].ModelName))
                         {
-                            if (UseSameCameraSetup)
+                            if (Data.UseSameCameraSetup)
                             {
                                 for (auto& C : Data.Cameras)
                                 {
                                     C.ModelName = Name;
                                     C.ModelFilePath = Setting::Get().ProjectPath + "/Models/" + Name + "/weights/best.pt";
                                 }
-                                
                             }
                             else
                             {
@@ -387,23 +400,7 @@ namespace IFCS
                     ImGui::EndCombo();
                 }
             }
-            if (ImGui::Checkbox("Use external model?", &bUseExternalModelFile))
-            {
-                for (auto& C : Data.Cameras)
-                {
-                    C.ModelName.clear();
-                    C.ModelFilePath.clear();
-                }
-            }
-            ImGui::SetNextItemWidth(256.f);
-            if (ImGui::InputText("Model name", &Data.Cameras[SelectedCameraIdx].ModelName) && UseSameCameraSetup)
-            {
-                std::string NewName = Data.Cameras[SelectedCameraIdx].ModelName; 
-                for (auto& C : Data.Cameras)
-                {
-                    C.ModelName = NewName;
-                }
-            }
+
             ImGui::TreePop();
         }
     
@@ -429,7 +426,7 @@ namespace IFCS
                     if (ImGui::Selectable(DetectionName.c_str(), DetectionName == LoadedDetectionParamName))
                     {
                         LoadedDetectionParamName = DetectionName;
-                        if (UseSameCameraSetup)
+                        if (Data.UseSameCameraSetup)
                         {
                             for (auto& C : Data.Cameras)
                             {
@@ -448,24 +445,24 @@ namespace IFCS
                 }
                 ImGui::EndCombo();
             }
-            if (UseSameCameraSetup)
+            if (Data.UseSameCameraSetup)
             {
                 ImGui::SetNextItemWidth(256.f);
-                if (ImGui::DragInt("Image Size", &Data.Cameras[0].ImageSize, 32, 128, 1024))
+                if (ImGui::DragInt("Image Size", &Data.Cameras[SelectedCameraIdx].ImageSize, 32, 128, 1024))
                 {
                     int NewValue = Data.Cameras[0].ImageSize;
                     for (auto& C : Data.Cameras)
                         C.ImageSize = NewValue;
                 }
                 ImGui::SetNextItemWidth(256.f);
-                if (ImGui::DragFloat("Confidence", &Data.Cameras[0].Confidence, 0.05f, 0.01f, 0.95f, "%.2f"))
+                if (ImGui::DragFloat("Confidence", &Data.Cameras[SelectedCameraIdx].Confidence, 0.05f, 0.01f, 0.95f, "%.2f"))
                 {
                     float NewValue = Data.Cameras[0].Confidence;
                     for (auto& C : Data.Cameras)
                         C.Confidence = NewValue;
                 }
                 ImGui::SetNextItemWidth(256.f);
-                if (ImGui::DragFloat("IOU", &Data.Cameras[0].IOU, 0.05f, 0.01f, 0.95f, "%.2f"))
+                if (ImGui::DragFloat("IOU", &Data.Cameras[SelectedCameraIdx].IOU, 0.05f, 0.01f, 0.95f, "%.2f"))
                 {
                     float NewValue = Data.Cameras[0].IOU;
                     for (auto& C : Data.Cameras)
@@ -474,15 +471,15 @@ namespace IFCS
             } else
             {
                 ImGui::SetNextItemWidth(256.f);
-                ImGui::DragInt("Image Size", &Data.Cameras[0].ImageSize, 32, 128, 1024);
+                ImGui::DragInt("Image Size", &Data.Cameras[SelectedCameraIdx].ImageSize, 32, 128, 1024);
                 ImGui::SetNextItemWidth(256.f);
-                ImGui::DragFloat("Confidence", &Data.Cameras[0].Confidence, 0.05f, 0.01f, 0.95f, "%.2f");
+                ImGui::DragFloat("Confidence", &Data.Cameras[SelectedCameraIdx].Confidence, 0.05f, 0.01f, 0.95f, "%.2f");
                 ImGui::SetNextItemWidth(256.f);
-                ImGui::DragFloat("IOU", &Data.Cameras[0].IOU, 0.05f, 0.01f, 0.95f, "%.2f");
+                ImGui::DragFloat("IOU", &Data.Cameras[SelectedCameraIdx].IOU, 0.05f, 0.01f, 0.95f, "%.2f");
             }
             if (ImGui::Checkbox("Should apply ROI on detection?", &Data.Cameras[SelectedCameraIdx].ShouldApplyDetectionROI))
             {
-                if (UseSameCameraSetup)
+                if (Data.UseSameCameraSetup)
                 {
                     bool NewValue = Data.Cameras[SelectedCameraIdx].ShouldApplyDetectionROI;
                     for (auto& C : Data.Cameras)
@@ -498,7 +495,8 @@ namespace IFCS
             }
             if (Data.Cameras[SelectedCameraIdx].ShouldApplyDetectionROI)
             {
-                if (ImGui::SliderFloat4("ROI (x1, y1, x2, y2)", Data.Cameras[SelectedCameraIdx].DetectionROI.data(), 0.f, 1.0f) && UseSameCameraSetup)
+                ImGui::SetNextItemWidth(480.f);
+                if (ImGui::SliderFloat4("ROI (x1, y1, x2, y2)", Data.Cameras[SelectedCameraIdx].DetectionROI.data(), 0.f, 1.0f) && Data.UseSameCameraSetup)
                 {
                     std::array<float,4> NewValue = Data.Cameras[SelectedCameraIdx].DetectionROI;
                     for (auto& C : Data.Cameras)
@@ -515,7 +513,7 @@ namespace IFCS
         {
             if (ImGui::RadioButton("Vertical", Data.Cameras[SelectedCameraIdx].IsPassVertical))
             {
-                if (UseSameCameraSetup)
+                if (Data.UseSameCameraSetup)
                 {
                     for (auto& C : Data.Cameras)
                         C.IsPassVertical = true;
@@ -528,7 +526,7 @@ namespace IFCS
             ImGui::SameLine();
             if (ImGui::RadioButton("Horizontal", !Data.Cameras[SelectedCameraIdx].IsPassVertical))
             {
-                if (UseSameCameraSetup)
+                if (Data.UseSameCameraSetup)
                 {
                     for (auto& C : Data.Cameras)
                         C.IsPassVertical = false;
@@ -539,20 +537,20 @@ namespace IFCS
                 }
             }
             ImGui::SetNextItemWidth(256.f);
-            if (ImGui::SliderFloat2("Fish way start / end", Data.Cameras[SelectedCameraIdx].FishwayStartEnd.data() , 0.f, 1.f) && UseSameCameraSetup)
+            if (ImGui::SliderFloat2("Fish way start / end", Data.Cameras[SelectedCameraIdx].FishwayStartEnd.data() , 0.f, 1.f) && Data.UseSameCameraSetup)
             {
                 std::array<float, 2> NewValue = Data.Cameras[SelectedCameraIdx].FishwayStartEnd;
                 for (auto& C : Data.Cameras)
                     C.FishwayStartEnd = NewValue;
             }
-            if (ImGui::Checkbox("Enable max speed threshold?", &Data.Cameras[SelectedCameraIdx].ShouldEnableSpeedThreshold) && UseSameCameraSetup)
+            if (ImGui::Checkbox("Enable max speed threshold?", &Data.Cameras[SelectedCameraIdx].ShouldEnableSpeedThreshold) && Data.UseSameCameraSetup)
             {
                 bool NewValue = Data.Cameras[SelectedCameraIdx].ShouldEnableSpeedThreshold;
                 for (auto& C : Data.Cameras)
                     C.ShouldEnableSpeedThreshold = NewValue;
                 
             }
-            if (ImGui::Checkbox("Enable similar body size threshold?", &Data.Cameras[SelectedCameraIdx].ShouldEnableBodySizeThreshold) && UseSameCameraSetup)
+            if (ImGui::Checkbox("Enable similar body size threshold?", &Data.Cameras[SelectedCameraIdx].ShouldEnableBodySizeThreshold) && Data.UseSameCameraSetup)
             {
                 bool NewValue = Data.Cameras[SelectedCameraIdx].ShouldEnableBodySizeThreshold;
                 for (auto& C : Data.Cameras)
@@ -562,7 +560,7 @@ namespace IFCS
             if (Data.Cameras[SelectedCameraIdx].ShouldEnableSpeedThreshold)
             {
                 ImGui::SetNextItemWidth(256.f);
-                if (ImGui::DragFloat("Max speed threshold", &Data.Cameras[SelectedCameraIdx].SpeedThreshold, 0.01f, 0.01f, 0.5f, "%.2f") && UseSameCameraSetup)
+                if (ImGui::DragFloat("Max speed threshold", &Data.Cameras[SelectedCameraIdx].SpeedThreshold, 0.01f, 0.01f, 0.5f, "%.2f") && Data.UseSameCameraSetup)
                 {
                 float NewValue = Data.Cameras[SelectedCameraIdx].SpeedThreshold;
                 for (auto& C : Data.Cameras)
@@ -573,7 +571,7 @@ namespace IFCS
             if (Data.Cameras[SelectedCameraIdx].ShouldEnableBodySizeThreshold)
             {
                 ImGui::SetNextItemWidth(256.f);
-                if (ImGui::DragFloat("Body size threshold", &Data.Cameras[SelectedCameraIdx].BodySizeThreshold, 0.01f, 0.01f, 0.5f, "%.2f") && UseSameCameraSetup)
+                if (ImGui::DragFloat("Body size threshold", &Data.Cameras[SelectedCameraIdx].BodySizeThreshold, 0.01f, 0.01f, 0.5f, "%.2f") && Data.UseSameCameraSetup)
                 {
                 float NewValue = Data.Cameras[SelectedCameraIdx].BodySizeThreshold;
                 for (auto& C : Data.Cameras)
@@ -582,7 +580,7 @@ namespace IFCS
                 }
             }
             ImGui::SetNextItemWidth(256.f);
-            if (ImGui::DragFloat("Confidence threshold", &Data.Cameras[SelectedCameraIdx].SpeciesDetermineThreshold, 0.01f, 0.01f, 0.5f, "%.2f") && UseSameCameraSetup)
+            if (ImGui::DragFloat("Confidence threshold", &Data.Cameras[SelectedCameraIdx].SpeciesDetermineThreshold, 0.01f, 0.01f, 0.5f, "%.2f") && Data.UseSameCameraSetup)
             {
                 float NewValue = Data.Cameras[SelectedCameraIdx].SpeciesDetermineThreshold;
                 for (auto& C : Data.Cameras)
@@ -590,7 +588,7 @@ namespace IFCS
                 
             }
             ImGui::SetNextItemWidth(256.f);
-            if (ImGui::DragInt("Frames buffer threshold", &Data.Cameras[SelectedCameraIdx].FrameBufferSize, 1, 1, 60) && UseSameCameraSetup)
+            if (ImGui::DragInt("Frames buffer threshold", &Data.Cameras[SelectedCameraIdx].FrameBufferSize, 1, 1, 60) && Data.UseSameCameraSetup)
             {
                 float NewValue = Data.Cameras[SelectedCameraIdx].FrameBufferSize;
                 for (auto& C : Data.Cameras)
@@ -610,7 +608,7 @@ namespace IFCS
         ImGui::SetNextItemWidth(256.f);
         ImGui::InputText("Twilio phone number", &Data.TwilioPhoneNumber, ImGuiInputTextFlags_CharsDecimal);
         ImGui::SetNextItemWidth(256.f);
-        if (ImGui::DragInt2("When should SMS send?", Data.SMS_SendTime, 1, 0, 59))
+        if (ImGui::DragInt2("When should SMS send? (Hour:Minute)", Data.SMS_SendTime, 1, 0, 59))
         {
             if (Data.SMS_SendTime[0] > 23)
             {

@@ -1039,19 +1039,9 @@ namespace IFCS
         {
             if (ImGuiFileDialog::Instance()->IsOk())
             {
-                Deploy::Get().LoadConfigFile(Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentFileName()));
+                Deploy::Get().LoadConfigFile(Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetFilePathName()));
             }
             ImGuiFileDialog::Instance()->Close();
         }
-
-        if (ImGuiFileDialog::Instance()->Display("GenerateDeployScriptsLocation", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
-        {
-            if (ImGuiFileDialog::Instance()->IsOk())
-            {
-                Deploy::Get().GenerateRunScript(Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath()));
-            }
-            ImGuiFileDialog::Instance()->Close();
-        }
-
     }
 }
