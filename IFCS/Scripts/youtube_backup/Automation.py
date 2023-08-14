@@ -40,7 +40,7 @@ if __name__ ==  "__main__":
                     (clip_length == 120 and now.hour%2 == 1 and now.minute == 59):
                     for cam in cameras:
                         target_path = target_folder + "/" + cam["Name"]
-                        subprocess.Popen(f"{sys.executable} YoutubeDVR_Task.py --clip_length {clip_length} --video_id {cam['StreamID']} --path {target_path} --start_now", shell=True)                
+                        subprocess.Popen(f"{sys.executable} YoutubeDVR_Task.py --clip_length {clip_length} --video_id {cam['StreamID']} --path {target_path}", shell=True)                
                     clips_recording += 1
         time.sleep(1)
         
