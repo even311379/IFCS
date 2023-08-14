@@ -95,6 +95,13 @@ namespace IFCS
                               });
         }
 
+        std::string ChangePathSlash(const std::string& InString)
+        {
+            std::string Temp = InString;
+            std::replace(Temp.begin(), Temp.end(), '\\', '/');
+            return Temp;
+        }
+
         // std::wstring ToWString(const std::string& InString)
         // {
         //     // Solution to convert string to wstring: https://stackoverflow.com/a/18597384

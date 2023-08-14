@@ -3,9 +3,10 @@
 #include <thread>
 #include <fstream>
 #include <shellapi.h>
-#include "ImFileDialog/ImFileDialog.h"
+#include "ImGuiFileDialog/ImGuiFileDialog.h"
 #include "ImguiMD/imgui_markdown.h"
 #include "yaml-cpp/yaml.h"
+#include "misc/cpp/imgui_stdlib.h"
 
 #include "Style.h"
 #include "Setting.h"
@@ -14,6 +15,12 @@
 #include "Deploy.h"
 #include "Train.h"
 
+#include <locale>
+#include <codecvt>
+#include <IconFontCppHeaders/IconsFontAwesome5.h>
+
+#include "Annotation.h"
+#include "Application.h"
 
 namespace IFCS
 {
@@ -119,27 +126,24 @@ namespace IFCS
 
     void Modals::Render()
     {
-        if (!IsChoosingFolder)
-        {
-            if (IsModalOpen_Welcome)
-                ImGui::OpenPopup("Welcome");
-            if (IsModalOpen_NewProject)
-                ImGui::OpenPopup("New Project");
-            if (IsModalOpen_LoadProject)
-                ImGui::OpenPopup("Load Project");
-            if (IsModalOpen_ImportData)
-                ImGui::OpenPopup("Import Data");
-            if (IsModalOpen_Setting)
-                ImGui::OpenPopup("Setting");
-            if (IsModalOpen_About)
-                ImGui::OpenPopup("About");
-            if (IsModalOpen_Tutorial)
-                ImGui::OpenPopup("Tutorial");
-            if (IsModalOpen_Contact)
-                ImGui::OpenPopup("Contact");
-            if (IsModalOpen_License)
-                ImGui::OpenPopup("License");
-        }
+        if (IsModalOpen_Welcome)
+            ImGui::OpenPopup("Welcome");
+        if (IsModalOpen_NewProject)
+            ImGui::OpenPopup("New Project");
+        if (IsModalOpen_LoadProject)
+            ImGui::OpenPopup("Load Project");
+        if (IsModalOpen_ImportData)
+            ImGui::OpenPopup("Import Data");
+        if (IsModalOpen_Setting)
+            ImGui::OpenPopup("Setting");
+        if (IsModalOpen_About)
+            ImGui::OpenPopup("About");
+        if (IsModalOpen_Tutorial)
+            ImGui::OpenPopup("Tutorial");
+        if (IsModalOpen_Contact)
+            ImGui::OpenPopup("Contact");
+        if (IsModalOpen_License)
+            ImGui::OpenPopup("License");
         Center = ImGui::GetMainViewport()->GetCenter();
         RenderWelcome();
         RenderNewProject();
@@ -181,9 +185,8 @@ namespace IFCS
                 ImGui::SameLine();
                 if (ImGui::Button("Choose Existing Project"))
                 {
-                    IsChoosingFolder = true;
-                    ifd::FileDialog::Instance().Open("ChooseExistingProjectLocationDialog",
-                                                     "Choose existing project location", "");
+                    ImGuiFileDialog::Instance()->OpenDialog("ChooseExistingProjectLocationDialog", "Choose existing project location",
+                        nullptr, ".", "", 1, nullptr, ImGuiFileDialogFlags_Modal);
                 }
                 ImGui::BeginDisabled(!CheckValidExistingProject());
                 if (ImGui::Button("OK", ImVec2(ImGui::GetWindowWidth() * 0.2f, ImGui::GetFontSize() * 1.5f)))
@@ -209,9 +212,8 @@ namespace IFCS
                 ImGui::SameLine();
                 if (ImGui::Button("Choose"))
                 {
-                    IsChoosingFolder = true;
-                    ifd::FileDialog::Instance().Open("ChooseNewProjectLocationDialog", "Choose new project location",
-                                                     "");
+                    ImGuiFileDialog::Instance()->OpenDialog("ChooseNewProjectLocationDialog", "Choose new project location", nullptr,
+                        ".", "", 1, nullptr, ImGuiFileDialogFlags_Modal);
                 }
                 ImGui::BeginDisabled(!CheckValidProjectName());
                 if (ImGui::Button("OK", ImVec2(240, 0)))
@@ -229,6 +231,24 @@ namespace IFCS
                     ImGui::SameLine();
                     ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "Fill in valid content");
                 }
+            }
+            if (ImGuiFileDialog::Instance()->Display("ChooseNewProjectLocationDialog", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
+            {
+                if (ImGuiFileDialog::Instance()->IsOk())
+                {
+                    std::string RawString = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
+                    strcpy(TempProjectLocation, RawString.c_str());
+                }
+                ImGuiFileDialog::Instance()->Close();
+            }
+            if (ImGuiFileDialog::Instance()->Display("ChooseExistingProjectLocationDialog", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600)))
+            {
+                if (ImGuiFileDialog::Instance()->IsOk())
+                {
+                    std::string RawString = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
+                    strcpy(TempExistingProjectLocation, RawString.c_str());
+                }
+                ImGuiFileDialog::Instance()->Close();
             }
             ImGui::EndPopup();
         }
@@ -275,9 +295,8 @@ namespace IFCS
             ImGui::SameLine();
             if (ImGui::Button("Choose"))
             {
-                IsChoosingFolder = true;
-                ifd::FileDialog::Instance().Open("ChooseNewProjectLocationDialog", "Choose new project location", "",
-                    false, Setting::Get().ProjectPath);
+                ImGuiFileDialog::Instance()->OpenDialog("ChooseNewProjectLocationDialog", "Choose new project location", nullptr, ".", "", 1, nullptr,
+                    ImGuiFileDialogFlags_Modal);
             }
             ImGui::BeginDisabled(!CheckValidProjectName());
             if (ImGui::Button("OK", ImVec2(240, 0)))
@@ -301,6 +320,15 @@ namespace IFCS
             {
                 ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "Fill in valid content");
             }
+            if (ImGuiFileDialog::Instance()->Display("ChooseNewProjectLocationDialog", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
+            {
+                if (ImGuiFileDialog::Instance()->IsOk())
+                {
+                    std::string RawString = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
+                    strcpy(TempProjectLocation, RawString.c_str());
+                }
+                ImGuiFileDialog::Instance()->Close();
+            }
             ImGui::EndPopup();
         }
     }
@@ -317,9 +345,7 @@ namespace IFCS
             ImGui::SameLine();
             if (ImGui::Button("Choose Existing Project"))
             {
-                IsChoosingFolder = true;
-                ifd::FileDialog::Instance().Open("ChooseExistingProjectLocationDialog",
-                                                 "Choose existing project location", "", false, Setting::Get().ProjectPath);
+                ImGuiFileDialog::Instance()->OpenDialog("ChooseExistingProjectLocationDialog", "Choose existing project location", nullptr, Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
             }
             ImGui::BeginDisabled(!CheckValidExistingProject());
             if (ImGui::Button("OK", ImVec2(240, 0)))
@@ -336,6 +362,15 @@ namespace IFCS
             {
                 ImGui::CloseCurrentPopup();
                 IsModalOpen_LoadProject = false;
+            }
+            if (ImGuiFileDialog::Instance()->Display("ChooseExistingProjectLocationDialog", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600)))
+            {
+                if (ImGuiFileDialog::Instance()->IsOk())
+                {
+                    std::string RawString = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
+                    strcpy(TempExistingProjectLocation, RawString.c_str());
+                }
+                ImGuiFileDialog::Instance()->Close();
             }
             ImGui::EndPopup();
         }
@@ -363,7 +398,6 @@ namespace IFCS
             InvalidReason = "Loaded data is corrupted!";
             return;
         }
-        //TODO: need test
         // check if category is valid
         std::vector<std::string> RegisteredCatNames;
         for (const auto& [ID, Cat] : CategoryManagement::Get().Data)
@@ -378,7 +412,6 @@ namespace IFCS
                 return;
             }
         }
-        size_t RelPathOffset = DataToImport["SourceProject"].as<std::string>().size();
         // check if img/clip file exists
         std::set<std::string> SourceFiles;
         for (YAML::const_iterator it = DataToImport["Annotations"].begin();
@@ -395,14 +428,13 @@ namespace IFCS
         }
         for (const auto& f : SourceFiles)
         {
-            if (!Utils::Contains(AllSourceFiles, f.substr(RelPathOffset)))
+            if (!Utils::Contains(AllSourceFiles, f))
             {
                 IsSourceValid = false;
                 InvalidReason = "Some image / clip file is missing in target project!";
                 return;
             }
         }
-
         // calculate conflicted stuff
         YAML::Node SourceAnnotation = DataToImport["Annotations"];
         YAML::Node TargetAnnotation = YAML::LoadFile(
@@ -411,12 +443,12 @@ namespace IFCS
         {
             for (YAML::const_iterator t = TargetAnnotation.begin(); t != TargetAnnotation.end(); ++t)
             {
-                if (s->first.as<std::string>().substr(RelPathOffset) ==
-                    t->first.as<std::string>().substr(Setting::Get().ProjectPath.size()))
+            // if (std::string(TempProjectName).find(C) != std::string::npos)
+                if (s->first.as<std::string>() == t->first.as<std::string>())
                 {
                     std::string FileName = s->first.as<std::string>();
                     std::string FileExtension = FileName.substr(FileName.size() - 4);
-
+                
                     if (Utils::Contains(DataBrowser::Get().AcceptedClipsFormat, FileExtension))
                     {
                         for (YAML::const_iterator sf = s->second.begin(); sf != s->second.end(); ++sf)
@@ -426,7 +458,7 @@ namespace IFCS
                                 if (sf->first.as<int>() == tf->first.as<int>())
                                 {
                                     NumConflicted += 1;
-                                    std::string fn = s->first.as<std::string>().substr(RelPathOffset);
+                                    std::string fn = s->first.as<std::string>();
                                     if (!ConflictedFrames.count(fn))
                                         ConflictedFrames[fn] = {sf->first.as<int>()};
                                     else
@@ -435,10 +467,10 @@ namespace IFCS
                             }
                         }
                     }
-                    else // it's just image
+                    else
                     {
                         NumConflicted += 1;
-                        std::string fn = s->first.as<std::string>().substr(RelPathOffset);
+                        std::string fn = s->first.as<std::string>();
                         ConflictedFrames[fn] = {0};
                     }
                 }
@@ -485,7 +517,7 @@ namespace IFCS
                     }
                     ANode["IsReady"] = false;
                     ANode["UpdateTime"] = Utils::GetCurrentTimeString();
-                    ToImport[Setting::Get().ProjectPath + FileName.substr(OldPath.size())][f->first.as<int>()] = ANode;
+                    ToImport[FileName][f->first.as<int>()] = ANode;
                 }
             }
             else // it's just image
@@ -508,13 +540,12 @@ namespace IFCS
         {
             for (const auto& [f, ANode] : Anns)
             {
-                const std::string Rel = FilePath.substr(Setting::Get().ProjectPath.size());
                 switch (ConflictProcessingMode)
                 {
                 case 0: // all
-                    if (ConflictedFrames.count(Rel))
+                    if (ConflictedFrames.count(FilePath))
                     {
-                        if (Utils::Contains(ConflictedFrames[Rel], f))
+                        if (Utils::Contains(ConflictedFrames[FilePath], f))
                         {
                             for (YAML::const_iterator a = ANode.begin(); a != ANode.end(); ++a)
                                 TargetAnnotations[FilePath][f][a->first.as<std::string>()] = a->second;
@@ -525,9 +556,9 @@ namespace IFCS
                     TargetAnnotations[FilePath][f] = ANode;
                     break;
                 case 1: // source
-                    if (ConflictedFrames.count(Rel))
+                    if (ConflictedFrames.count(FilePath))
                     {
-                        if (Utils::Contains(ConflictedFrames[Rel], f))
+                        if (Utils::Contains(ConflictedFrames[FilePath], f))
                         {
                             break;
                         }
@@ -537,6 +568,7 @@ namespace IFCS
                 case 2: // target
                     TargetAnnotations[FilePath][f] = ANode;
                     break;
+                default: ;
                 }
             }
         }
@@ -545,6 +577,16 @@ namespace IFCS
         std::ofstream Fout(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
         Fout << Out.c_str();
         CategoryManagement::Get().NeedUpdate = true;
+
+        // TODO: need to reopen editor...
+        /*
+         * somehow ask program to load data file now will result in crash...
+         * probably due to the data is still writing to file...
+         * need someway to wait for writing file...
+         */
+        
+        // Annotation::Get().LoadDataFile();
+        // Annotation::Get().NeedSaveFile = true;
     }
 
 
@@ -565,9 +607,8 @@ namespace IFCS
                 ImGui::SameLine();
                 if (ImGui::Button("Choose data to import"))
                 {
-                    ifd::FileDialog::Instance().Open("ChooseDataToImportDialogue",
-                                                     "Choose data to import", "Data {.yaml}", false, Setting::Get().ProjectPath);
-                    IsChoosingFolder = true;
+                    ImGuiFileDialog::Instance()->OpenDialog("ChooseDataToImportDialogue", "Choose data to import", ".yaml",
+                        Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
                 }
                 if (!IsSourceValid)
                 {
@@ -648,6 +689,16 @@ namespace IFCS
                 ImGui::CloseCurrentPopup();
                 IsModalOpen_ImportData = false;
             }
+            if (ImGuiFileDialog::Instance()->Display("ChooseDataToImportDialogue", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
+            {
+                if (ImGuiFileDialog::Instance()->IsOk())
+                {
+                    std::string RawString = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetFilePathName());
+                    strcpy(FileToImport, RawString.c_str());
+                    CheckIsDataValidToImport();
+                }
+                ImGuiFileDialog::Instance()->Close();
+            }
             ImGui::EndPopup();
         }
     }
@@ -673,11 +724,30 @@ namespace IFCS
                     Setting::Get().Theme = ETheme::Dark;
                     Style::ApplyTheme(ETheme::Dark);
                 }
+                ImGui::InputTextWithHint("Font file", "Default (NotoSansCJKtc-Black.otf)", &Setting::Get().Font, ImGuiInputTextFlags_ReadOnly);
+                ImGui::SameLine();
+                if (ImGui::Button("..."))
+                {
+                    ImGuiFileDialog::Instance()->OpenDialog("SetNewFontFile", "Choose font file", ".ttf,.otf", Setting::Get().ProjectPath,
+                        1, nullptr, ImGuiFileDialogFlags_Modal);
+                }
+                ImGui::SameLine();
+                if (ImGui::Button(ICON_FA_TIMES))
+                {
+                    if (!Setting::Get().Font.empty())
+                    {
+                        Setting::Get().Font.clear();
+                        NeedToRestartApp = true;
+                    }
+                }
+                if (NeedToRestartApp)
+                {
+                    ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "Restart to activate change in font!");
+                }
                 ImGui::TreePop();
             }
             if (ImGui::TreeNodeEx("Editor", ImGuiTreeNodeFlags_DefaultOpen))
             {
-
                 ImGui::Checkbox("Auto Save", &Setting::Get().bEnableAutoSave);
                 if (Setting::Get().bEnableAutoSave)
                 {
@@ -721,18 +791,17 @@ namespace IFCS
                 ImGui::BulletText("Yolo v7 Environment");
                 ImGui::InputText("Python path", TempPythonPath, IM_ARRAYSIZE(TempPythonPath), ImGuiInputTextFlags_ReadOnly);
                 ImGui::SameLine();
-                if (ImGui::Button("Choose"))
+                if (ImGui::Button("..."))
                 {
-                    IsChoosingFolder = true;
-                    ifd::FileDialog::Instance().Open("ChoosePythonPath", "Choose python path", "");
+                    ImGuiFileDialog::Instance()->OpenDialog("ChoosePythonPath", "Choose python path", nullptr, ".", 1,
+                        nullptr, ImGuiFileDialogFlags_Modal);
                 }
                 ImGui::InputText("Yolo v7 path", TempYoloV7Path, IM_ARRAYSIZE(TempYoloV7Path),
                                  ImGuiInputTextFlags_ReadOnly);
                 ImGui::SameLine();
-                if (ImGui::Button("Choose Yolo V7 Folder"))
+                if (ImGui::Button("..."))
                 {
-                    IsChoosingFolder = true;
-                    ifd::FileDialog::Instance().Open("ChooseYoloV7Path", "Choose yolo V7 path", "");
+                    ImGuiFileDialog::Instance()->OpenDialog("ChooseYoloV7Path", "Choose yolo V7 path", nullptr, ".", 1, nullptr, ImGuiFileDialogFlags_Modal);
                 }
                 ImGui::TreePop();
             }
@@ -741,6 +810,36 @@ namespace IFCS
             {
                 ImGui::CloseCurrentPopup();
                 IsModalOpen_Setting = false;
+            }
+            // handle file dialogs...
+            if (ImGuiFileDialog::Instance()->Display("ChoosePythonPath", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
+            {
+                if (ImGuiFileDialog::Instance()->IsOk())
+                {
+                    std::string RawString = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
+                    strcpy(TempPythonPath, RawString.c_str());
+                    Setting::Get().PythonPath = RawString;
+                }
+                ImGuiFileDialog::Instance()->Close();
+            }
+            if (ImGuiFileDialog::Instance()->Display("ChooseYoloV7Path", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
+            {
+                if (ImGuiFileDialog::Instance()->IsOk())
+                {
+                    std::string RawString = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
+                    strcpy(TempYoloV7Path, RawString.c_str());
+                    Setting::Get().YoloV7Path = RawString;
+                }
+                ImGuiFileDialog::Instance()->Close();
+            }
+            if (ImGuiFileDialog::Instance()->Display("SetNewFontFile", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
+            {
+                if (ImGuiFileDialog::Instance()->IsOk())
+                {
+                    Setting::Get().Font = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetFilePathName());
+                    NeedToRestartApp = true;
+                }
+                ImGuiFileDialog::Instance()->Close();
             }
             ImGui::EndPopup();
         }
@@ -893,60 +992,17 @@ namespace IFCS
         }
     }
 
+    // TODO: maybe handle file dialog display at the place where the window is summoned?
+    // or only leave the dialog that are used multiple times?
+    
     void Modals::HandleFileDialogClose()
     {
-        if (ifd::FileDialog::Instance().IsDone("ChooseExistingProjectLocationDialog"))
+        if (ImGuiFileDialog::Instance()->Display("ChooseExportAnnotationDialog", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600)))
         {
-            if (ifd::FileDialog::Instance().HasResult())
-            {
-                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-                std::replace(RawString.begin(), RawString.end(), '\\', '/');
-                strcpy(TempExistingProjectLocation, RawString.c_str());
-            }
-            ifd::FileDialog::Instance().Close();
-            IsChoosingFolder = false;
-        }
-        if (ifd::FileDialog::Instance().IsDone("ChooseNewProjectLocationDialog"))
-        {
-            if (ifd::FileDialog::Instance().HasResult())
-            {
-                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-                std::replace(RawString.begin(), RawString.end(), '\\', '/');
-                strcpy(TempProjectLocation, RawString.c_str());
-            }
-            ifd::FileDialog::Instance().Close();
-            IsChoosingFolder = false;
-        }
-        if (ifd::FileDialog::Instance().IsDone("ChoosePythonPath"))
-        {
-            if (ifd::FileDialog::Instance().HasResult())
-            {
-                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-                std::replace(RawString.begin(), RawString.end(), '\\', '/');
-                strcpy(TempPythonPath, RawString.c_str());
-                Setting::Get().PythonPath = RawString;
-            }
-            ifd::FileDialog::Instance().Close();
-            IsChoosingFolder = false;
-        }
-        if (ifd::FileDialog::Instance().IsDone("ChooseYoloV7Path"))
-        {
-            if (ifd::FileDialog::Instance().HasResult())
-            {
-                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-                std::replace(RawString.begin(), RawString.end(), '\\', '/');
-                strcpy(TempYoloV7Path, RawString.c_str());
-                Setting::Get().YoloV7Path = RawString;
-            }
-            ifd::FileDialog::Instance().Close();
-            IsChoosingFolder = false;
-        }
-        if (ifd::FileDialog::Instance().IsDone("ChooseExportAnnotationDialog"))
-        {
-            if (ifd::FileDialog::Instance().HasResult())
+            if (ImGuiFileDialog::Instance()->IsOk())
             {
                 // TODO: Need test.. the emitter has some issue that saved the file as raw format... why??
-                std::string ExportDir = ifd::FileDialog::Instance().GetResult().string();
+                std::string ExportDir = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
                 YAML::Node OutNode;
                 OutNode["SourceProject"] = Setting::Get().ProjectPath;
                 YAML::Node AnnNode = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/Annotations.yaml");
@@ -958,109 +1014,34 @@ namespace IFCS
                 std::ofstream Fout(ExportDir + "/" + Setting::Get().Project + "_Exported.yaml");
                 Fout << Out.c_str();
             }
-            ifd::FileDialog::Instance().Close();
-            IsChoosingFolder = false;
+            ImGuiFileDialog::Instance()->Close();
         }
-        if (ifd::FileDialog::Instance().IsDone("ChooseDataToImportDialogue"))
-        {
-            if (ifd::FileDialog::Instance().HasResult())
-            {
-                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-                std::replace(RawString.begin(), RawString.end(), '\\', '/');
-                strcpy(FileToImport, RawString.c_str());
-                CheckIsDataValidToImport();
-            }
-            ifd::FileDialog::Instance().Close();
-            IsChoosingFolder = false;
-        }
-        if (ifd::FileDialog::Instance().IsDone("ChooseExternalModelPath"))
+
+        if (ImGuiFileDialog::Instance()->Display("ChooseExternalModelPath", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
         {
             
-            if (ifd::FileDialog::Instance().HasResult())
+            if (ImGuiFileDialog::Instance()->IsOk())
             {
-                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-                std::replace(RawString.begin(), RawString.end(), '\\', '/');
+                std::string RawString = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
                 strcpy(Train::Get().ExternalModelPath, RawString.c_str());
             }
-            ifd::FileDialog::Instance().Close();
-            IsChoosingFolder = false;
+            ImGuiFileDialog::Instance()->Close();
         }
-        if (ifd::FileDialog::Instance().IsDone("ChooseTaskInputDir"))
+        if (ImGuiFileDialog::Instance()->Display("SaveDeployConfigFile", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
         {
-            if (ifd::FileDialog::Instance().HasResult())
+            if (ImGuiFileDialog::Instance()->IsOk())
             {
-                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-                std::replace(RawString.begin(), RawString.end(), '\\', '/');
-                Deploy::Get().SetInputPath(RawString.c_str());
+                Deploy::Get().SaveConfigFile(Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath()));
             }
-            ifd::FileDialog::Instance().Close();
-            IsChoosingFolder = false;
+            ImGuiFileDialog::Instance()->Close();
         }
-        if (ifd::FileDialog::Instance().IsDone("ChooseTaskOutputDir"))
+        if (ImGuiFileDialog::Instance()->Display("LoadDeployConfigFile", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
         {
-            if (ifd::FileDialog::Instance().HasResult())
+            if (ImGuiFileDialog::Instance()->IsOk())
             {
-                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-                std::replace(RawString.begin(), RawString.end(), '\\', '/');
-                Deploy::Get().SetOutputPath(RawString.c_str());
+                Deploy::Get().LoadConfigFile(Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetFilePathName()));
             }
-            ifd::FileDialog::Instance().Close();
-            IsChoosingFolder = false;
-        }
-        if (ifd::FileDialog::Instance().IsDone("ChooseFeasibilityReferenceImagePath"))
-        {
-            if (ifd::FileDialog::Instance().HasResult())
-            {
-                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-                std::replace(RawString.begin(), RawString.end(), '\\', '/');
-                Deploy::Get().SetReferenceImagePath(RawString.c_str());
-            }
-            ifd::FileDialog::Instance().Close();
-            IsChoosingFolder = false;
-        }
-        if (ifd::FileDialog::Instance().IsDone("SaveDeployConfigFile"))
-        {
-            if (ifd::FileDialog::Instance().HasResult())
-            {
-                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-                std::replace(RawString.begin(), RawString.end(), '\\', '/');
-                Deploy::Get().SaveConfigFile(RawString.c_str());
-            }
-            ifd::FileDialog::Instance().Close();
-            IsChoosingFolder = false;
-        }
-        if (ifd::FileDialog::Instance().IsDone("LoadDeployConfigFile"))
-        {
-            if (ifd::FileDialog::Instance().HasResult())
-            {
-                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-                std::replace(RawString.begin(), RawString.end(), '\\', '/');
-                Deploy::Get().LoadConfigFile(RawString.c_str());
-            }
-            ifd::FileDialog::Instance().Close();
-            IsChoosingFolder = false;
-        }
-        if (ifd::FileDialog::Instance().IsDone("ChooseExternalModelPath_Deploy"))
-        {
-            if (ifd::FileDialog::Instance().HasResult())
-            {
-                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-                std::replace(RawString.begin(), RawString.end(), '\\', '/');
-                Deploy::Get().SetExternalModelFile(RawString);
-            }
-            ifd::FileDialog::Instance().Close();
-            IsChoosingFolder = false;
-        }
-        if (ifd::FileDialog::Instance().IsDone("GenerateDeployScriptsLocation"))
-        {
-            if (ifd::FileDialog::Instance().HasResult())
-            {
-                std::string RawString = ifd::FileDialog::Instance().GetResult().string();
-                std::replace(RawString.begin(), RawString.end(), '\\', '/');
-                Deploy::Get().GenerateRunScript(RawString);
-            }
-            ifd::FileDialog::Instance().Close();
-            IsChoosingFolder = false;
+            ImGuiFileDialog::Instance()->Close();
         }
     }
 }

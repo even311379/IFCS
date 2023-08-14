@@ -31,6 +31,7 @@ namespace IFCS
         // setting options
         // appearance
         ETheme Theme = ETheme::Light;
+        std::string Font;
         // editor
         int CoresToUse = 4;
         int MaxCachedFramesSize = 1500;

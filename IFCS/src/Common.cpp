@@ -641,11 +641,6 @@ namespace IFCS
     {
         YAML::Node Out;
         Out["CameraName"] = CameraName;
-        Out["DVRName"] = DVRName;
-        for (const auto& Zone : FeasibleZones)
-        {
-            Out["FeasibleZones"].push_back(Zone.Serialize());
-        }
         Out["ModelName"] = ModelName;
         Out["ModelFilePath"] = ModelFilePath;
         Out["ImageSize"] = ImageSize;
@@ -673,12 +668,6 @@ namespace IFCS
     void FCameraSetup::Deserialize(const YAML::Node& InputNode)
     {
         CameraName = InputNode["CameraName"].as<std::string>();
-        DVRName = InputNode["DVRName"].as<std::string>();
-        FeasibleZones.clear();
-        for (YAML::const_iterator it = InputNode["FeasibleZones"].begin(); it != InputNode["FeasibleZones"].end(); ++it)
-        {
-            FeasibleZones.emplace_back(it->as<YAML::Node>());
-        }
         ModelName = InputNode["ModelName"].as<std::string>();
         ModelFilePath = InputNode["ModelFilePath"].as<std::string>();
         ImageSize = InputNode["ImageSize"].as<int>();
@@ -756,6 +745,7 @@ namespace IFCS
         YAML::Node Out;
         Out["TaskInputDir"] = TaskInputDir;
         Out["TaskOutputDir"] = TaskOutputDir;
+        Out["UseSameCameraSetup"] = UseSameCameraSetup;
         for (const auto& Camera : Cameras)
         {
             Out["Cameras"].push_back(Camera.Serialize());
@@ -781,17 +771,10 @@ namespace IFCS
         Out["EndDate"]["Month"] = EndDate.tm_mon;
         Out["EndDate"]["Day"] = EndDate.tm_mday;
         Out["ShouldBackupImportantRegions"] = ShouldBackupImportantRegions;
-        Out["BackupMinimumTime"] = BackupMinimumTime;
-        Out["ShouldBackupCombinedClips"] = ShouldBackupCombinedClips;
-        Out["ShouldDeleteRawClips"] = ShouldDeleteRawClips;
 
-        Out["DetectionFrequency"] = DetectionFrequency;
-        Out["IsDaytimeOnly"] = IsDaytimeOnly;
-        Out["DetectionStartTime"] = DetectionStartTime;
-        Out["DetectionEndTime"] = DetectionEndTime;
-        Out["PassCountDuration"] = PassCountDuration;
-        Out["PassCountFeasibilityThreshold"] = PassCountFeasiblityThreshold;
-        Out["Server"] = Server;
+        Out["DetectionFrequency"] = DetectionPeriodInSecond;
+        Out["PassCountDuration"] = PassCountDurationInMinutes;
+        Out["Server"] = ServerAddress;
         Out["ServerAccount"] = ServerAccount;
         Out["ServerPassword"] = ServerPassword;
         
@@ -806,9 +789,6 @@ namespace IFCS
         Out["DailyReportSendGroup"] = DailyReportSendGroup.Serialize();
         Out["WeeklyReportSendGroup"] = WeeklyReportSendGroup.Serialize();
         Out["MonthlyReportSendGroup"] = MonthlyReportSendGroup.Serialize();
-        Out["InFeasibleFirstDaySendGroup"] = InFeasibleFirstDaySendGroup.Serialize();
-        Out["InFeasibleXDaysSendGroup"] = InFeasibleXDaysSendGroup.Serialize();
-        Out["InFeasibleTolerate"] = InFeasibleTolerate;
         Out["LoseConnectionSendGroup"] = LoseConnectionSendGroup.Serialize();
         Out["SMSTestSendGroup"] = SMSTestSendGroup.Serialize();
         std::array<int, 2> Arr2{};
@@ -823,6 +803,8 @@ namespace IFCS
         // deserialize all
         TaskInputDir = InputNode["TaskInputDir"].as<std::string>();
         TaskOutputDir = InputNode["TaskOutputDir"].as<std::string>();
+        UseSameCameraSetup = InputNode["UseSameCameraSetup"].as<bool>();
+        Cameras.clear();
         for (YAML::const_iterator it = InputNode["Cameras"].begin(); it != InputNode["Cameras"].end(); ++it)
         {
             Cameras.emplace_back(it->as<YAML::Node>());
@@ -850,15 +832,9 @@ namespace IFCS
         EndDate.tm_mon = InputNode["EndDate"]["Month"].as<int>();
         EndDate.tm_mday = InputNode["EndDate"]["Day"].as<int>();
         ShouldBackupImportantRegions = InputNode["ShouldBackupImportantRegions"].as<bool>();
-        BackupMinimumTime = InputNode["BackupMinimumTime"].as<int>();
-        ShouldBackupCombinedClips = InputNode["ShouldBackupCombinedClips"].as<bool>();
-        ShouldDeleteRawClips = InputNode["ShouldDeleteRawClips"].as<bool>();
-        DetectionFrequency = InputNode["DetectionFrequency"].as<int>();
-        IsDaytimeOnly = InputNode["IsDaytimeOnly"].as<bool>();
-        DetectionStartTime = InputNode["DetectionStartTime"].as<int>();
-        DetectionEndTime = InputNode["DetectionEndTime"].as<int>();
-        PassCountDuration = InputNode["PassCountDuration"].as<int>();
-        Server = InputNode["Server"].as<std::string>();
+        DetectionPeriodInSecond = InputNode["DetectionFrequency"].as<int>();
+        PassCountDurationInMinutes = InputNode["PassCountDuration"].as<int>();
+        ServerAddress = InputNode["Server"].as<std::string>();
         ServerAccount = InputNode["ServerAccount"].as<std::string>();
         ServerPassword = InputNode["ServerPassword"].as<std::string>();
         TwilioSID = InputNode["TwilioSID"].as<std::string>();
@@ -873,9 +849,6 @@ namespace IFCS
         DailyReportSendGroup = FSendGroup(InputNode["DailyReportSendGroup"]);
         WeeklyReportSendGroup = FSendGroup(InputNode["WeeklyReportSendGroup"]);
         MonthlyReportSendGroup = FSendGroup(InputNode["MonthlyReportSendGroup"]);
-        InFeasibleFirstDaySendGroup = FSendGroup(InputNode["InFeasibleFirstDaySendGroup"]);
-        InFeasibleXDaysSendGroup = FSendGroup(InputNode["InFeasibleXDaysSendGroup"]);
-        InFeasibleTolerate = InputNode["InFeasibleTolerate"].as<int>();
         LoseConnectionSendGroup = FSendGroup(InputNode["LoseConnectionSendGroup"]);
         SMSTestSendGroup = FSendGroup(InputNode["SMSTestSendGroup"]);
         const auto temp2 = InputNode["SMS_SendTime"].as<std::array<int, 2>>();

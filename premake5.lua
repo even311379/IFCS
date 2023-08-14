@@ -25,8 +25,8 @@ project "IFCS"
         "%{prj.name}/vendor/imgui/backends/imgui_impl_opengl3.h",
         "%{prj.name}/vendor/imgui/backends/imgui_impl_opengl3.cpp",
         "%{prj.name}/vendor/imgui/backends/imgui_impl_opengl3_loader.h",
-        "%{prj.name}/vendor/imgui_extensions/ImFileDialog/*.h",
-        "%{prj.name}/vendor/imgui_extensions/ImFileDialog/*.cpp",
+        "%{prj.name}/vendor/imgui_extensions/ImGuiFileDialog/*.h",
+        "%{prj.name}/vendor/imgui_extensions/ImGuiFileDialog/*.cpp",
         "%{prj.name}/vendor/imgui_extensions/Implot/*.h",
         "%{prj.name}/vendor/imgui_extensions/Implot/*.cpp",
         "%{prj.name}/vendor/imgui_extensions/addons/*.h",
@@ -34,7 +34,6 @@ project "IFCS"
         "%{prj.name}/vendor/stb/**.h", 
         "%{prj.name}/vendor/stb/**.cpp",
         "%{prj.name}/vendor/imgui_extensions/Imspinner/*.h", 
---         "%{prj.name}/vendor/imgui_extensions/IconFontCppHeaders/IconsFontAwesome5.h", 
     }
 
     defines

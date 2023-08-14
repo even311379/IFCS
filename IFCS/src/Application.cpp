@@ -23,7 +23,6 @@
 #include "Modals.h"
 
 
-#include "ImFileDialog/ImFileDialog.h"
 #include "fa_solid_900.h"
 #include "stb_image.h"
 #include "IconFontCppHeaders/IconsFontAwesome5.h"
@@ -50,10 +49,38 @@ namespace IFCS
         glfwTerminate();
     }
 
+
+
     static void glfw_error_callback(int error, const char* description)
     {
         fprintf(stderr, "Glfw Error %d: %s\n", error, description);
     }
+
+    // void Application::BuildFont()
+    // {
+    //     ImGuiIO& io = ImGui::GetIO(); //(void)io; // why cast to void??
+    //     std::string FontFile = Setting::Get().Font.empty()? "Resources/Font/NotoSansCJKtc-Black.otf" : Setting::Get().Font;
+    //     Setting::Get().DefaultFont = io.Fonts->AddFontFromFileTTF(FontFile.c_str(), 18.0f,NULL,io.Fonts->GetGlyphRangesChineseFull());
+    //     ImFontConfig font_cfg;
+    //     font_cfg.FontDataOwnedByAtlas = false;
+    //     font_cfg.MergeMode = true;
+    //     font_cfg.GlyphMaxAdvanceX = 16.0f;
+    //     static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
+    //     io.Fonts->AddFontFromMemoryTTF((void*)fa_solid_900, sizeof(fa_solid_900), 18.f, &font_cfg, icon_ranges);
+    //     io.Fonts->Build();
+    //     // instead of dummy way to load same file twice... use deep copy and set scale 1.5?
+    //     Setting::Get().TitleFont = new ImFont;
+    //     *Setting::Get().TitleFont = *Setting::Get().DefaultFont; // is this so called deep copy?
+    //     Setting::Get().TitleFont->Scale = 1.5;
+    //
+    //     // markdown fonts
+    //     Setting::Get().H2 = new ImFont;
+    //     *Setting::Get().H2 = *Setting::Get().DefaultFont;
+    //     Setting::Get().H2->Scale = 1.25;
+    //     Setting::Get().H3 = new ImFont;
+    //     *Setting::Get().H3= *Setting::Get().DefaultFont;
+    //     Setting::Get().H3->Scale = 1.10f;
+    // }
 
     void Application::init()
     {
@@ -103,38 +130,13 @@ namespace IFCS
 
         // load font
         // first loaded will become default font!
-        Style::ApplyTheme();
-        Setting::Get().DefaultFont = io.Fonts->AddFontFromFileTTF("Resources/Font/cjkFonts_allseto_v1.11.ttf", 18.0f,
-                                                                  NULL,
-                                                                  io.Fonts->GetGlyphRangesChineseFull());
-        
-        ImFontConfig font_cfg;
-        font_cfg.FontDataOwnedByAtlas = false;
-        font_cfg.MergeMode = true;
-        font_cfg.GlyphMaxAdvanceX = 16.0f;
-        static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
-        io.Fonts->AddFontFromMemoryTTF((void*)fa_solid_900, sizeof(fa_solid_900), 18.f, &font_cfg, icon_ranges);
-        io.Fonts->Build();
-        // instead of dummy way to load same file twice... use deep copy and set scale 1.5?
-        Setting::Get().TitleFont = new ImFont;
-        *Setting::Get().TitleFont = *Setting::Get().DefaultFont; // is this so called deep copy?
-        Setting::Get().TitleFont->Scale = 1.5;
-
-        // markdown fonts
-        Setting::Get().H2 = new ImFont;
-        *Setting::Get().H2 = *Setting::Get().DefaultFont;
-        Setting::Get().H2->Scale = 1.25;
-        Setting::Get().H3 = new ImFont;
-        *Setting::Get().H3= *Setting::Get().DefaultFont;
-        Setting::Get().H3->Scale = 1.10f;
-
+        // BuildFont();
         // load static images?
     }
 
     void Application::run()
     {
         // setup third party stuff
-        CreateFileDialog();
 
         // setup this app
         MainMenu::Get().SetApp(this);
@@ -151,7 +153,6 @@ namespace IFCS
         if (Setting::Get().ProjectIsLoaded)
         {
             // TODO: chinese project path?
-            // glfwSetWindowTitle(Window, "這是中文");
             glfwSetWindowTitle(Window, (std::string("IFCS (v1.1)   ") + "(" + Setting::Get().ProjectPath + ")").c_str());
             CategoryManagement::Get().Setup("Category Management", Setting::Get().ActiveWorkspace == EWorkspace::Data, 0); // need project path?
         }
@@ -159,15 +160,12 @@ namespace IFCS
         {
             Modals::Get().IsModalOpen_Welcome = true;
         }
-
-        // DEV
-        // TestPanel* test = new TestPanel();
-        // test->Setup("abstraction", true, 0);
-        // UtilPanel::Get().Setup("Util", true, 0);
+        BuildFont();
 
         int tick = 0;
         while (!glfwWindowShouldClose(Window))
         {
+
             glfwPollEvents();
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
@@ -216,6 +214,13 @@ namespace IFCS
                 Annotation::Get().SaveDataFile();
                 UnSaveFileTick = 99999999;
             }
+
+            // TODO: change font during run time is just not working... need to ask the user to restart app
+            // if (RequestToUpdateFont)
+            // {
+            //     BuildFont();
+            //     RequestToUpdateFont = false;
+            // }
 
             // end of render content
             // Rendering
@@ -271,30 +276,30 @@ namespace IFCS
         }
     }
 
-    void Application::CreateFileDialog()
+    void Application::BuildFont()
     {
-        ifd::FileDialog::Instance().CreateTexture = [](uint8_t* data, int w, int h, char fmt) -> void*
-        {
-            GLuint tex;
+        ImGuiIO& io = ImGui::GetIO(); //(void)io; // why cast to void??
+        io.Fonts->Clear();
+        std::string FontFile = Setting::Get().Font.empty()? "Resources/Font/NotoSansCJKtc-Black.otf" : Setting::Get().Font;
+        Setting::Get().DefaultFont = io.Fonts->AddFontFromFileTTF(FontFile.c_str(), 18.0f,NULL,io.Fonts->GetGlyphRangesChineseFull());
+        ImFontConfig font_cfg;
+        font_cfg.FontDataOwnedByAtlas = false;
+        font_cfg.MergeMode = true;
+        font_cfg.GlyphMaxAdvanceX = 16.0f;
+        static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
+        io.Fonts->AddFontFromMemoryTTF((void*)fa_solid_900, sizeof(fa_solid_900), 18.f, &font_cfg, icon_ranges);
+        io.Fonts->Build();
+        // instead of dummy way to load same file twice... use deep copy and set scale 1.5?
+        Setting::Get().TitleFont = new ImFont;
+        *Setting::Get().TitleFont = *Setting::Get().DefaultFont; // is this so called deep copy?
+        Setting::Get().TitleFont->Scale = 1.5;
 
-            glGenTextures(1, &tex);
-            glBindTexture(GL_TEXTURE_2D, tex);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-            // glGenerateMipmap(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, 0);
-
-            return (void*)(intptr_t)tex;
-        };
-        ifd::FileDialog::Instance().DeleteTexture = [](void* tex)
-        {
-            GLuint texID = (GLuint)((uintptr_t)tex);
-            glDeleteTextures(1, &texID);
-        };
+        // markdown fonts
+        Setting::Get().H2 = new ImFont;
+        *Setting::Get().H2 = *Setting::Get().DefaultFont;
+        Setting::Get().H2->Scale = 1.25;
+        Setting::Get().H3 = new ImFont;
+        *Setting::Get().H3= *Setting::Get().DefaultFont;
+        Setting::Get().H3->Scale = 1.10f;
     }
-
-
 }

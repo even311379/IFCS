@@ -14,7 +14,7 @@
 #include "Utils.h"
 #include "Style.h"
 #include "IconFontCppHeaders/IconsFontAwesome5.h"
-#include "ImFileDialog/ImFileDialog.h"
+#include "ImGuiFileDialog/ImGuiFileDialog.h"
 
 IFCS::MainMenu::~MainMenu()
 {
@@ -62,8 +62,8 @@ void IFCS::MainMenu::Render()
             }
             if (ImGui::MenuItem(LOCTEXT("ToolbarItem.ExportData")))
             {
-                Modals::Get().IsChoosingFolder = true;
-                ifd::FileDialog::Instance().Open("ChooseExportAnnotationDialog", "Export annotation data", "");
+                ImGuiFileDialog::Instance()->OpenDialog("ChooseExportAnnotationDialog", "Export annotation data", nullptr, ".",
+                    "", 1, nullptr, ImGuiFileDialogFlags_Modal);
             }
             ImGui::Separator();
             if (ImGui::MenuItem(LOCTEXT("ToolbarItem.Setting")))

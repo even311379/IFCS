@@ -14,13 +14,13 @@
 #include "CategoryManagement.h"
 #include "DataBrowser.h"
 #include "yaml-cpp/yaml.h"
-#include "ImFileDialog/ImFileDialog.h"
 #include "IconFontCppHeaders/IconsFontAwesome5.h"
 #include "misc/cpp/imgui_stdlib.h"
 #include "Modals.h"
 #include "Style.h"
 
 #include "shellapi.h"
+#include "ImGuiFileDialog/ImGuiFileDialog.h"
 #include "Implot/implot.h"
 #include "Imspinner/imspinner.h"
 
@@ -1293,9 +1293,7 @@ namespace IFCS
                 ImGui::SameLine();
                 if (ImGui::Button("..."))
                 {
-                    Modals::Get().IsChoosingFolder = true;
-                    ifd::FileDialog::Instance().Open("ChooseExternalModelPath", "Choose external model file",
-                        "Model {.pt}", false, Setting::Get().ProjectPath);
+                    ImGuiFileDialog::Instance()->OpenDialog("ChooseExternalModelPath", "Choose external model file", ".pt", Setting::Get().ProjectPath, 1, nullptr, ImGuiFileDialogFlags_Modal);
                     UpdateTrainScript();
                 }
             }
@@ -1479,7 +1477,7 @@ namespace IFCS
                 std::string PtFile = Setting::Get().YoloV7Path + "/" + ModelOptions[SelectedModelIdx] + "_training.pt";
                 if (!std::filesystem::exists(PtFile))
                 {
-                    std::string AppPath = std::filesystem::current_path().u8string();
+                    std::string AppPath = Utils::ChangePathSlash(std::filesystem::current_path().u8string());
                     std::string DownloadWeightCommand = Setting::Get().PythonPath + "/python " + AppPath +
                         "/Scripts/DownloadWeight.py --model " + std::string(ModelOptions[SelectedModelIdx]);
                     std::ofstream ofs;

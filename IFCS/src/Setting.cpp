@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <regex>
+#include <IconFontCppHeaders/IconsFontAwesome5.h>
 
 #include "Annotation.h"
 #include "Application.h"
@@ -14,6 +15,7 @@
 #include "Train.h"
 #include "Panel.h"
 #include "Detection.h"
+#include "fa_solid_900.h"
 #include "yaml-cpp/yaml.h"
 
 namespace IFCS
@@ -60,7 +62,6 @@ namespace IFCS
             }
         }
         LoadUserIni();
-
         // should move to a better position for these code?
         /// Get total memory for that machine
         MEMORYSTATUSEX status;
@@ -78,6 +79,10 @@ namespace IFCS
         PreferredLanguage = static_cast<ESupportedLanguage>(UserIni["PreferredLanguage"].as<int>());
         ActiveWorkspace = static_cast<EWorkspace>(UserIni["ActiveWorkspace"].as<int>());
         Theme = static_cast<ETheme>(UserIni["Theme"].as<int>());
+        if (UserIni["Font"])
+        {
+            Font = UserIni["Font"].as<std::string>();
+        }
         PythonPath = UserIni["PythonPath"].as<std::string>();
         YoloV7Path = UserIni["YoloV7Path"].as<std::string>();
         if (UserIni["bEnableGuideLine"])
@@ -102,6 +107,7 @@ namespace IFCS
         Modals::Get().Sync();
         ProjectIsLoaded = true;
     }
+
 
     void Setting::Save()
     {
@@ -136,6 +142,7 @@ namespace IFCS
         OutNode["ActiveWorkspace"] = static_cast<int>(ActiveWorkspace);
         OutNode["PreferredLanguage"] = static_cast<int>(PreferredLanguage);
         OutNode["Theme"] = static_cast<int>(Theme);
+        OutNode["Font"] = Font;
         OutNode["PythonPath"] = PythonPath;
         OutNode["YoloV7Path"] = YoloV7Path;
         OutNode["bEnableGuideLine"] = bEnableGuideLine;
