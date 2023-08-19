@@ -404,14 +404,6 @@ namespace IFCS
             ImGui::TreePop();
         }
     
-        
-        // TODO: Should edit the category here?
-        /*
-         * this will be easier for me, but not the user...
-         * still need to spent some time to figure out get access to the categories in yolov7 model throught *.pt file
-         */
-
-        
         // detection parameters
         static std::string LoadedDetectionParamName = "";
         if (ImGui::TreeNode("Set detection parameter"))

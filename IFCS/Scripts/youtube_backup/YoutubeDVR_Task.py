@@ -1,10 +1,14 @@
+import os
 from vidgear.gears import CamGear
 import cv2
 import argparse
 import datetime
+import re
 import time
 from termcolor import colored
 import logging
+import sys
+import subprocess
 
 
 def abs_add_hour(in_time: datetime.datetime):
@@ -64,6 +68,7 @@ def main():
         source="https://youtu.be/" + video_id,
         stream_mode=True,
         logging=False,
+        backend=cv2.CAP_GSTREAMER,
         **options,
     ).start()
     w = int(stream.stream.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -124,9 +129,9 @@ def main():
         start_time.strftime("%Y%m%d%H%M") + "__" +
         end_time.strftime("%Y%m%d%H%M")
     )
+    new_clip = f"{path}/{time_info}.mp4"
     writer = cv2.VideoWriter(
-        f"{path}/{time_info}.mp4", cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h)
-    )
+        new_clip, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
     sleep_time = (start_time - datetime.datetime.now()).seconds
     print(f"    wait {sleep_time} sec to start (in order to match time?)")
     time.sleep(sleep_time)
@@ -147,14 +152,30 @@ def main():
         if frame is None:
             print(colored("ERROR".center(100, "*"), "red"))
             corrupted_frames += 1
-            print(
-                colored(
-                    f"EMPTY FRAME DETECTED ({corrupted_frames})".center(50, " ").center(
-                        100, "*"
-                    ),
-                    "red",
+            msg = f"EMPTY FRAME DETECTED ({corrupted_frames}) -- {path.split('/')[-1]}"
+            msg = msg.center(50, " ").center(100, "*")
+            print(colored(msg, "red"))
+            if corrupted_frames > 5:
+                logging.error("stream is crashed...")
+                msg = "stream is crashed... open another recording task..."
+                print(colored(msg, "red"))
+                writer.release()
+                end_time = datetime.datetime.now().strftime("%Y%m%d%H%M")
+                mod_clip = new_clip.replace(
+                    re.findall(r"__(.*)\.", new_clip)[0], end_time
                 )
-            )
+                os.rename(new_clip, mod_clip)
+                print(
+                    colored(f"current file is renames as {mod_clip}", "yellow"))
+                logging.warning(f"rename current recording as {mod_clip}")
+                # target_path = new_clip.replace(new_clip.split("/")[-1], "")
+                task_command = f"{sys.executable} YoutubeDVR_Task.py \
+                    --clip_length {clip_length} --video_id "
+                subprocess.Popen(
+                    task_command + f"{video_id} --path {path} --start_now",
+                    shell=True,
+                )
+                return
             continue
         writer.write(frame)
         if frames_written > frames_to_write:
@@ -182,10 +203,10 @@ def main():
             )
         )
         logging.error(
-            f"empty frame is inside this video, {path}/{time_info}.mp4")
+            f"{corrupted_frames} empty frame is inside this video, {path}/{time_info}.mp4"
+        )
     else:
-        logging.info(
-            f"{path}/{time_info}.mp4 is completed without any issue...")
+        logging.info(f"{new_clip} is completed without any issue...")
     print("Recording completed!")
     writer.release()
 

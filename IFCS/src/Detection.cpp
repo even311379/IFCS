@@ -543,7 +543,10 @@ namespace IFCS
             Utils::AddSimpleTooltip("A threshold value to decide how to assign prediction to individual. "
                 "Same individual should have similar body size among frames. If this value is too small, same individual could be judged as different!");
             
-            if (ImGui::DragFloat("Conf threshold", &FIndividualData::SpeciesDetermineThreshold, 0.01f, 0.01f, 0.5f, "%.2f"))
+            // TODO: conf threshould is useless... no need to set it, maybe just remove it!
+            // use other group name instead...
+            if (ImGui::InputText("Other group", &OtherGroupName))
+            // if (ImGui::DragFloat("Conf threshold", &FIndividualData::SpeciesDetermineThreshold, 0.01f, 0.01f, 0.5f, "%.2f"))
             {
                 IsIndividualDataLatest = false;
             }
