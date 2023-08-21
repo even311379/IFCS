@@ -114,11 +114,20 @@ def track_individual(camera_info, loaded_labels) -> list[Individual]:
     fishway_start, fishway_end = camera_info["FishwayStartEnd"]
 
     loaded_labels = dict(sorted(loaded_labels.items()))  # sort dict...
+    for k, v in loaded_labels.items():
+        print(k)
+        print(v)
+        print("***")
+    raise
     temp_indivial_data = []  # list[Individual] # list of individual
     for frame_num, labels in loaded_labels.items():
         for label in labels:
             is_in_fishway = False
             is_in_leaving_area = False
+
+            ## TODO: add another enter zone check if here!  (dev in IFCS test, and then here!)
+            ## just another paramer to control is_in_leaving_area? should be suffice?
+
             if camera_info["IsPassVertical"]:
                 is_in_fishway = (label.y >= min_fishway_pos) and (label.y <= max_fishway_pos)
                 is_in_leaving_area = fishway_end if fishway_start > fishway_end else label.y > fishway_end
@@ -127,8 +136,7 @@ def track_individual(camera_info, loaded_labels) -> list[Individual]:
                 is_in_leaving_area = label.x < fishway_end if fishway_start > fishway_end else label.x > fishway_end
 
             if is_in_fishway:
-                ## TODO: add another enter zone check if here!  (dev in IFCS test, and then here!)
-                if not temp_indivial_data:
+                if len(temp_indivial_data) == 0:
                     temp_indivial_data.append(Individual(frame_num, label))
                     temp_indivial_data[0].has_picked = True
                 else:
@@ -138,9 +146,14 @@ def track_individual(camera_info, loaded_labels) -> list[Individual]:
                     for data in temp_indivial_data:
                         if data.has_picked:
                             continue
-                        last_frame_num = sorted(data.info)[-1]
+                        # last_frame_num = sorted(data.info)[-1]
+                        # print(last_frame_num)
+                        last_frame_num = max(data.info.keys())
+                        # print(last_frame_num)
+                        # print("....")
+                        # print(f"frame num: {frame_num} vs last frame num {last_frame_num}")
                         last_label = data.info[last_frame_num]
-                        distance = last_label.get_distance()
+                        distance = last_label.get_distance(label, 16, 9)
                         if (
                             is_size_similar(last_label, label, frame_num - last_frame_num, camera_info)
                             and is_distance_acceptable(last_label, label, frame_num - last_frame_num, camera_info)
@@ -160,9 +173,10 @@ def track_individual(camera_info, loaded_labels) -> list[Individual]:
                 closest_distance = 999999
                 i = 0
                 for data in temp_indivial_data:
-                    last_frame_num = sorted(data.info)[-1]
+                    # last_frame_num = sorted(data.info)[-1]
+                    last_frame_num = max(data.info.keys())
                     last_label = data.info[last_frame_num]
-                    distance = last_label.get_distance()
+                    distance = last_label.get_distance(label, 16, 9)
                     if (
                         is_size_similar(last_label, label, frame_num - last_frame_num, camera_info)
                         and is_distance_acceptable(last_label, label, frame_num - last_frame_num, camera_info)
@@ -175,54 +189,37 @@ def track_individual(camera_info, loaded_labels) -> list[Individual]:
                     temp_indivial_data[closest_idx].has_picked = True
                     temp_indivial_data[closest_idx].is_completed = True
 
+        # how did python handle ref? I need ref, and don't know it is or not?
+        temp_indivial_data2 = []
         for data in temp_indivial_data:
             data.has_picked = False
+            temp_indivial_data2.append(data)
+        # temp_indivial_data = temp_indivial_data2.copy()
+
+        for data in temp_indivial_data2:
             if len(data.info) == 1:
                 continue
-            last_frame_num = sorted(data.info)[-1]
+            last_frame_num = max(data.info.keys())
             if last_frame_num + camera_info["FrameBufferSize"] < frame_num or data.is_completed:
                 individual_data.append(data)
-        temp_indivial_data = [
-            data
-            for data in temp_indivial_data
-            if not data.is_completed and sorted(data.info)[-1] + camera_info["FrameBufferSize"] > frame_num
-        ]
+
+        temp_indivial_data = []
+        for data in temp_indivial_data2:
+            if max(data.info.keys()) + camera_info["FrameBufferSize"] < frame_num or data.is_completed:
+                continue
+            temp_indivial_data.append(data)
+
+        # for data in temp_indivial_data:
+        #     data.has_picked = False
+        #     if len(data.info) == 1:
+        #         continue
+        #     last_frame_num = sorted(data.info)[-1]
+        #     if last_frame_num + camera_info["FrameBufferSize"] < frame_num or data.is_completed:
+        #         individual_data.append(data)
+        #
+        # temp_indivial_data = [
+        #     data
+        #     for data in temp_indivial_data
+        #     if not data.is_completed and sorted(data.info)[-1] + camera_info["FrameBufferSize"] >= frame_num
+        # ]
     return individual_data
-
-    # make df would be better
-    # df = dict(
-    #     category=[],
-    #     approx_speed=[],
-    #     approx_body_length=[],
-    #     approx_body_height=[],
-    #     enter_frame=[],
-    #     leave_frame=[],
-    # )
-    # for data in individual_data:
-    #     if not data.is_completed:
-    #         continue
-    #     df["category"].append(data.get_name())
-    #     df["approx_speed"].append(data.get_approx_speed())
-    #     bl, bh = data.get_approx_body_size()
-    #     df["approx_body_length"].append(bl)
-    #     df["approx_body_height"].append(bh)
-    #     df["enter_frame"].append(data.get_enter_frame())
-    #     df["leave_frame"].append(data.get_leave_frame())
-    # return pd.DataFrame(df)
-
-
-# def track(target_date, camera_info):
-#     def is_size_similar():
-#         pass
-#
-#     def is_distance_acceptable():
-#         pass
-#
-#     individual_data = []
-#     min_fishway_pos = min(camera_info["FishwayStartEnd"])
-#     max_fishway_pos = max(camera_info["FishwayStartEnd"])
-#     fishway_start, fishway_end = camera_info["FishwayStartEnd"]
-#     loaded_labels = {}
-#     for file in labels_folder:
-#         num = re.findall(file, "_(\d+).txt")
-#         loaded_labels[num] = label_file_to_list(file)

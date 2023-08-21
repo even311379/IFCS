@@ -724,6 +724,7 @@ namespace IFCS
                 bool IsInLeavingArea;
                 if (IsVertical)
                 {
+// TODO: Add another param to control is in leaving area? or is in fishway?? think think....
                     IsInFishway = (L.Y >= MinPos) && (L.Y <= MaxPos);
                     IsInLeavingArea = FishWayPos[0] > FishWayPos[1] ? L.Y < FishWayPos[1] : L.Y > FishWayPos[1];
                 }
@@ -825,8 +826,6 @@ namespace IFCS
                     TempTrackData.end(),
                     [=](const FIndividualData& Data)
                     {
-                        // TODO: this R is of no use? just remove it?
-                        bool R = (std::prev(Data.Info.end())->first + NUM_BUFFER_FRAMES < F || Data.IsCompleted);
                         return (std::prev(Data.Info.end())->first + NUM_BUFFER_FRAMES < F || Data.IsCompleted);
                     }),
                 TempTrackData.end());
@@ -844,6 +843,8 @@ namespace IFCS
             }
             else
             {
+               // TODO: should be TotalPass[Cat] = 1; ???
+               // ... should be 1 and also need to fill actual 0?
                 TotalPass[Cat] = 0;
             }
         }

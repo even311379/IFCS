@@ -2,7 +2,6 @@ import os, sys, subprocess, re, datetime, time, atexit, random, shutil
 import yaml
 import logging
 import requests
-from IFCS_Deploy_old import notify_server_stopping_scheduled_task
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioException
 import cv2
@@ -10,20 +9,13 @@ from termcolor import colored
 import pandas as pd
 import individual_tracker as tracker
 
-# import logging, requests, re, yaml, cv2, os, sys, atexit, random, subprocess
-
-# import numpy as np
-# import pandas as pd
-# from statistics import mean
-# from datetime import datetime, timedelta, time
-# from twilio.rest import Client
-
 # global vars
 CONFIG = {}
 CONFIG_PROBLEMS = {}
 
 FAILURE_LIMIT = 5
-DB_TIEM_FORMAT = "%Y-%M-%dT%H:%M:S+08:00"
+DB_TIEM_FORMAT = "%Y-%m-%dT%H:%M:%S+08:00"
+DB_DATE_FORMAT = "%Y-%m-%d"
 CLIP_TIME_FORMAT = "%Y%m%d%H%M"
 PASS_COUNT_FPS = 30
 WEB_APP_SESSION = requests.Session()
@@ -41,12 +33,12 @@ def init_config():
         os.mkdir(f"{CONFIG['TaskOutputDir']}/PassCounts")
         os.mkdir(f"{CONFIG['TaskOutputDir']}/Highlights")
         # TODO: let this be part of new model in my server
-        analysis_event = dict(cam=[], model=[], event_date=[], analysis_type=[], analysis_time=[])
-        fishway_utility_summary = dict(cam=[], fish=[], date=[], hour=[], count=[])
-        pass_count_summary = dict(cam=[], fish=[], date=[], hour=[], count=[])
-        pd.DataFrame(analysis_event).to_csv(f"{CONFIG['TaskInputDir']}/events_summary.csv")
-        pd.DataFrame(fishway_utility_summary).to_csv(f"{CONFIG['TaskInputDir']}/fishway_utility_summary.csv")
-        pd.DataFrame(pass_count_summary).to_csv(f"{CONFIG['TaskInputDir']}/fishway_pass_summary.csv")
+    analysis_event = dict(cam=[], model=[], event_date=[], analysis_type=[], analysis_time=[])
+    fishway_utility_summary = dict(cam=[], fish=[], date=[], hour=[], count=[])
+    pass_count_summary = dict(cam=[], fish=[], date=[], hour=[], count=[])
+    pd.DataFrame(analysis_event).to_csv(f"{CONFIG['TaskInputDir']}/events_summary.csv", header=True)
+    pd.DataFrame(fishway_utility_summary).to_csv(f"{CONFIG['TaskInputDir']}/fishway_utility_summary.csv", header=True)
+    pd.DataFrame(pass_count_summary).to_csv(f"{CONFIG['TaskInputDir']}/fishway_pass_summary.csv", header=True)
 
     # check server status
     try:
@@ -55,7 +47,7 @@ def init_config():
         CONFIG_PROBLEMS["Server"] = ["Server connection error!", str(e)]
         return False
     WEB_APP_SESSION.auth = (CONFIG["ServerAccount"], CONFIG["ServerPassword"])
-    WEB_APP_SESSION.headers.update({"Content-Tyoe": "application/json"})
+    # WEB_APP_SESSION.headers.update({"Content-Type": "application/json"})
 
     # TODO: how to check my session is authenticated...
 
@@ -82,6 +74,7 @@ def init_config():
             return False
 
     # get category data and append it to config
+    os.chdir(CONFIG["YoloV7Path"])
     sys.path.append(CONFIG["YoloV7Path"])
     from models.experimental import attempt_load
 
@@ -96,16 +89,18 @@ def init_config():
             CONFIG_PROBLEMS["Server"] = [f"species name ({spe}) does not exist in server"]
             return False
 
-    # test twilio info? how?
-    SMS_SERVER = Client(CONFIG["TwilioSID"], CONFIG["TwilioAuthToken"])
-    try:
-        SMS_SERVER.messages.list()
-        print("twilio auth success!")
-    except TwilioException:
-        print("twilio auth failedd...")
-        CONFIG_PROBLEMS["SMS_PROBLEMS"] = ["Authentication failure! your SID or AuthToken is wrong!"]
+    ## TODO: temporarily stop the use of twilio... is of less use for now... dev it later?
 
-    return False
+    # test twilio info? how?
+    # SMS_SERVER = Client(CONFIG["TwilioSID"], CONFIG["TwilioAuthToken"])
+    # try:
+    #     SMS_SERVER.messages.list()
+    #     print("twilio auth success!")
+    # except TwilioException:
+    #     print("twilio auth failedd...")
+    #     CONFIG_PROBLEMS["SMS_PROBLEMS"] = ["Authentication failure! your SID or AuthToken is wrong!"]
+
+    return True
 
 
 def get_clips_from_date(clips_folder: str, query_date: datetime.date) -> list[str]:
@@ -120,47 +115,47 @@ def get_clips_from_date(clips_folder: str, query_date: datetime.date) -> list[st
 def perform_detection__fishway_utility(target_date, cam):
     global logger
 
-    logger.log("   prepare raw clips...")
-    # prepare clip
-    detection_frequency = CONFIG["DetectionFrequency"]
-    clips_to_detect = get_clips_from_date(f"{CONFIG['TaskInputDir']}/{cam['CameraName']}", target_date)
+    # logger.info("   prepare raw clips...")
+    # # prepare clip
+    # detection_frequency = CONFIG["DetectionFrequency"]
+    # clips_to_detect = get_clips_from_date(f"{CONFIG['TaskInputDir']}/{cam['CameraName']}", target_date)
     work_folder = f"{CONFIG['TaskOutputDir']}/Detections/{cam['CameraName']}/{target_date.strftime(CLIP_TIME_FORMAT)}"
-    writer = cv2.VideoWriter(work_folder + "/frames.mp4", cv2.VideoWriter_fourcc(*"mp4v"), 30)
-    frames_info = open(work_folder + "/frames_info.txt", "w")
-    for clip in clips_to_detect:
-        clip_start_time = datetime.datetime.strptime(re.findall(r"/(.*)__", clip)[0], CLIP_TIME_FORMAT)
-        cap = cv2.VideCapture(clip)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        frame_count = 0
-        frame_count_written = 0
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if ret and frame_count % fps * detection_frequency == 0:
-                writer.write(frame)
-                time_info = clip_start_time + datetime.timedelta(seconds=frame_count_written * detection_frequency)
-                frame_count_written += 1
-                frames_info.write(time_info.strftime(CLIP_TIME_FORMAT + "%S") + "/n")
-            frame_count += 1
-    writer.release()
-    frames_info.close()
+    # writer = cv2.VideoWriter(work_folder + "/frames.mp4", cv2.VideoWriter_fourcc(*"mp4v"), 30, (1280, 720))
+    # frames_info = open(work_folder + "/frames_info.txt", "w")
+    # for clip in clips_to_detect:
+    #     clip_start_time = datetime.datetime.strptime(re.findall(r"(\d*)__\d", clip)[0], CLIP_TIME_FORMAT)
+    #     cap = cv2.VideoCapture(clip)
+    #     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    #     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    #     fps = cap.get(cv2.CAP_PROP_FPS)
+    #     frame_count_written = 0
+    #     while cap.isOpened():
+    #         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_count_written * fps * detection_frequency)
+    #         ret, frame = cap.read()
+    #         # if ret and frame_count % (fps * detection_frequency) == 0:
+    #         writer.write(frame)
+    #         time_info = clip_start_time + datetime.timedelta(seconds=frame_count_written * detection_frequency)
+    #         frame_count_written += 1
+    #         frames_info.write(time_info.strftime(CLIP_TIME_FORMAT + "%S") + "\n")
+    #         if not ret:
+    #             break
+    # writer.release()
+    # frames_info.close()
 
-    logger.log("   running yolov7 detection...")
+    logger.info("   running yolov7 detection...")
     # run yolov7 detection
-    ## TODO:test if subprocess may work?
-    task = subprocess.Popen(
+    subprocess.run(
         [
-            "python",
+            sys.executable,
             "detect.py",
             "--weights",
             cam["ModelFilePath"],
             "--conf-thres",
-            cam["Confidence"],
+            str(cam["Confidence"]),
             "--iou-thres",
-            cam["IOU"],
+            str(cam["IOU"]),
             "--img-size",
-            cam["ImageSize"],
+            str(cam["ImageSize"]),
             "--project",
             work_folder,
             "--name",
@@ -171,10 +166,9 @@ def perform_detection__fishway_utility(target_date, cam):
             "--save-conf",
             "--nosave",
         ],
-        stdout=subprocess.DEVNULL,
+        # stdout=subprocess.DEVNULL,
     )
-    task.wait()
-    logger.log("   yolov7 complete")
+    logger.info("   yolov7 completed")
 
 
 # TODO: maybe I should edit the web app models now?
@@ -199,12 +193,13 @@ def extract_fishway_utility_results(target_date, cam):
         return True
 
     for f in os.listdir(work_folder + "/detail/labels"):
-        detected_frame_id = re.findall(r"_(\d*)\.txt", f)[0]
-        with open(work_folder + "/detail/labels" + f, "r") as label_file:
+        detected_frame_id = int(re.findall(r"_(\d*)\.txt", f)[0])
+        with open(work_folder + "/detail/labels/" + f, "r") as label_file:
             labels = label_file.readlines()
             cats = []
             for label in labels:
                 cat_id, x, y, _, _, _ = label[:-1].split(" ")
+                cat_id = int(cat_id)
                 if is_xy_in_roi(x, y):
                     cats.append(cam["Categories"][cat_id])
             for cat in set(cats):
@@ -246,17 +241,17 @@ def perform_detection__fishway_pass(target_date, cam):
     clips = get_clips_from_date(f"{CONFIG['TaskInputDir']}/{cam['CameraName']}", target_date)
     work_folder = f"{CONFIG['TaskOutputDir']}/PassCounts/{cam['CameraName']}/{target_date.strftime(CLIP_TIME_FORMAT)}"
     block_info = open(work_folder + "/block_info.txt", "w")
-    writer = cv2.VideoWriter(work_folder + "/blocks.mp4", cv2.VideoWriter_fourcc(*"mp4v"), PASS_COUNT_FPS)
+    writer = cv2.VideoWriter(work_folder + "/blocks.mp4", cv2.VideoWriter_fourcc(*"mp4v"), PASS_COUNT_FPS, (1280, 720))
     # get the per hour clip
     pass_count_clips = []
     for i in range(24):
         candidate_clips = []
-        time_limit_lower = target_date + datetime.timedelta(hours=i)
-        time_limit_upper = target_date + datetime.timedelta(hours=i + 1)
+        time_limit_lower = datetime.datetime.combine(target_date, datetime.time()) + datetime.timedelta(hours=i)
+        time_limit_upper = datetime.datetime.combine(target_date, datetime.time()) + datetime.timedelta(hours=i + 1)
         short_clips = []  # grab clips that are just too short...
         for c in clips:
-            clip_start_time = datetime.datetime.strptime(re.findall(r"/(.*)__", c)[0], CLIP_TIME_FORMAT)
-            clip_end_time = datetime.datetime.strptime(re.findall(r"__(.*)\.mp4", c)[0], CLIP_TIME_FORMAT)
+            clip_start_time = datetime.datetime.strptime(re.findall(r"/(\d*)__\d", c)[0], CLIP_TIME_FORMAT)
+            clip_end_time = datetime.datetime.strptime(re.findall(r"__(\d*)\.mp4", c)[0], CLIP_TIME_FORMAT)
             if clip_end_time - clip_start_time < datetime.timedelta(minutes=pass_count_duration + 5):
                 short_clips.append(c)
                 continue
@@ -273,25 +268,32 @@ def perform_detection__fishway_pass(target_date, cam):
 
     # get the real clip that will get cut into block!
     for clip in pass_count_clips:
-        clip_start_time = datetime.datetime.strptime(re.findall(r"/(.*)__", clip)[0], CLIP_TIME_FORMAT)
+        clip_start_time = datetime.datetime.strptime(re.findall(r"/(\d*)__", clip)[0], CLIP_TIME_FORMAT)
         cap = cv2.VideoCapture(clip)
-        fps = cap.get(cv2.CAP_PROP_FPS)
+        fps = int(cap.get(cv2.CAP_PROP_FPS))
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-        total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-        pos = random.randrange(0, total_frames - fps * (pass_count_duration + 1))
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        pos = random.randrange(0, total_frames - fps * (pass_count_duration * 60 + 1))
         sample_time = clip_start_time + datetime.timedelta(seconds=pos // fps)
-        cap.set(cv2.CAP_RPOP_POS_FRAMES, pos)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, pos)
         # TODO: the fps will only be 60 or 30, this is ... really great!
         frame_count = 0
         frame_count_written = 0
+        print(f"fps: {fps}, duration: {pass_count_duration}")
         while cap.isOpened():
             ret, frame = cap.read()
-            if ret and frame_count % fps // PASS_COUNT_FPS == 0:
+            if ret and frame_count % (fps // PASS_COUNT_FPS) == 0:
                 writer.write(frame)
+                if frame_count_written % 1000 == 0:
+                    print(f"   write {frame_count_written} frames...")
                 frame_count_written += 1
-            if frame_count_written >= PASS_COUNT_FPS * pass_count_duration:
+            if frame_count_written >= PASS_COUNT_FPS * pass_count_duration * 60:
+                print("write one temp block is done!")
                 break
+            if not ret:
+                print("error no more frames where it should...")
+                raise
             frame_count += 1
         block_info.write(sample_time.strftime(CLIP_TIME_FORMAT + "%S") + "\n")
     writer.release()
@@ -299,18 +301,18 @@ def perform_detection__fishway_pass(target_date, cam):
 
     # run yolov7 detection
     ## TODO:test if subprocess may work?
-    task = subprocess.Popen(
+    subprocess.run(
         [
-            "python",
+            sys.executable,
             "detect.py",
             "--weights",
             cam["ModelFilePath"],
             "--conf-thres",
-            cam["Confidence"],
+            str(cam["Confidence"]),
             "--iou-thres",
-            cam["IOU"],
+            str(cam["IOU"]),
             "--img-size",
-            cam["ImageSize"],
+            str(cam["ImageSize"]),
             "--project",
             work_folder,
             "--name",
@@ -321,9 +323,8 @@ def perform_detection__fishway_pass(target_date, cam):
             "--save-conf",
             "--nosave",
         ],
-        stdout=subprocess.DEVNULL,
+        # stdout=subprocess.DEVNULL,
     )
-    task.wait()
 
 
 def extract_fishway_pass_result(target_date, cam):
@@ -378,7 +379,57 @@ def extract_fishway_pass_result(target_date, cam):
 
 
 def send_results_to_server(target_date, cam):
-    pass
+    global logger
+    base_url = CONFIG["Server"] + "/api/"
+    event_date = target_date.strftime(DB_DATE_FORMAT)
+    analysis_time = datetime.datetime.now().strftime(DB_TIEM_FORMAT)
+    analysis_data = dict(
+        event_data=event_date,
+        analysis_time=analysis_time,
+        analysis_log="send from deployment",
+        detection_model=cam["ModelName"],
+        camera=cam["CameraName"],
+    )
+    template_data = dict(event_date=event_date, camera=cam["CameraName"])
+
+    pass_analysis_data = analysis_data.copy()
+    pass_analysis_data["sample_length"] = CONFIG["PassCountDuration"]
+    r = WEB_APP_SESSION.post(base_url + "fishway_pass_analysis/", json=pass_analysis_data)
+    if not r.ok:
+        logger.error("send data to server failed... (pass analysis)")
+        return
+    df = pd.read_csv(f"{CONFIG['TaskInputDir']}/fishway_pass_summary.csv")
+    df = df[(df["cam"] == cam["CameraName"] & df["event_date"] == target_date)]
+    data_to_send = []
+    for _, row in df.iterrows():
+        d = template_data.copy()
+        d["fish"] = row["fish"]
+        d["count"] = row["count"]
+        data_to_send.append(d)
+    r = WEB_APP_SESSION.post(base_url + "pass_count/", json=data_to_send)
+    if not r.ok:
+        logger.error("send data to server failed...(pass count)")
+        return
+
+    utility_analysis_data = analysis_data.copy()
+    utility_analysis_data["detection_frequency"] = CONFIG["DetectionFrequency"]
+    r = WEB_APP_SESSION.post(base_url + "fishway_utility_analysis/", json=utility_analysis_data)
+    if not r.ok:
+        logger.error("send data (utility analysis) to server failed...")
+        return
+    df = pd.read_csv(f"{CONFIG['TaskInputDir']}/fishway_utility_summary.csv")
+    df = df[(df["cam"] == cam["CameraName"] & df["event_date"] == target_date)]
+    data_to_send = []
+    for _, row in df.iterrows():
+        d = template_data.copy()
+        d["hour"] = row["hour"]
+        d["fish"] = row["fish"]
+        d["count"] = row["count"]
+        data_to_send.append(d)
+    r = WEB_APP_SESSION.post(base_url + "fishway_utility/", json=data_to_send)
+    if not r.ok:
+        logger.error("send data to server failed...(fishway utility)")
+        return
 
 
 # collect 1 region with highest fishway utility, 3 minutes long!
@@ -389,23 +440,27 @@ def collect_highlight(target_date, cam):
     )
     us = pd.DataFrame(utility_result).groupby(["detect_time"], as_index=False).sum()
     if max(us.count) == 0:
-        logger.log(f"    skip highlight since there is no any detection! {cam} - {target_date}")
+        logger.info(f"    skip highlight since there is no any detection! {cam} - {target_date}")
         return
     max_time = us[us["count"] == max(us["count"])].detect_time.iloc[0]
-    clips_folder = CONFIG["TaskInputDir"]+cam["CameraName"]
-    hightlight_name = f"{CONFIG['TaskOutputDir']}/Highlights/{cam['CameraName']}_{target_date.strptime(CLIP_TIME_FORMAT)}.mp4}
+    clips_folder = CONFIG["TaskInputDir"] + cam["CameraName"]
+    hightlight_name = (
+        f"{CONFIG['TaskOutputDir']}/Highlights/{cam['CameraName']}_{target_date.strptime(CLIP_TIME_FORMAT)}.mp4"
+    )
     for clip in os.listdir(clips_folder):
         clip_start_time = datetime.datetime.strptime(re.findall(r"/(.*)__", clip)[0], CLIP_TIME_FORMAT)
         clip_end_time = datetime.datetime.strptime(re.findall(r"__(.*)\.mp4", clip)[0], CLIP_TIME_FORMAT)
-        if clip_start_time <= max_time <=clip_end_time:
+        if clip_start_time <= max_time <= clip_end_time:
             if clip_end_time - clip_start_time <= datetime.timedelta(minutes=3):
-                shutil.copy(clips_folder+"/"+clip, hightlight_name)
+                shutil.copy(clips_folder + "/" + clip, hightlight_name)
             else:
-                cap = cv2.VideCapture(clips_folder+"/"+clip)
+                cap = cv2.VideCapture(clips_folder + "/" + clip)
                 fps = cap.get(cv2.CAP_PROP_FPS)
-                writer = cv2.VideoWriter(hightlight_name, cv2.VideoWriter_fourcc(*"mp4v"), fps)
-                if clip_end_time - max_time > datetime.timedelta(seconds=90):                    
-                    start_pos = ((max_time - clip_end_time).seconds - 90) * fps 
+                w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                writer = cv2.VideoWriter(hightlight_name, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+                if clip_end_time - max_time > datetime.timedelta(seconds=90):
+                    start_pos = ((max_time - clip_end_time).seconds - 90) * fps
                 else:
                     start_pos = ((clip_end_time - datetime.timedelta(seconds=180)) - clip_start_time).seconds * fps
                 cap.set(cv2.CAP_PROP_FRAME_COUNT)
@@ -419,27 +474,46 @@ def collect_highlight(target_date, cam):
                 writer.release()
             break
 
-def SMS_notify():
-    pass
+
+## TODO: just skip all sms notify system for now... it's just not that much useful now...
+
+# def SMS_notify():
+#     today = datetime.now().date()
+#     if should_report_send_group(CONFIG["DailyReportSendGroup"]):
+#         pass
+#     if should_report_send_group(CONFIG["WeeklyReportSendGroup"]) and today.weekday() == 0:
+#         pass
+#     if should_report_send_group(CONFIG["MonthlyReportSendGroup"]) and today.day == 1:
+#         pass
+#     pass
 
 
 def run_tasks(target_date):
     global logger
     for cam in CONFIG["Cameras"]:
-        os.mkdir(CONFIG["TaskOutputDir"] + "/Detections/" + target_date.strftime(CLIP_TIME_FORMAT))
-        os.mkdir(CONFIG["TaskOutputDir"] + "/PassCounts/" + target_date.strftime(CLIP_TIME_FORMAT))
-        logger.log(f"Start fishway utility analysis {cam['CameraName']} - {target_date}")
-        perform_detection__fishway_utility(target_date, cam)
-        extract_fishway_utility_results(target_date, cam)
-        logger.log(f"Analysis complete {cam['CameraName']} - {target_date}")
-        logger.log(f"Start fishway pass analysis {cam['CameraName']} - {target_date}")
-        perform_detection__fishway_pass(target_date, cam)
+        ## TODO: temp... remove later
+        try:
+            os.mkdir(
+                f"{CONFIG['TaskOutputDir']}/Detections/{cam['CameraName']}/{target_date.strftime(CLIP_TIME_FORMAT)}"
+            )
+            os.mkdir(
+                f"{CONFIG['TaskOutputDir']}/PassCounts/{cam['CameraName']}/{target_date.strftime(CLIP_TIME_FORMAT)}"
+            )
+        except:
+            pass
+        # logger.info(f"Start fishway utility analysis {cam['CameraName']} - {target_date}")
+        # perform_detection__fishway_utility(target_date, cam)
+        # extract_fishway_utility_results(target_date, cam)
+        # logger.info(f"Analysis complete {cam['CameraName']} - {target_date}")
+        # logger.info(f"Start fishway pass analysis {cam['CameraName']} - {target_date}")
+        # perform_detection__fishway_pass(target_date, cam)
         extract_fishway_pass_result(target_date, cam)
-        logger.log(f"Analysis complete {cam['CameraName']} - {target_date}")
+        logger.info(f"Analysis complete {cam['CameraName']} - {target_date}")
         send_results_to_server(target_date, cam)
-        logger.log(f"Send date to server complete {cam['CameraName']} - {target_date} - fishway utility")
+        logger.info(f"Send date to server complete {cam['CameraName']} - {target_date} - fishway utility")
         collect_highlight(target_date, cam)
-        logger.log(f"Collect highlight complete {cam['CameraName']} - {target_date}")
+        logger.info(f"Collect highlight complete {cam['CameraName']} - {target_date}")
+        raise
 
 
 def one_time_task():
@@ -482,10 +556,10 @@ def schedule_task():
 
     # notify server task is started...
 
-    def notify_server_stopping_scheduled_task():
-        pass
-
-    atexit.register(notify_server_stopping_scheduled_task)
+    # def notify_server_stopping_scheduled_task():
+    #     pass
+    #
+    # atexit.register(notify_server_stopping_scheduled_task)
 
     ## TODO: send startup SMS?
 
@@ -497,8 +571,8 @@ def schedule_task():
             target_date = now.date() - datetime.timedelta(days=1)
             run_tasks(target_date)
 
-        if now.hour == sms_hour and now.minute == sms_minute:
-            SMS_notify()
+        # if now.hour == sms_hour and now.minute == sms_minute:
+        #     SMS_notify()
         time.sleep(60)
 
 
