@@ -924,7 +924,7 @@ namespace IFCS
                         if (ClosestIdx == -1)
                         {
                             TempTrackData.emplace_back(F, L);
-                            TempTrackData[0].HasPicked = true;
+                            TempTrackData[TempTrackData.size() - 1].HasPicked = true;
                         }
                         else
                         {
