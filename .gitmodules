@@ -14,9 +14,9 @@
 [submodule "IFCS/vendor/imgui_extensions/Implot"]
 	path = IFCS/vendor/imgui_extensions/Implot
 	url = https://github.com/epezent/implot.git
-[submodule "IFCS/vendor/imgui_extensions/ImGuiFileDialog"]
-	path = IFCS/vendor/imgui_extensions/ImGuiFileDialog
-	url = https://github.com/even311379/ImGuiFileDialog.git
 [submodule "IFCS/vendor/imgui_extensions/IconFontCppHeaders"]
 	path = IFCS/vendor/imgui_extensions/IconFontCppHeaders
 	url = https://github.com/juliettef/IconFontCppHeaders.git
+[submodule "IFCS/vendor/imgui_extensions/ImGuiFileDialog"]
+	path = IFCS/vendor/imgui_extensions/ImGuiFileDialog
+	url = https://github.com/even311379/ImGuiFileDialog.git
