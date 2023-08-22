@@ -23,6 +23,7 @@
 #include "ImGuiFileDialog/ImGuiFileDialog.h"
 #include "Implot/implot.h"
 #include "Imspinner/imspinner.h"
+#include "misc/cpp/imgui_stdlib.h"
 
 // TODO: model comparison!!!
 
@@ -1289,7 +1290,7 @@ namespace IFCS
         {
             if (bTrainOnExternalModel)
             {
-                ImGui::InputText("External Model Path", ExternalModelPath, IM_ARRAYSIZE(ExternalModelPath), ImGuiInputTextFlags_ReadOnly);
+                ImGui::InputText("External Model Path", &ExternalModelPath, ImGuiInputTextFlags_ReadOnly);
                 ImGui::SameLine();
                 if (ImGui::Button("..."))
                 {
@@ -1441,7 +1442,7 @@ namespace IFCS
         {
             ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "Existing model is not selected!");
         }
-        else if (bTrainOnExisitingModel && bTrainOnExternalModel && strlen(ExternalModelPath) == 0)
+        else if (bTrainOnExisitingModel && bTrainOnExternalModel && !ExternalModelPath.empty())
         {
             ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "External model path is empty!");
         }
@@ -1612,7 +1613,7 @@ namespace IFCS
         TrainScript += " --weights ";
         if (bTrainOnExisitingModel)
         {
-            if (bTrainOnExternalModel && strlen(ExternalModelPath) != 0)
+            if (bTrainOnExternalModel && !ExternalModelPath.empty())
             {
                 TrainScript += ExternalModelPath;
             }

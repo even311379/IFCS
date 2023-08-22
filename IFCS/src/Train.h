@@ -10,7 +10,7 @@ namespace IFCS
     public:
         MAKE_SINGLETON(Train)
         void Setup(const char* InName, bool InShouldOpen, ImGuiWindowFlags InFlags, bool InCanClose = true) override;
-        char ExternalModelPath[255];
+        std::string ExternalModelPath;
         
     protected:
         void RenderContent() override;

@@ -256,7 +256,7 @@ namespace IFCS
         }
         inline static int Width, Height;
         inline static std::vector<std::string> CategoryNames;
-        inline static float SpeciesDetermineThreshold = 0.1f;
+        inline static std::string OtherName;
         
         std::map<int, FLabelData> Info;
         bool IsCompleted = false;
@@ -308,40 +308,41 @@ namespace IFCS
         bool ShouldApplyDetectionROI = false;
         std::array<float, 4> DetectionROI = {0.f, 0.f, 1.f, 1.f};
         bool IsPassVertical;
+        // TODO: leave the angle stuff later...
+        // float FishwayAngle;
         std::array<float, 2> FishwayStartEnd = {0.f, 1.f};
+        bool UseFishwayMiddle = false;
+        float FishwayMiddle = 1.f;
         bool ShouldEnableSpeedThreshold = true;
         float SpeedThreshold = 0.1f;
         bool ShouldEnableBodySizeThreshold = true;
         float BodySizeThreshold = 0.2f;
-        float SpeciesDetermineThreshold = 0.1f;
         int FrameBufferSize = 10;
-
-        // category
-        std::vector<std::string> Categories;
-
+        std::string OtherCategoryName;
     };
 
-    struct FSMSReceiver
-    {
-        FSMSReceiver() = default;
-        FSMSReceiver(const YAML::Node& InputNode);
-        void Deserialize(const YAML::Node& InputNode);
-        YAML::Node Serialize() const;
-        std::string Name = "GoodGuy";
-        std::string Phone = "0912345678";
-        std::string Group = "Manager";
-    };
-
-    struct FSendGroup
-    {
-        FSendGroup()=default;
-        FSendGroup(const YAML::Node& InputNode);
-        void Deserialize(const YAML::Node& InputNode);
-        YAML::Node Serialize() const;
-        bool GroupManager = false;
-        bool GroupClient = false;
-        bool GroupHelper = false;
-    };
+    // TODO: just leave SMS alone... no need!
+    // struct FSMSReceiver
+    // {
+    //     FSMSReceiver() = default;
+    //     FSMSReceiver(const YAML::Node& InputNode);
+    //     void Deserialize(const YAML::Node& InputNode);
+    //     YAML::Node Serialize() const;
+    //     std::string Name = "GoodGuy";
+    //     std::string Phone = "0912345678";
+    //     std::string Group = "Manager";
+    // };
+    //
+    // struct FSendGroup
+    // {
+    //     FSendGroup()=default;
+    //     FSendGroup(const YAML::Node& InputNode);
+    //     void Deserialize(const YAML::Node& InputNode);
+    //     YAML::Node Serialize() const;
+    //     bool GroupManager = false;
+    //     bool GroupClient = false;
+    //     bool GroupHelper = false;
+    // };
 
     struct FDeploymentData
     {
@@ -360,7 +361,7 @@ namespace IFCS
         std::vector<tm> RunDates; // run dates bwteen start and end date
         tm StartDate = tm();
         tm EndDate = tm();
-        bool ShouldBackupImportantRegions = true;
+        bool ShouldCollectHighlight = true;
         
         // Data pipeline
         int DetectionPeriodInSecond = 60;
@@ -368,18 +369,20 @@ namespace IFCS
         std::string ServerAddress;
         std::string ServerAccount;
         std::string ServerPassword;
-        
+        bool ShouldAutoSendServer;
+
+        // TODO: just leave SMS alone... no need!
         // SMS
-        std::string TwilioSID;
-        std::string TwilioAuthToken;
-        std::string TwilioPhoneNumber;
-        std::string ReceiverAreaCode = "886";
-        std::vector<FSMSReceiver> SMSReceivers = { FSMSReceiver() };
-        FSendGroup DailyReportSendGroup;
-        FSendGroup WeeklyReportSendGroup;
-        FSendGroup MonthlyReportSendGroup;
-        FSendGroup LoseConnectionSendGroup;
-        FSendGroup SMSTestSendGroup;
-        int SMS_SendTime[2] = {9, 0};
+        // std::string TwilioSID;
+        // std::string TwilioAuthToken;
+        // std::string TwilioPhoneNumber;
+        // std::string ReceiverAreaCode = "886";
+        // std::vector<FSMSReceiver> SMSReceivers = { FSMSReceiver() };
+        // FSendGroup DailyReportSendGroup;
+        // FSendGroup WeeklyReportSendGroup;
+        // FSendGroup MonthlyReportSendGroup;
+        // FSendGroup LoseConnectionSendGroup;
+        // FSendGroup SMSTestSendGroup;
+        // int SMS_SendTime[2] = {9, 0};
     };
 }

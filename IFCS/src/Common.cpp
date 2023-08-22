@@ -524,54 +524,19 @@ namespace IFCS
 
     std::string FIndividualData::GetName() const
     {
-        std::map<std::string, std::vector<float>> CatConfs;
-        int S = 0;
-        for (const auto& [F, L] : Info)
+        float MaxConf = 0.f;
+        std::string Out = OtherName;
+        for (auto& [F, L] : Info)
         {
-            if (L.CatID + 1 > (int)CategoryNames.size())
+            if (L.Conf < MaxConf) continue;
+            if (CategoryNames[L.CatID] != OtherName)
             {
-                return "Error";
-            }
-            if (L.Conf < SpeciesDetermineThreshold) continue;
-            CatConfs[CategoryNames[L.CatID]].push_back(L.Conf);
-            S += 1;
-        }
-        if (S == 0) return "UNCERTAIN";
-        std::string BestFitName;
-        // most pass one
-        int MaxPass = 999;
-        bool HaveSameBestFit = false;
-        std::vector<std::string> EqualCats;
-        for (auto [k, v] : CatConfs)
-        {
-            if (v.size() == MaxPass)
-            {
-                EqualCats.push_back(k);
-                HaveSameBestFit = true;
-            }
-            else if (v.size() < MaxPass)
-            {
-                MaxPass = (int)v.size();
-                BestFitName = k;
-                HaveSameBestFit = false;
-                EqualCats.clear();
+                MaxConf = L.Conf;
+                Out = CategoryNames[L.CatID];
             }
         }
-        if (!HaveSameBestFit) return BestFitName;
-        // if same, compare mean conf of that cat
-        float MaxMeanConf = 0.f;
-        for (auto Cat : EqualCats)
-        {
-            const float MeanConf = Utils::Mean(CatConfs[Cat]);
-            if (MeanConf > MaxMeanConf)
-            {
-                MaxMeanConf = MeanConf;
-                BestFitName = Cat;
-            }
-        }
-        return BestFitName;
+        return Out;
     }
-
 
     int FIndividualData::CompareWithSortSpecs(const void* lhs, const void* rhs)
     {
@@ -656,12 +621,14 @@ namespace IFCS
         for (int i = 0; i < 2; i++)
             Arr2[i] = FishwayStartEnd[i];
         Out["FishwayStartEnd"] = Arr2;
+        Out["UseFishwayMiddle"] = UseFishwayMiddle;
+        Out["FishwayMiddle"] = FishwayMiddle;
         Out["ShouldEnableSpeedThreshold"] = ShouldEnableSpeedThreshold;
         Out["SpeedThreshold"] = SpeedThreshold;
         Out["ShouldEnableBodySizeThreshold"] = ShouldEnableBodySizeThreshold;
         Out["BodySizeThreshold"] = BodySizeThreshold;
-        Out["SpeciesDetermineThreshold"] = SpeciesDetermineThreshold;
         Out["FrameBufferSize"] = FrameBufferSize;
+        Out["OtherCategoryName"] = OtherCategoryName;
         return Out;
     }
 
@@ -685,56 +652,59 @@ namespace IFCS
         {
             FishwayStartEnd[i] = arr2[i];
         }
+        UseFishwayMiddle = InputNode["UseFishwayMiddle"].as<bool>();
+        FishwayMiddle = InputNode["FishwayMiddle"].as<float>();
         ShouldEnableSpeedThreshold = InputNode["ShouldEnableSpeedThreshold"].as<bool>();
         SpeedThreshold = InputNode["SpeedThreshold"].as<float>();
         ShouldEnableBodySizeThreshold = InputNode["ShouldEnableBodySizeThreshold"].as<bool>();
         BodySizeThreshold = InputNode["BodySizeThreshold"].as<float>();
-        SpeciesDetermineThreshold = InputNode["SpeciesDetermineThreshold"].as<float>();
+        OtherCategoryName = InputNode["OtherCategoryName"].as<std::string>();
         FrameBufferSize = InputNode["FrameBufferSize"].as<int>();
     }
 
-    FSMSReceiver::FSMSReceiver(const YAML::Node& InputNode)
-    {
-        Deserialize(InputNode);
-    }
-
-    void FSMSReceiver::Deserialize(const YAML::Node& InputNode)
-    {
-        Name = InputNode["Name"].as<std::string>();
-        Phone = InputNode["Phone"].as<std::string>();
-        Group = InputNode["Group"].as<std::string>();
-    }
-
-    YAML::Node FSMSReceiver::Serialize() const
-    {
-        YAML::Node Out;
-        Out["Name"] = Name;
-        Out["Phone"] = Phone;
-        Out["Group"] = Group;
-        return Out;
-    }
-
-    FSendGroup::FSendGroup(const YAML::Node& InputNode)
-    {
-        Deserialize(InputNode);
-    }
-
-    void FSendGroup::Deserialize(const YAML::Node& InputNode)
-    {
-        GroupManager = InputNode["Manager"].as<bool>();
-        GroupClient = InputNode["Client"].as<bool>();
-        GroupHelper = InputNode["Helper"].as<bool>();
-    }
-
-    YAML::Node FSendGroup::Serialize() const
-    {
-        YAML::Node Out;
-        Out["Manager"] = GroupManager;
-        Out["Client"] = GroupClient;
-        Out["Helper"] = GroupHelper;
-        return Out;
-    }
-
+    // TODO: just leave SMS alone... no need!
+    // FSMSReceiver::FSMSReceiver(const YAML::Node& InputNode)
+    // {
+    //     Deserialize(InputNode);
+    // }
+    //
+    // void FSMSReceiver::Deserialize(const YAML::Node& InputNode)
+    // {
+    //     Name = InputNode["Name"].as<std::string>();
+    //     Phone = InputNode["Phone"].as<std::string>();
+    //     Group = InputNode["Group"].as<std::string>();
+    // }
+    //
+    // YAML::Node FSMSReceiver::Serialize() const
+    // {
+    //     YAML::Node Out;
+    //     Out["Name"] = Name;
+    //     Out["Phone"] = Phone;
+    //     Out["Group"] = Group;
+    //     return Out;
+    // }
+    //
+    // FSendGroup::FSendGroup(const YAML::Node& InputNode)
+    // {
+    //     Deserialize(InputNode);
+    // }
+    //
+    // void FSendGroup::Deserialize(const YAML::Node& InputNode)
+    // {
+    //     GroupManager = InputNode["Manager"].as<bool>();
+    //     GroupClient = InputNode["Client"].as<bool>();
+    //     GroupHelper = InputNode["Helper"].as<bool>();
+    // }
+    //
+    // YAML::Node FSendGroup::Serialize() const
+    // {
+    //     YAML::Node Out;
+    //     Out["Manager"] = GroupManager;
+    //     Out["Client"] = GroupClient;
+    //     Out["Helper"] = GroupHelper;
+    //     return Out;
+    // }
+    //
     FDeploymentData::FDeploymentData(const YAML::Node& InputNode)
     {
         Deserialize(InputNode);
@@ -770,31 +740,33 @@ namespace IFCS
         Out["EndDate"]["Year"] = EndDate.tm_year;
         Out["EndDate"]["Month"] = EndDate.tm_mon;
         Out["EndDate"]["Day"] = EndDate.tm_mday;
-        Out["ShouldBackupImportantRegions"] = ShouldBackupImportantRegions;
+        Out["ShouldCollectHighlight"] = ShouldCollectHighlight;
 
         Out["DetectionFrequency"] = DetectionPeriodInSecond;
         Out["PassCountDuration"] = PassCountDurationInMinutes;
         Out["Server"] = ServerAddress;
         Out["ServerAccount"] = ServerAccount;
         Out["ServerPassword"] = ServerPassword;
+        Out["ShouldAutoSendServer"] = ShouldAutoSendServer;
         
-        Out["TwilioSID"] = TwilioSID;
-        Out["TwilioAuthToken"] = TwilioAuthToken;
-        Out["TwilioPhoneNumber"] = TwilioPhoneNumber;
-        Out["ReceiverAreaCode"] = ReceiverAreaCode;
-        for (const auto& Receiver : SMSReceivers)
-        {
-            Out["Receivers"].push_back(Receiver.Serialize());
-        }
-        Out["DailyReportSendGroup"] = DailyReportSendGroup.Serialize();
-        Out["WeeklyReportSendGroup"] = WeeklyReportSendGroup.Serialize();
-        Out["MonthlyReportSendGroup"] = MonthlyReportSendGroup.Serialize();
-        Out["LoseConnectionSendGroup"] = LoseConnectionSendGroup.Serialize();
-        Out["SMSTestSendGroup"] = SMSTestSendGroup.Serialize();
-        std::array<int, 2> Arr2{};
-        for (int i = 0; i < 2; i++)
-            Arr2[i] = SMS_SendTime[i];
-        Out["SMS_SendTime"] = Arr2;
+        // TODO: just leave SMS alone... no need!
+        // Out["TwilioSID"] = TwilioSID;
+        // Out["TwilioAuthToken"] = TwilioAuthToken;
+        // Out["TwilioPhoneNumber"] = TwilioPhoneNumber;
+        // Out["ReceiverAreaCode"] = ReceiverAreaCode;
+        // for (const auto& Receiver : SMSReceivers)
+        // {
+        //     Out["Receivers"].push_back(Receiver.Serialize());
+        // }
+        // Out["DailyReportSendGroup"] = DailyReportSendGroup.Serialize();
+        // Out["WeeklyReportSendGroup"] = WeeklyReportSendGroup.Serialize();
+        // Out["MonthlyReportSendGroup"] = MonthlyReportSendGroup.Serialize();
+        // Out["LoseConnectionSendGroup"] = LoseConnectionSendGroup.Serialize();
+        // Out["SMSTestSendGroup"] = SMSTestSendGroup.Serialize();
+        // std::array<int, 2> Arr2{};
+        // for (int i = 0; i < 2; i++)
+        //     Arr2[i] = SMS_SendTime[i];
+        // Out["SMS_SendTime"] = Arr2;
         return Out;
     }
 
@@ -820,7 +792,7 @@ namespace IFCS
             tm Date;
             Date.tm_year = it->as<YAML::Node>()["Year"].as<int>();
             Date.tm_mon = it->as<YAML::Node>()["Month"].as<int>();
-            Date.tm_mday = it->as<YAML::Node>()["Date"].as<int>();
+            Date.tm_mday = it->as<YAML::Node>()["Day"].as<int>();
             RunDates.push_back(Date);
         }
         StartDate = tm();
@@ -831,29 +803,32 @@ namespace IFCS
         EndDate.tm_year = InputNode["EndDate"]["Year"].as<int>();
         EndDate.tm_mon = InputNode["EndDate"]["Month"].as<int>();
         EndDate.tm_mday = InputNode["EndDate"]["Day"].as<int>();
-        ShouldBackupImportantRegions = InputNode["ShouldBackupImportantRegions"].as<bool>();
+        ShouldCollectHighlight = InputNode["ShouldCollectHighlight"].as<bool>();
         DetectionPeriodInSecond = InputNode["DetectionFrequency"].as<int>();
         PassCountDurationInMinutes = InputNode["PassCountDuration"].as<int>();
         ServerAddress = InputNode["Server"].as<std::string>();
         ServerAccount = InputNode["ServerAccount"].as<std::string>();
         ServerPassword = InputNode["ServerPassword"].as<std::string>();
-        TwilioSID = InputNode["TwilioSID"].as<std::string>();
-        TwilioAuthToken = InputNode["TwilioAuthToken"].as<std::string>();
-        TwilioPhoneNumber = InputNode["TwilioPhoneNumber"].as<std::string>();
-        ReceiverAreaCode = InputNode["ReceiverAreaCode"].as<std::string>();
-
-        for (YAML::const_iterator it = InputNode["Receivers"].begin(); it != InputNode["Receivers"].end(); ++it)
-        {
-            SMSReceivers.emplace_back(it->as<YAML::Node>());
-        }
-        DailyReportSendGroup = FSendGroup(InputNode["DailyReportSendGroup"]);
-        WeeklyReportSendGroup = FSendGroup(InputNode["WeeklyReportSendGroup"]);
-        MonthlyReportSendGroup = FSendGroup(InputNode["MonthlyReportSendGroup"]);
-        LoseConnectionSendGroup = FSendGroup(InputNode["LoseConnectionSendGroup"]);
-        SMSTestSendGroup = FSendGroup(InputNode["SMSTestSendGroup"]);
-        const auto temp2 = InputNode["SMS_SendTime"].as<std::array<int, 2>>();
-        SMS_SendTime[0] = temp2[0];
-        SMS_SendTime[1] = temp2[1];
+        ShouldAutoSendServer = InputNode["ShouldAutoSendServer"].as<bool>();
+        
+        // TODO: just leave SMS alone... no need!
+        // TwilioSID = InputNode["TwilioSID"].as<std::string>();
+        // TwilioAuthToken = InputNode["TwilioAuthToken"].as<std::string>();
+        // TwilioPhoneNumber = InputNode["TwilioPhoneNumber"].as<std::string>();
+        // ReceiverAreaCode = InputNode["ReceiverAreaCode"].as<std::string>();
+        //
+        // for (YAML::const_iterator it = InputNode["Receivers"].begin(); it != InputNode["Receivers"].end(); ++it)
+        // {
+        //     SMSReceivers.emplace_back(it->as<YAML::Node>());
+        // }
+        // DailyReportSendGroup = FSendGroup(InputNode["DailyReportSendGroup"]);
+        // WeeklyReportSendGroup = FSendGroup(InputNode["WeeklyReportSendGroup"]);
+        // MonthlyReportSendGroup = FSendGroup(InputNode["MonthlyReportSendGroup"]);
+        // LoseConnectionSendGroup = FSendGroup(InputNode["LoseConnectionSendGroup"]);
+        // SMSTestSendGroup = FSendGroup(InputNode["SMSTestSendGroup"]);
+        // const auto temp2 = InputNode["SMS_SendTime"].as<std::array<int, 2>>();
+        // SMS_SendTime[0] = temp2[0];
+        // SMS_SendTime[1] = temp2[1];
 
     }
 

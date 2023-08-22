@@ -355,6 +355,11 @@ namespace IFCS
                     if (DB.CurrentFrame == DB.VideoEndFrame)
                         DB.CurrentFrame = DB.VideoStartFrame;
                     IsPlaying = !IsPlaying;
+                    // TODO: very hack to fix this 1 frame jump when pressing pause issue... not sure this is actually the solution? or maybe trigger other bugs in other video
+                    
+                    // fix 1 frame diff when press playing button?
+                    if (DB.CurrentFrame > 0 && !IsPlaying)
+                        DB.CurrentFrame -= 1;
                 }
                 if (ImGui::IsKeyPressed(ImGuiKey_S))
                 {
@@ -408,6 +413,10 @@ namespace IFCS
             if (DB.CurrentFrame == DB.VideoEndFrame)
                 DB.CurrentFrame = DB.VideoStartFrame;
             IsPlaying = !IsPlaying;
+            // fix 1 frame diff when press playing button?
+            if (DB.CurrentFrame > 0 && !IsPlaying)
+                DB.CurrentFrame -= 1;
+
         }
         Utils::AddSimpleTooltip("Play (A)");
         ImGui::SameLine();
@@ -528,8 +537,8 @@ namespace IFCS
         if (TimePassed < (1 / DB.SelectedClipInfo.FPS)) return;
         TimePassed = 0.f;
         DB.DisplayFrame(DB.CurrentFrame);
-        DB.CurrentFrame += 1;
         DB.LoadingVideoBlock(IsLoadingVideo, DB.CurrentFrame);
+        DB.CurrentFrame += 1;
         //check should release cap and stop play
         if (DB.CurrentFrame == DB.VideoEndFrame)
         {

@@ -28,9 +28,9 @@ namespace IFCS
 
     private:
         void RenderWelcome();
-        char TempProjectName[128];
-        char TempProjectLocation[128];
-        char TempExistingProjectLocation[128];
+        std::string TempProjectName;
+        std::string TempProjectLocation;
+        std::string TempExistingProjectLocation;
         bool CheckValidProjectName();
         bool CheckValidExistingProject();
         void RenderNewProject();
@@ -44,9 +44,6 @@ namespace IFCS
         int CustomHeight = 720;
         float WidgetResizeScale = 1.f;
         float GlobalFontScaling = 1.f;
-        char TempPythonPath[128];
-        char TempYoloV7Path[128];
-        char TempPythonEnv[128];
         void RenderDoc(const char* DocName);
         void RenderDeleteModal(EAssetType AssetType);
         void HandleFileDialogClose();

@@ -19,14 +19,17 @@ namespace IFCS
 {
     namespace Utils
     {
-        std::string GetCurrentTimeString(bool IsStyled)
+        std::string GetCurrentTimeString(bool IsStyled, bool IsFileName)
         {
             time_t rawtime;
             tm* timeinfo;
             char buffer[80];
             time(&rawtime);
             timeinfo = localtime(&rawtime);
-            strftime(buffer, sizeof(buffer), "%Y/%m/%d %H:%M:%S", timeinfo);
+            if (IsFileName)
+                strftime(buffer, sizeof(buffer), "%Y%m%d%H%M%S", timeinfo);
+            else
+                strftime(buffer, sizeof(buffer), "%Y/%m/%d %H:%M:%S", timeinfo);
             if (IsStyled)
                 return "[" + std::string{buffer} + "]";
             return std::string{buffer};
@@ -95,6 +98,7 @@ namespace IFCS
                               });
         }
 
+        // TODO: fixed pattern that path will never end with "/" !!!
         std::string ChangePathSlash(const std::string& InString)
         {
             std::string Temp = InString;

@@ -46,7 +46,9 @@ namespace IFCS
         ProjectPath = std::regex_replace(ProjectPath, std::regex("/$"), "");
         if (!std::filesystem::exists(ProjectPath))
         {
-            ProjectPath = "null";
+            Style::ApplyTheme();
+            ProjectPath = "";
+            return;
         }
             
         if (EditorIni["RecentProjects"].IsSequence())

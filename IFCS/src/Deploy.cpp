@@ -13,16 +13,6 @@
 
 namespace IFCS
 {
-    enum class EActiveDeployTab : uint8_t
-    {
-        Automation,
-        FeasibilityTest,
-        DataPipeline,
-        SMSNotification,
-    };
-    
-    static EActiveDeployTab ActiveDeployTab = EActiveDeployTab::Automation;
-
     void Deploy::LoadConfigFile(const std::string& ConfigFilePath)
     {
         const YAML::Node ConfigFile = YAML::LoadFile(ConfigFilePath);
@@ -53,11 +43,12 @@ namespace IFCS
                 RenderConfigureTask();
                 ImGui::TreePop();
             }
-            if (ImGui::TreeNode("Notification"))
-            {
-                RenderNotification();
-                ImGui::TreePop();
-            }
+            // TODO: temporarily remove all sms stuff...
+            // if (ImGui::TreeNode("Notification"))
+            // {
+            //     RenderNotification();
+            //     ImGui::TreePop();
+            // }
         }
         ImGui::EndChild();
         ImGui::Separator();
@@ -86,16 +77,16 @@ namespace IFCS
             fout << Out.c_str();
             // copy python file
             std::string AppPath = Utils::ChangePathSlash(std::filesystem::current_path().u8string());
-            std::filesystem::copy_file(AppPath + "/Scripts/IFCS_Deploy.py", Data.TaskOutputDir + "/IFCS_Deploy.py", std::filesystem::copy_options::overwrite_existing);
+            std::filesystem::copy_file(AppPath + "/Scripts/deploy/Deploy.py", Data.TaskOutputDir + "/Deploy.py", std::filesystem::copy_options::overwrite_existing);
+            std::filesystem::copy_file(AppPath + "/Scripts/deploy/individual_tracker.py", Data.TaskOutputDir + "/individual_tracker.py", std::filesystem::copy_options::overwrite_existing);
             // write run script
             std::ofstream ofs;
             ofs.open(Data.TaskOutputDir + "/RUN.bat");
-            ofs << Setting::Get().PythonPath << "/python.exe IFCS_Deploy.py";
+            ofs << Setting::Get().PythonPath << "/python.exe Deploy.py";
             ofs.close();
             ShellExecuteA(NULL, "open", Data.TaskOutputDir.c_str(), NULL, NULL, SW_SHOWDEFAULT);
         }
     }
-
     
     void Deploy::RenderInputOutput()
     {
@@ -136,7 +127,7 @@ namespace IFCS
         ImGui::Text("Data Visualization in web application");
         // server
         ImGui::SetNextItemWidth(256.f);
-        ImGui::InputTextWithHint("Server address", "samplesite.com or 143.198.216.92", &Data.ServerAddress);
+        ImGui::InputTextWithHint("Server address", "https://samplesite.com or http://143.198.216.92", &Data.ServerAddress);
         Utils::AddSimpleTooltip("The server address of your web application");
         // account
         ImGui::SetNextItemWidth(256.f);
@@ -145,6 +136,9 @@ namespace IFCS
         // password
         ImGui::SetNextItemWidth(256.f);
         ImGui::InputText("User password", &Data.ServerPassword, ImGuiInputTextFlags_Password);
+        // auto send data?
+        ImGui::Checkbox("Should send data automatically?", &Data.ShouldAutoSendServer);
+        Utils::AddSimpleTooltip("If true, results will send to server automatically, otherwise, it will only store at your output path.");
 
         // dialogs in this section
         if (ImGuiFileDialog::Instance()->Display("ChooseTaskInputDir", ImGuiWindowFlags_NoCollapse, ImVec2(800, 600))) 
@@ -173,10 +167,7 @@ namespace IFCS
             }
             ImGuiFileDialog::Instance()->Close();
         }
-        
     }
-
-
     
     void Deploy::RenderConfigureTask()
     {
@@ -400,7 +391,6 @@ namespace IFCS
                     ImGui::EndCombo();
                 }
             }
-
             ImGui::TreePop();
         }
     
@@ -535,29 +525,54 @@ namespace IFCS
                 for (auto& C : Data.Cameras)
                     C.FishwayStartEnd = NewValue;
             }
+            if (ImGui::Checkbox("Add fishway middle line?", &Data.Cameras[SelectedCameraIdx].UseFishwayMiddle))
+            {
+                Data.Cameras[SelectedCameraIdx].FishwayMiddle = Data.Cameras[SelectedCameraIdx].FishwayStartEnd[1];
+                bool NewValue = Data.Cameras[SelectedCameraIdx].UseFishwayMiddle;
+                if (Data.UseSameCameraSetup)
+                {
+                    for (auto& C : Data.Cameras)
+                    {
+                        C.UseFishwayMiddle = NewValue;
+                        C.FishwayMiddle = C.FishwayStartEnd[1];
+                    }
+                }
+            }
+            ImGui::SetNextItemWidth(256.f);
+            if (Data.Cameras[SelectedCameraIdx].UseFishwayMiddle)
+            {
+                if (ImGui::SliderFloat("Fishway middle", &Data.Cameras[SelectedCameraIdx].FishwayMiddle , 0.f, 1.f) && Data.UseSameCameraSetup)
+                {
+                    float NewValue = Data.Cameras[SelectedCameraIdx].FishwayMiddle;
+                    for (auto& C : Data.Cameras)
+                        C.FishwayMiddle = NewValue;
+                }
+            }
+            
             if (ImGui::Checkbox("Enable max speed threshold?", &Data.Cameras[SelectedCameraIdx].ShouldEnableSpeedThreshold) && Data.UseSameCameraSetup)
             {
                 bool NewValue = Data.Cameras[SelectedCameraIdx].ShouldEnableSpeedThreshold;
                 for (auto& C : Data.Cameras)
                     C.ShouldEnableSpeedThreshold = NewValue;
-                
             }
+            
             if (ImGui::Checkbox("Enable similar body size threshold?", &Data.Cameras[SelectedCameraIdx].ShouldEnableBodySizeThreshold) && Data.UseSameCameraSetup)
             {
                 bool NewValue = Data.Cameras[SelectedCameraIdx].ShouldEnableBodySizeThreshold;
                 for (auto& C : Data.Cameras)
                     C.ShouldEnableBodySizeThreshold = NewValue;
-                
             }
+            
             if (Data.Cameras[SelectedCameraIdx].ShouldEnableSpeedThreshold)
             {
                 ImGui::SetNextItemWidth(256.f);
                 if (ImGui::DragFloat("Max speed threshold", &Data.Cameras[SelectedCameraIdx].SpeedThreshold, 0.01f, 0.01f, 0.5f, "%.2f") && Data.UseSameCameraSetup)
                 {
-                float NewValue = Data.Cameras[SelectedCameraIdx].SpeedThreshold;
-                for (auto& C : Data.Cameras)
-                    C.SpeedThreshold = NewValue;
-                    
+                    float NewValue = Data.Cameras[SelectedCameraIdx].SpeedThreshold;
+                    for (auto& C : Data.Cameras)
+                    {
+                        C.SpeedThreshold = NewValue;
+                    }
                 }
             }
             if (Data.Cameras[SelectedCameraIdx].ShouldEnableBodySizeThreshold)
@@ -568,204 +583,203 @@ namespace IFCS
                 float NewValue = Data.Cameras[SelectedCameraIdx].BodySizeThreshold;
                 for (auto& C : Data.Cameras)
                     C.BodySizeThreshold = NewValue;
-                    
                 }
-            }
-            ImGui::SetNextItemWidth(256.f);
-            if (ImGui::DragFloat("Confidence threshold", &Data.Cameras[SelectedCameraIdx].SpeciesDetermineThreshold, 0.01f, 0.01f, 0.5f, "%.2f") && Data.UseSameCameraSetup)
-            {
-                float NewValue = Data.Cameras[SelectedCameraIdx].SpeciesDetermineThreshold;
-                for (auto& C : Data.Cameras)
-                    C.SpeciesDetermineThreshold = NewValue;
-                
             }
             ImGui::SetNextItemWidth(256.f);
             if (ImGui::DragInt("Frames buffer threshold", &Data.Cameras[SelectedCameraIdx].FrameBufferSize, 1, 1, 60) && Data.UseSameCameraSetup)
             {
-                float NewValue = Data.Cameras[SelectedCameraIdx].FrameBufferSize;
+                int NewValue = Data.Cameras[SelectedCameraIdx].FrameBufferSize;
                 for (auto& C : Data.Cameras)
                     C.FrameBufferSize = NewValue;
+            }
+            ImGui::SetNextItemWidth(256.f);
+            if (ImGui::InputText("Other category name", &Data.Cameras[SelectedCameraIdx].OtherCategoryName))
+            {
+                std::string NewValue =  Data.Cameras[SelectedCameraIdx].OtherCategoryName;
+                for (auto& C: Data.Cameras)
+                    C.OtherCategoryName = NewValue;
             }
         }
     }
 
-    void Deploy::RenderNotification()
-    {
-        // SMS notify groups
-        // twilio account, api key, phone number
-        ImGui::SetNextItemWidth(256.f);
-        ImGui::InputText("Twilio account SID", &Data.TwilioSID);
-        ImGui::SetNextItemWidth(256.f);
-        ImGui::InputText("Twilio Auth Token", &Data.TwilioAuthToken, ImGuiInputTextFlags_Password);
-        ImGui::SetNextItemWidth(256.f);
-        ImGui::InputText("Twilio phone number", &Data.TwilioPhoneNumber, ImGuiInputTextFlags_CharsDecimal);
-        ImGui::SetNextItemWidth(256.f);
-        if (ImGui::DragInt2("When should SMS send? (Hour:Minute)", Data.SMS_SendTime, 1, 0, 59))
-        {
-            if (Data.SMS_SendTime[0] > 23)
-            {
-                Data.SMS_SendTime[0] = 23;
-            }
-            if (Data.SMS_SendTime[1] > 59)
-            {
-                Data.SMS_SendTime[1] = 59;
-            }
-        }
-        // register receivers
-        ImGui::Text("SMS receivers");
-        ImGui::SetNextItemWidth(256);
-        ImGui::InputText("Area Code", &Data.ReceiverAreaCode, ImGuiInputTextFlags_CharsDecimal);
-        ImGui::Text("Name");
-        ImGui::SameLine(256, 32);
-        ImGui::Text("Phone Numer");
-        ImGui::SameLine(512, 32);
-        ImGui::Text("Group");
-        if (ImGui::BeginTable("##ReceiverRegisterTable", 4, ImGuiTableFlags_NoHostExtendX | ImGuiTableFlags_SizingFixedFit))
-        {
-            for (int i  = 0; i < Data.SMSReceivers.size(); i++)
-            {
-                ImGui::PushID(i);
-                ImGui::TableNextColumn();
-                ImGui::SetNextItemWidth(256);
-                ImGui::InputText("##Receiver name", &Data.SMSReceivers[i].Name);
-                ImGui::TableNextColumn();
-                ImGui::SetNextItemWidth(256);
-                ImGui::InputText("##Receiver phone number", &Data.SMSReceivers[i].Phone, ImGuiInputTextFlags_CharsDecimal);
-                ImGui::TableNextColumn();
-                ImGui::SetNextItemWidth(256);
-                if (ImGui::BeginCombo("##group", Data.SMSReceivers[i].Group.c_str()))
-                {
-                    if (ImGui::Selectable("Manager", Data.SMSReceivers[i].Group == "Manager"))
-                        Data.SMSReceivers[i].Group = "Manager";
-                    if (ImGui::Selectable("Client", Data.SMSReceivers[i].Group == "Clinet"))
-                        Data.SMSReceivers[i].Group = "Client";
-                    if (ImGui::Selectable("Helper", Data.SMSReceivers[i].Group == "Helper"))
-                        Data.SMSReceivers[i].Group = "Helper";
-                    ImGui::EndCombo();
-                }
-                ImGui::TableNextColumn();
-                if (ImGui::Button(ICON_FA_TIMES))
-                {
-                    if (Data.SMSReceivers.size() > 1)
-                        Data.SMSReceivers.erase(Data.SMSReceivers.begin() + i);
-                }
-                ImGui::PopID();
-            }
-            ImGui::EndTable();
-        }
-        if (ImGui::Button(ICON_FA_PLUS"##Btn_AddReceiver"))
-        {
-            Data.SMSReceivers.emplace_back();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_TRASH"##Btn_Reset"))
-        {
-            Data.SMSReceivers.clear();
-            Data.SMSReceivers.emplace_back();
-        }
-        static bool TempBool;
-        ImGui::Text("Content");
-        static bool ShouldReportDailySummary = false;
-        static bool ShouldReportWeeklySummary = false;
-        static bool ShouldReportMonthlySummary = false;
-        static bool ShouldReportLoseConnetion = false;
-        static bool ShouldNotifyScriptStart = false;
-        // condition and message and frequency
-        if (ImGui::BeginTable("##SMSRegisterTable", 3, ImGuiTableFlags_NoHostExtendX | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_Borders))
-        {
-            ImGui::TableSetupColumn("Message Type", ImGuiTableColumnFlags_WidthFixed, 128.f);
-            ImGui::TableSetupColumn("Option", ImGuiTableColumnFlags_WidthFixed, 320.f);
-            ImGui::TableSetupColumn("Targeted Group", ImGuiTableColumnFlags_WidthFixed, 320.f);
-            ImGui::TableHeadersRow();
-            ImGui::TableNextColumn();
-            ImGui::Text("Report");
-            ImGui::TableNextColumn();
-            if (ImGui::Checkbox("Daily Summary", &ShouldReportDailySummary))
-            {
-                Data.DailyReportSendGroup.GroupManager = false;
-                Data.DailyReportSendGroup.GroupClient = false;
-                Data.DailyReportSendGroup.GroupHelper = false;
-            }
-            ImGui::TableNextColumn();
-            if (ShouldReportDailySummary)
-            {
-                ImGui::PushID("DailyGroup");
-                ImGui::Checkbox("Manager", &Data.DailyReportSendGroup.GroupManager);ImGui::SameLine();
-                ImGui::Checkbox("Client", &Data.DailyReportSendGroup.GroupClient);ImGui::SameLine();
-                ImGui::Checkbox("Helper", &Data.DailyReportSendGroup.GroupHelper);
-                ImGui::PopID();
-            }
-            ImGui::TableNextColumn();
-            ImGui::TableNextColumn();
-            if (ImGui::Checkbox("Weekly Summary", &ShouldReportWeeklySummary))
-            {
-                Data.WeeklyReportSendGroup.GroupManager = false;
-                Data.WeeklyReportSendGroup.GroupClient = false;
-                Data.WeeklyReportSendGroup.GroupHelper = false;
-            }
-            ImGui::TableNextColumn();
-            if (ShouldReportWeeklySummary)
-            {
-                ImGui::PushID("WeeklyGroup");
-                ImGui::Checkbox("Manager", &Data.WeeklyReportSendGroup.GroupManager);ImGui::SameLine();
-                ImGui::Checkbox("Client",  &Data.WeeklyReportSendGroup.GroupClient);ImGui::SameLine();
-                ImGui::Checkbox("Helper",  &Data.WeeklyReportSendGroup.GroupHelper);
-                ImGui::PopID();
-            }
-            ImGui::TableNextColumn();
-            ImGui::TableNextColumn();
-            if (ImGui::Checkbox("Monthly Summary", &ShouldReportMonthlySummary))
-            {
-                Data.MonthlyReportSendGroup.GroupManager = false;
-                Data.MonthlyReportSendGroup.GroupClient = false;
-                Data.MonthlyReportSendGroup.GroupHelper = false;
-            }
-            ImGui::TableNextColumn();
-            if (ShouldReportMonthlySummary)
-            {
-                ImGui::PushID("MonthlyGroup");
-                ImGui::Checkbox("Manager", &Data.MonthlyReportSendGroup.GroupManager);ImGui::SameLine();
-                ImGui::Checkbox("Client",  &Data.MonthlyReportSendGroup.GroupClient);ImGui::SameLine();
-                ImGui::Checkbox("Helper",  &Data.MonthlyReportSendGroup.GroupHelper);
-                ImGui::PopID();
-            }
-            ImGui::TableNextColumn();
-            ImGui::Text("Server");
-            ImGui::TableNextColumn();
-            if (ImGui::Checkbox("Lose connection", &ShouldReportLoseConnetion))
-            {
-                Data.LoseConnectionSendGroup.GroupManager = false;
-                Data.LoseConnectionSendGroup.GroupClient = false;
-                Data.LoseConnectionSendGroup.GroupHelper = false;
-            }
-            ImGui::TableNextColumn();
-            if (ShouldReportLoseConnetion)
-            {
-                ImGui::PushID("LoseConnectionGroup");
-                ImGui::Checkbox("Manager", &Data.LoseConnectionSendGroup.GroupManager);ImGui::SameLine();
-                ImGui::Checkbox("Client",  &Data.LoseConnectionSendGroup.GroupClient);ImGui::SameLine();
-                ImGui::Checkbox("Helper",  &Data.LoseConnectionSendGroup.GroupHelper);
-                ImGui::PopID();
-            }
-            ImGui::TableNextColumn();
-            ImGui::Text("Test");
-            ImGui::TableNextColumn();
-            if (ImGui::Checkbox("Test SMS is working", &ShouldNotifyScriptStart))
-            {
-                Data.SMSTestSendGroup.GroupManager = false;
-                Data.SMSTestSendGroup.GroupClient = false;
-                Data.SMSTestSendGroup.GroupHelper = false;
-            }
-            ImGui::TableNextColumn();
-            if (ShouldNotifyScriptStart)
-            {
-                ImGui::PushID("TestGroup");
-                ImGui::Checkbox("Manager", &Data.SMSTestSendGroup.GroupManager);ImGui::SameLine();
-                ImGui::Checkbox("Client",  &Data.SMSTestSendGroup.GroupClient);ImGui::SameLine();
-                ImGui::Checkbox("Helper",  &Data.SMSTestSendGroup.GroupHelper);
-                ImGui::PopID();
-            }
-            ImGui::EndTable();
-        }
-    }
+    // TODO: just leave SMS alone... no need!
+    // void Deploy::RenderNotification()
+    // {
+    //     // SMS notify groups
+    //     // twilio account, api key, phone number
+    //     ImGui::SetNextItemWidth(256.f);
+    //     ImGui::InputText("Twilio account SID", &Data.TwilioSID);
+    //     ImGui::SetNextItemWidth(256.f);
+    //     ImGui::InputText("Twilio Auth Token", &Data.TwilioAuthToken, ImGuiInputTextFlags_Password);
+    //     ImGui::SetNextItemWidth(256.f);
+    //     ImGui::InputText("Twilio phone number", &Data.TwilioPhoneNumber, ImGuiInputTextFlags_CharsDecimal);
+    //     ImGui::SetNextItemWidth(256.f);
+    //     if (ImGui::DragInt2("When should SMS send? (Hour:Minute)", Data.SMS_SendTime, 1, 0, 59))
+    //     {
+    //         if (Data.SMS_SendTime[0] > 23)
+    //         {
+    //             Data.SMS_SendTime[0] = 23;
+    //         }
+    //         if (Data.SMS_SendTime[1] > 59)
+    //         {
+    //             Data.SMS_SendTime[1] = 59;
+    //         }
+    //     }
+    //     // register receivers
+    //     ImGui::Text("SMS receivers");
+    //     ImGui::SetNextItemWidth(256);
+    //     ImGui::InputText("Area Code", &Data.ReceiverAreaCode, ImGuiInputTextFlags_CharsDecimal);
+    //     ImGui::Text("Name");
+    //     ImGui::SameLine(256, 32);
+    //     ImGui::Text("Phone Numer");
+    //     ImGui::SameLine(512, 32);
+    //     ImGui::Text("Group");
+    //     if (ImGui::BeginTable("##ReceiverRegisterTable", 4, ImGuiTableFlags_NoHostExtendX | ImGuiTableFlags_SizingFixedFit))
+    //     {
+    //         for (int i  = 0; i < Data.SMSReceivers.size(); i++)
+    //         {
+    //             ImGui::PushID(i);
+    //             ImGui::TableNextColumn();
+    //             ImGui::SetNextItemWidth(256);
+    //             ImGui::InputText("##Receiver name", &Data.SMSReceivers[i].Name);
+    //             ImGui::TableNextColumn();
+    //             ImGui::SetNextItemWidth(256);
+    //             ImGui::InputText("##Receiver phone number", &Data.SMSReceivers[i].Phone, ImGuiInputTextFlags_CharsDecimal);
+    //             ImGui::TableNextColumn();
+    //             ImGui::SetNextItemWidth(256);
+    //             if (ImGui::BeginCombo("##group", Data.SMSReceivers[i].Group.c_str()))
+    //             {
+    //                 if (ImGui::Selectable("Manager", Data.SMSReceivers[i].Group == "Manager"))
+    //                     Data.SMSReceivers[i].Group = "Manager";
+    //                 if (ImGui::Selectable("Client", Data.SMSReceivers[i].Group == "Clinet"))
+    //                     Data.SMSReceivers[i].Group = "Client";
+    //                 if (ImGui::Selectable("Helper", Data.SMSReceivers[i].Group == "Helper"))
+    //                     Data.SMSReceivers[i].Group = "Helper";
+    //                 ImGui::EndCombo();
+    //             }
+    //             ImGui::TableNextColumn();
+    //             if (ImGui::Button(ICON_FA_TIMES))
+    //             {
+    //                 if (Data.SMSReceivers.size() > 1)
+    //                     Data.SMSReceivers.erase(Data.SMSReceivers.begin() + i);
+    //             }
+    //             ImGui::PopID();
+    //         }
+    //         ImGui::EndTable();
+    //     }
+    //     if (ImGui::Button(ICON_FA_PLUS"##Btn_AddReceiver"))
+    //     {
+    //         Data.SMSReceivers.emplace_back();
+    //     }
+    //     ImGui::SameLine();
+    //     if (ImGui::Button(ICON_FA_TRASH"##Btn_Reset"))
+    //     {
+    //         Data.SMSReceivers.clear();
+    //         Data.SMSReceivers.emplace_back();
+    //     }
+    //     static bool TempBool;
+    //     ImGui::Text("Content");
+    //     static bool ShouldReportDailySummary = false;
+    //     static bool ShouldReportWeeklySummary = false;
+    //     static bool ShouldReportMonthlySummary = false;
+    //     static bool ShouldReportLoseConnetion = false;
+    //     static bool ShouldNotifyScriptStart = false;
+    //     // condition and message and frequency
+    //     if (ImGui::BeginTable("##SMSRegisterTable", 3, ImGuiTableFlags_NoHostExtendX | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_Borders))
+    //     {
+    //         ImGui::TableSetupColumn("Message Type", ImGuiTableColumnFlags_WidthFixed, 128.f);
+    //         ImGui::TableSetupColumn("Option", ImGuiTableColumnFlags_WidthFixed, 320.f);
+    //         ImGui::TableSetupColumn("Targeted Group", ImGuiTableColumnFlags_WidthFixed, 320.f);
+    //         ImGui::TableHeadersRow();
+    //         ImGui::TableNextColumn();
+    //         ImGui::Text("Report");
+    //         ImGui::TableNextColumn();
+    //         if (ImGui::Checkbox("Daily Summary", &ShouldReportDailySummary))
+    //         {
+    //             Data.DailyReportSendGroup.GroupManager = false;
+    //             Data.DailyReportSendGroup.GroupClient = false;
+    //             Data.DailyReportSendGroup.GroupHelper = false;
+    //         }
+    //         ImGui::TableNextColumn();
+    //         if (ShouldReportDailySummary)
+    //         {
+    //             ImGui::PushID("DailyGroup");
+    //             ImGui::Checkbox("Manager", &Data.DailyReportSendGroup.GroupManager);ImGui::SameLine();
+    //             ImGui::Checkbox("Client", &Data.DailyReportSendGroup.GroupClient);ImGui::SameLine();
+    //             ImGui::Checkbox("Helper", &Data.DailyReportSendGroup.GroupHelper);
+    //             ImGui::PopID();
+    //         }
+    //         ImGui::TableNextColumn();
+    //         ImGui::TableNextColumn();
+    //         if (ImGui::Checkbox("Weekly Summary", &ShouldReportWeeklySummary))
+    //         {
+    //             Data.WeeklyReportSendGroup.GroupManager = false;
+    //             Data.WeeklyReportSendGroup.GroupClient = false;
+    //             Data.WeeklyReportSendGroup.GroupHelper = false;
+    //         }
+    //         ImGui::TableNextColumn();
+    //         if (ShouldReportWeeklySummary)
+    //         {
+    //             ImGui::PushID("WeeklyGroup");
+    //             ImGui::Checkbox("Manager", &Data.WeeklyReportSendGroup.GroupManager);ImGui::SameLine();
+    //             ImGui::Checkbox("Client",  &Data.WeeklyReportSendGroup.GroupClient);ImGui::SameLine();
+    //             ImGui::Checkbox("Helper",  &Data.WeeklyReportSendGroup.GroupHelper);
+    //             ImGui::PopID();
+    //         }
+    //         ImGui::TableNextColumn();
+    //         ImGui::TableNextColumn();
+    //         if (ImGui::Checkbox("Monthly Summary", &ShouldReportMonthlySummary))
+    //         {
+    //             Data.MonthlyReportSendGroup.GroupManager = false;
+    //             Data.MonthlyReportSendGroup.GroupClient = false;
+    //             Data.MonthlyReportSendGroup.GroupHelper = false;
+    //         }
+    //         ImGui::TableNextColumn();
+    //         if (ShouldReportMonthlySummary)
+    //         {
+    //             ImGui::PushID("MonthlyGroup");
+    //             ImGui::Checkbox("Manager", &Data.MonthlyReportSendGroup.GroupManager);ImGui::SameLine();
+    //             ImGui::Checkbox("Client",  &Data.MonthlyReportSendGroup.GroupClient);ImGui::SameLine();
+    //             ImGui::Checkbox("Helper",  &Data.MonthlyReportSendGroup.GroupHelper);
+    //             ImGui::PopID();
+    //         }
+    //         ImGui::TableNextColumn();
+    //         ImGui::Text("Server");
+    //         ImGui::TableNextColumn();
+    //         if (ImGui::Checkbox("Lose connection", &ShouldReportLoseConnetion))
+    //         {
+    //             Data.LoseConnectionSendGroup.GroupManager = false;
+    //             Data.LoseConnectionSendGroup.GroupClient = false;
+    //             Data.LoseConnectionSendGroup.GroupHelper = false;
+    //         }
+    //         ImGui::TableNextColumn();
+    //         if (ShouldReportLoseConnetion)
+    //         {
+    //             ImGui::PushID("LoseConnectionGroup");
+    //             ImGui::Checkbox("Manager", &Data.LoseConnectionSendGroup.GroupManager);ImGui::SameLine();
+    //             ImGui::Checkbox("Client",  &Data.LoseConnectionSendGroup.GroupClient);ImGui::SameLine();
+    //             ImGui::Checkbox("Helper",  &Data.LoseConnectionSendGroup.GroupHelper);
+    //             ImGui::PopID();
+    //         }
+    //         ImGui::TableNextColumn();
+    //         ImGui::Text("Test");
+    //         ImGui::TableNextColumn();
+    //         if (ImGui::Checkbox("Test SMS is working", &ShouldNotifyScriptStart))
+    //         {
+    //             Data.SMSTestSendGroup.GroupManager = false;
+    //             Data.SMSTestSendGroup.GroupClient = false;
+    //             Data.SMSTestSendGroup.GroupHelper = false;
+    //         }
+    //         ImGui::TableNextColumn();
+    //         if (ShouldNotifyScriptStart)
+    //         {
+    //             ImGui::PushID("TestGroup");
+    //             ImGui::Checkbox("Manager", &Data.SMSTestSendGroup.GroupManager);ImGui::SameLine();
+    //             ImGui::Checkbox("Client",  &Data.SMSTestSendGroup.GroupClient);ImGui::SameLine();
+    //             ImGui::Checkbox("Helper",  &Data.SMSTestSendGroup.GroupHelper);
+    //             ImGui::PopID();
+    //         }
+    //         ImGui::EndTable();
+    //     }
+    // }
 }

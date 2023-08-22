@@ -150,6 +150,7 @@ namespace IFCS
         Train::Get().Setup("Model Generator", true, 0);
         Detection::Get().Setup("Detection", true, 0);
         Deploy::Get().Setup("Deploy", true, 0);
+        BuildFont();
         if (Setting::Get().ProjectIsLoaded)
         {
             // TODO: chinese project path?
@@ -160,7 +161,6 @@ namespace IFCS
         {
             Modals::Get().IsModalOpen_Welcome = true;
         }
-        BuildFont();
 
         int tick = 0;
         while (!glfwWindowShouldClose(Window))

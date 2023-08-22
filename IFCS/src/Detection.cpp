@@ -213,7 +213,6 @@ namespace IFCS
                     ImSpinner::SpinnerBarsScaleMiddle("Spinner2", 6, ImColor(Style::BLUE(400, Setting::Get().Theme)));
                     if (AnalyzeFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
                     {
-
                         OnAnalyzeFinished();
                     }
                 }
@@ -226,13 +225,13 @@ namespace IFCS
                 }
 
                 int N = 0;
-                for (const auto& [k, v] : Categories)
+                for (auto& Cat : Categories)
                 {
-                    ImGui::ColorEdit3(k.c_str(), (float*)&v, ImGuiColorEditFlags_NoInputs);
+                    ImGui::ColorEdit3(Cat.CatName.c_str(), (float*)&Cat.CatColor, ImGuiColorEditFlags_NoInputs);
                     N++;
-                    if (N < Categories.size() && N % 6 == 0)
+                    if (N < Categories.size() && N % 6 != 0)
                     {
-                        ImGui::SameLine(120.f * N);
+                        ImGui::SameLine();
                     }
                 }
                 ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 1280) * 0.5f);
@@ -299,11 +298,11 @@ namespace IFCS
                 // TODO: add export video?
                 if (SelectedAnalysisType == 0)
                 {
-                    RenderAnaylysisWidgets_Pass();
+                    RenderAnalysisWidgets_Pass();
                 }
                 else
                 {
-                    RenderAnaylysisWidgets_InScreen();
+                    RenderAnalysisWidgets_InScreen();
                 }
 
                 ProcessingVideoPlay();
@@ -323,7 +322,7 @@ namespace IFCS
     {
         std::string ProjectPath = Setting::Get().ProjectPath;
         std::string SelectedModelName = SelectedModel;
-        SetPathScript = "cd /d " + Setting::Get().YoloV7Path;
+        SetPathScript = "cd /d " + Setting::Get().YoloV7Path; // add /d to allow change drivers  ex C:/ to D:/ ... this is very change code in windows system...
         DetectScript = "";
         DetectScript += Setting::Get().PythonPath + "/python detect.py";
         DetectScript += " --weights " + ProjectPath + "/Models/" + SelectedModelName + "/weights/best.pt";
@@ -400,33 +399,52 @@ namespace IFCS
         {
             ImVec2 FSP1 = StartPos;
             ImVec2 FEP1 = StartPos;
-            ImVec2 FSP2, FEP2;
+            ImVec2 FMP1 = StartPos;
+            ImVec2 FSP2, FEP2, FMP2;
+            float MaxPos = std::max(FishwayPos[0], FishwayPos[1]);
+            float MinPos = std::min(FishwayPos[0], FishwayPos[1]);
             float W = WorkArea.x;
             float H = WorkArea.y;
             if (IsVertical)
             {
-                FSP1.y += FishWayPos[0] * H;
+                FSP1.y += FishwayPos[0] * H;
                 FSP2 = FSP1;
                 FSP2.x += W;
-                FEP1.y += FishWayPos[1] * H;
+                FEP1.y += FishwayPos[1] * H;
                 FEP2 = FEP1;
                 FEP2.x += W;
                 ImGui::GetWindowDrawList()->AddText(FSP2, HintCol, "Start");
                 ImGui::GetWindowDrawList()->AddText(FEP2, HintCol, "End");
+                if ( MinPos < FishwayMiddle  && FishwayMiddle < MaxPos)
+                {
+                    FMP1.y += FishwayMiddle * H;
+                    FMP2 = FMP1;
+                    FMP2.x += W;
+                    ImGui::GetWindowDrawList()->AddText(FMP2, HintCol, "Middle");
+                }
             }
             else
             {
-                FSP1.x += FishWayPos[0] * W;
+                FSP1.x += FishwayPos[0] * W;
                 FSP2 = FSP1;
                 FSP2.y += H;
-                FEP1.x += FishWayPos[1] * W;
+                FEP1.x += FishwayPos[1] * W;
                 FEP2 = FEP1;
                 FEP2.y += H;
                 ImGui::GetWindowDrawList()->AddText(FSP1 + ImVec2(0, -ImGui::GetFontSize()), HintCol, "Start");
                 ImGui::GetWindowDrawList()->AddText(FEP1 + ImVec2(0, -ImGui::GetFontSize()), HintCol, "End");
+                if ( MinPos < FishwayMiddle  && FishwayMiddle < MaxPos)
+                {
+                    FMP1.x += FishwayMiddle * W;
+                    FMP2 = FMP1;
+                    FMP2.y += H;
+                    ImGui::GetWindowDrawList()->AddText(FMP1 + ImVec2(0, -ImGui::GetFontSize()), HintCol, "Middle");
+                }
             }
             ImGui::GetWindowDrawList()->AddLine(FSP1, FSP2, HintCol, 3);
             ImGui::GetWindowDrawList()->AddLine(FEP1, FEP2, HintCol, 3);
+            if ( MinPos < FishwayMiddle  && FishwayMiddle < MaxPos)
+                ImGui::GetWindowDrawList()->AddLine(FMP1, FMP2, HintCol, 3);
         }
         if (SelectedAnalysisType == 1 && DisplayHelperLines && bSetROI)
         {
@@ -501,8 +519,10 @@ namespace IFCS
     static float MAX_SPEED_THRESHOLD = 0.1f;
     static float BODY_SIZE_BUFFER = 0.2f;
     static int NUM_BUFFER_FRAMES = 10;
+    static std::string OtherCategoryName = "";
+    static bool Enable_FISHWAY_MIDDLE = false;
 
-    void Detection::RenderAnaylysisWidgets_Pass()
+    void Detection::RenderAnalysisWidgets_Pass()
     {
         if (!IsIndividualDataLatest)
             ImGui::TextColored(Style::RED(400, Setting::Get().Theme), "Individual tracking data is not latest...");
@@ -520,12 +540,30 @@ namespace IFCS
             IsIndividualDataLatest = false;
         }
         ImGui::SameLine();
-        if (ImGui::SliderFloat2("Fish way start / end", FishWayPos, 0.f, 1.f))
+        ImGui::SetNextItemWidth(240.f);
+        if (ImGui::SliderFloat2("Fish way start / end", FishwayPos, 0.f, 1.f))
         {
             IsIndividualDataLatest = false;
         }
         ImGui::SameLine();
+        if (ImGui::Checkbox("Enable fishway middle?", &Enable_FISHWAY_MIDDLE))
+        {
+            FishwayMiddle = FishwayPos[1];
+        }
+        Utils::AddSimpleTooltip("Can further restrict enter zone (between start to middle) to track new individual./n"
+                                "When you found repeated count near the end line area, turn on this value may help!");
+        if (Enable_FISHWAY_MIDDLE)
+        {
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(120.f);
+            if (ImGui::SliderFloat("Fishway middle", &FishwayMiddle, 0.f, 1.f))
+            {
+                IsIndividualDataLatest = false;
+            }
+        }
+        ImGui::SameLine();
         ImGui::ColorEdit3("##hint", (float*)&HintColor, ImGuiColorEditFlags_NoInputs);
+        
         if (ImGui::TreeNode("Advanced pass count parameters"))
         {
             if (ImGui::Checkbox("Enable max speed threshold?", &ENABLE_SPEED_THRESHOLD))
@@ -543,18 +581,9 @@ namespace IFCS
             Utils::AddSimpleTooltip("A threshold value to decide how to assign prediction to individual. "
                 "Same individual should have similar body size among frames. If this value is too small, same individual could be judged as different!");
             
-            // TODO: conf threshould is useless... no need to set it, maybe just remove it!
-            // use other group name instead...
-            if (ImGui::InputText("Other group", &OtherGroupName))
-            // if (ImGui::DragFloat("Conf threshold", &FIndividualData::SpeciesDetermineThreshold, 0.01f, 0.01f, 0.5f, "%.2f"))
-            {
-                IsIndividualDataLatest = false;
-            }
-            Utils::AddSimpleTooltip("A threshold value to decide which category this individual should belong to.\n"
-                "if none of its confidence value in different frames is higher than it, this individual will be UNCERTAIN");
-            
             if (ENABLE_SPEED_THRESHOLD)
             {
+                ImGui::SetNextItemWidth(240.f);
                 if (ImGui::DragFloat("Max speed threshould", &MAX_SPEED_THRESHOLD, 0.01f, 0.01f, 0.5f, "%.2f"))
                 {
                     IsIndividualDataLatest = false;
@@ -563,19 +592,43 @@ namespace IFCS
             
             if (ENABLE_BODY_SIZE_BUFFER)
             {
+                ImGui::SetNextItemWidth(240.f);
                 if (ImGui::DragFloat("Body size threshould", &BODY_SIZE_BUFFER, 0.01f, 0.01f, 0.5f, "%.2f"))
                 {
                     IsIndividualDataLatest = false;
                 }
             }
             
+            ImGui::SetNextItemWidth(240.f);
             if (ImGui::DragInt("Frames buffer threshold", &NUM_BUFFER_FRAMES, 1, 1, 60))
             {
                 IsIndividualDataLatest = false;
             }
             Utils::AddSimpleTooltip("A threshold value to remove individaul that only appear in single frame. "
                 "If no new prediction for that individual after N frames are tracked, that individual could be a noise, and remove it");
-            
+            // TODO: it required combo box... so fucking tedious...
+            // use other group name instead...
+            ImGui::SetNextItemWidth(240.f);
+            if (ImGui::BeginCombo("Other group", ""))
+            {
+                if (ImGui::Selectable(""))
+                {
+                    OtherCategoryName = "";
+                    IsIndividualDataLatest = false;
+                }
+                for (const auto& Cat : Categories)
+                {
+                    if (ImGui::Selectable(Cat.CatName.c_str()))
+                    {
+                        OtherCategoryName = Cat.CatName;
+                        IsIndividualDataLatest = false;
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            Utils::AddSimpleTooltip("Same individual will be tracked during different frames, however, during each frame, the model may predict it as different category! "
+                "If other category name is set, the final category will decide by highest confidence value across the frames except the 'other category', otherwise, it will just pick one with "
+                "highest confidence value!");
             ImGui::TreePop();
         }
         if (!IsIndividualDataLatest)
@@ -670,14 +723,113 @@ namespace IFCS
                         ImGui::Text("%d", D->GetEnterFrame());
                         ImGui::TableNextColumn();
                         ImGui::Text("%d", D->GetLeaveFrame());
-                        // ImGui::TableNextColumn();
-                        // ImGui::Button("View");
-                        // Utils::AddSimpleTooltip(
-                        //     "[Upcoming feature] View image and frame where this individual come from...");
                         ImGui::PopID();
                     }
                 ImGui::EndTable();
             }
+            ImGui::TreePop();
+        }
+        static bool IsGeneratingDemo = false;
+        if (IsGeneratingDemo)
+        {
+            ImSpinner::SpinnerBarsScaleMiddle("Spinner3", 6, ImColor(Style::BLUE(400, Setting::Get().Theme)));
+            if (GenerateDemoFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready)
+            {
+                IsGeneratingDemo = false;
+            }
+        }
+        else if (ImGui::TreeNode("Generate demo video"))
+        {
+            static ImVec4 DemoTextColor = {1.f, 1.f, 1.f, 1.f};
+            static bool ShouldExportTotal = false;
+            ImGui::ColorEdit3("Demo text color", (float*)&DemoTextColor, ImGuiColorEditFlags_NoInputs);
+            ImGui::Text("Select which categories to show:");
+            for (auto& C : Categories)
+            {
+                ImGui::Checkbox(C.CatName.c_str(), &C.ShouldExportInDemo);    
+            }
+            ImGui::Checkbox("Total", &ShouldExportTotal);
+            if (ImGui::Button("Generate", {240.f, 0.f}))
+            {
+                auto func = [=]()
+                {
+                    cv::VideoCapture cap(DetectionClip);
+                    cv::VideoWriter writer(Setting::Get().ProjectPath+"/Detections/Demo_"+ Utils::GetCurrentTimeString(false, true) + ".mp4",
+                        cv::VideoWriter::fourcc('m','p','4','v'), ClipFPS, cv::Size(ClipWidth, ClipHeight));
+                    int frame_num = 0;
+                    std::map<int, std::map<std::string, int>> PassData;
+                    for (const auto&  Cat : Categories)
+                    {
+                        if (Cat.ShouldExportInDemo)
+                            PassData[0][Cat.CatName] = 0;
+                    }
+                    if (ShouldExportTotal)
+                        PassData[0]["Total"] = 0;
+                    for (int i = 1; i < TotalClipFrameSize; i++)
+                    {
+                        PassData[i] = PassData[i-1];
+                        for (const auto& Data : IndividualData)
+                        {
+                            if (Data.IsCompleted && Data.GetLeaveFrame() == i)
+                            {
+                                if (PassData[i].count(Data.GetName()))
+                                    PassData[i][Data.GetName()] += 1;
+                                if (ShouldExportTotal)
+                                    PassData[i]["Total"] += 1;
+                            }
+                        }
+                    }
+                    
+                    const static int CATEGORY_NAME_LENGTH = 12;
+                    int LineHeight = cv::getTextSize("some random", cv::FONT_HERSHEY_SIMPLEX, 1.f, 1, nullptr).height * 2;
+                    while (true)
+                    {
+                        cv::Mat frame;
+                        cap >> frame;
+                        if (frame.empty()) break;
+                        if (LoadedLabels.count(frame_num))
+                        {
+                            for (auto L : LoadedLabels[frame_num])
+                            {
+                                int p1x = static_cast<int>((L.X - 0.5f*L.Width) * static_cast<float>(ClipWidth));
+                                int p1y = static_cast<int>((L.Y - 0.5f*L.Height) * static_cast<float>(ClipHeight));
+                                int p2x = static_cast<int>((L.X + 0.5f*L.Width) * static_cast<float>(ClipWidth));
+                                int p2y = static_cast<int>((L.Y + 0.5f*L.Height) * static_cast<float>(ClipHeight));
+                                ImVec4 CatColor = Categories[L.CatID].CatColor;
+                                cv::Scalar CatColor_CV = cv::Scalar(int(CatColor.z*255),int(CatColor.y*255),int(CatColor.x*255));
+                                cv::rectangle(frame, cv::Point(p1x, p1y), cv::Point(p2x, p2y), CatColor_CV ,2);
+                                std::string CatName = Categories[L.CatID].CatName;
+                                cv::Size TextSize = cv::getTextSize(CatName, cv::FONT_HERSHEY_SIMPLEX, 1.f, 2, nullptr);
+                                cv::rectangle(frame, cv::Point(p1x, p1y), cv::Point(p1x + TextSize.width + 4, p1y - TextSize.height - 4), CatColor_CV, -1);
+                                cv::putText(frame, CatName, cv::Point(p1x + 2, p1y - 2), cv::FONT_HERSHEY_SIMPLEX, 1.f, cv::Scalar(255,255,255), 1, cv::LINE_AA);
+                            }
+                        }
+                        // TODO: since the font is not mono space... this manner still can not guarantee they align together... just forget about the perfection...
+                        int L = 0;
+                        for (const auto& [k, v]: PassData[frame_num])
+                        {
+                            if (k == "Total") continue;
+                            size_t cat_l = k.size();
+                            std::string cat_mod = cat_l < CATEGORY_NAME_LENGTH? k + std::string(CATEGORY_NAME_LENGTH-cat_l, ' ') : k;
+                            std::string msg = cat_mod + ": " + std::to_string(v);
+                            cv::putText(frame, msg, cv::Point(50, ClipHeight-50 - LineHeight * L), cv::FONT_HERSHEY_SIMPLEX, 1.f,
+                                cv::Scalar(int(DemoTextColor.z*255),int(DemoTextColor.y*255) ,int(DemoTextColor.x*255)), 1, cv::LINE_AA);
+                            L++;
+                        }
+                        std::string msg = "Total       : " + std::to_string(PassData[frame_num]["Total"]);
+                        cv::putText(frame, msg, cv::Point(50, ClipHeight-50 - LineHeight * L), cv::FONT_HERSHEY_SIMPLEX, 1.f,
+                            cv::Scalar(int(DemoTextColor.z*255),int(DemoTextColor.y*255) ,int(DemoTextColor.x*255)), 1, cv::LINE_AA);
+                        
+                        writer.write(frame);
+                        frame_num ++;
+                    }
+                    cap.release();
+                    writer.release();
+                };
+                IsGeneratingDemo = true;
+                GenerateDemoFuture = std::async(std::launch::async, func);
+            }
+            ImGui::Text("Demo video will locate in %s", (Setting::Get().ProjectPath+"/Detections").c_str());
             ImGui::TreePop();
         }
     }
@@ -711,8 +863,13 @@ namespace IFCS
 
     void Detection::TrackIndividual()
     {
-        float MinPos = std::min(FishWayPos[0], FishWayPos[1]);
-        float MaxPos = std::max(FishWayPos[0], FishWayPos[1]);
+        float MinPos = std::min(FishwayPos[0], FishwayPos[1]);
+        float MaxPos = std::max(FishwayPos[0], FishwayPos[1]);
+        if (MinPos < FishwayMiddle && FishwayMiddle < MaxPos)
+        {
+            MinPos = std::min(FishwayPos[0], FishwayMiddle);
+            MaxPos = std::max(FishwayPos[0], FishwayMiddle);
+        }
         IndividualData.clear();
         std::vector<FIndividualData> TempTrackData;
         for (const auto& [F, LL] : LoadedLabels)
@@ -726,12 +883,12 @@ namespace IFCS
                 {
 // TODO: Add another param to control is in leaving area? or is in fishway?? think think....
                     IsInFishway = (L.Y >= MinPos) && (L.Y <= MaxPos);
-                    IsInLeavingArea = FishWayPos[0] > FishWayPos[1] ? L.Y < FishWayPos[1] : L.Y > FishWayPos[1];
+                    IsInLeavingArea = FishwayPos[0] > FishwayPos[1] ? L.Y < FishwayPos[1] : L.Y > FishwayPos[1];
                 }
                 else
                 {
                     IsInFishway = (L.X >= MinPos) && (L.X <= MaxPos);
-                    IsInLeavingArea = FishWayPos[0] > FishWayPos[1] ? L.X < FishWayPos[1] : L.X > FishWayPos[1];
+                    IsInLeavingArea = FishwayPos[0] > FishwayPos[1] ? L.X < FishwayPos[1] : L.X > FishwayPos[1];
                 }
 
                 // check has already tracked any
@@ -864,7 +1021,7 @@ namespace IFCS
         for (const auto& Cat : Categories)
         {
             CatNames.push_back(Cat.CatName);
-            CurrentCatCount[Cat.CatName] = 0;
+            CurrentCatCount[Cat.CatName] = 0; // just for clean up the var
         }
         for (const auto& Data : IndividualData)
         {
@@ -887,7 +1044,7 @@ namespace IFCS
         return MaxPass;
     }
 
-    void Detection::RenderAnaylysisWidgets_InScreen()
+    void Detection::RenderAnalysisWidgets_InScreen()
     {
         if (ImGui::Checkbox("Set ROI?", &bSetROI))
         {
@@ -919,11 +1076,11 @@ namespace IFCS
             for (const auto& [Cat, Data] : InScreenRoiData)
             {
                 ImVec4 CatColor;
-                for (auto [c, col] : Categories)
+                for (auto C : Categories)
                 {
-                    if (c == Cat)
+                    if (C.CatName == Cat)
                     {
-                        CatColor = col;
+                        CatColor = C.CatColor;
                         break;
                     }
                 }
@@ -1047,8 +1204,6 @@ namespace IFCS
 
                 // TODO: this regex make this bad...
                 std::regex_search(TxtName, m, std::regex("_(\\d+).txt"));
-
-                
                 int FrameCount = std::stoi(m.str(1));
 
                 std::ifstream TxtFile(Entry.path().u8string());
@@ -1083,6 +1238,7 @@ namespace IFCS
                 CurrentCatCount[C] = 0;
                 FIndividualData::CategoryNames.push_back(C);
             }
+            FIndividualData::OtherName = OtherCategoryName;
         };
         IsAnalyzing = true;
         AnalyzeFuture = std::async(std::launch::async, LoadLabels);

@@ -22,6 +22,7 @@ namespace IFCS
     {
         std::string CatName;
         ImVec4 CatColor;
+        bool ShouldExportInDemo = false;
         FCategoryData()=default;
         FCategoryData(const std::string& InCatName, const ImVec4& InColor)
             : CatName(InCatName), CatColor(InColor)
@@ -74,11 +75,12 @@ namespace IFCS
         int TotalClipFrameSize = 100;
         bool DisplayHelperLines = true;
         ImVec4 HintColor = Style::RED();
-        void RenderAnaylysisWidgets_Pass();
+        void RenderAnalysisWidgets_Pass();
         bool IsVertical = false;
         // todo: prevent these two value the same...
         // maybe one point is enough? no... Using two points also contains the idea of ROI...
-        float FishWayPos[2] = {0.2f, 0.8f};
+        float FishwayPos[2] = {0.2f, 0.8f};
+        float FishwayMiddle = 0.8f;
         bool IsIndividualDataLatest = false;
         bool IsSizeSimilar(const FLabelData& Label1, const FLabelData& Label2, int FrameDiff = 1);
         bool IsDistanceAcceptable(const FLabelData& Label1, const FLabelData& Label2, int FrameDiff = 1);
@@ -91,7 +93,7 @@ namespace IFCS
         int GetMaxPass();
         
         // TODO: how to store the pass data
-        void RenderAnaylysisWidgets_InScreen();
+        void RenderAnalysisWidgets_InScreen();
         bool bSetROI = false;
         float RoiRegion[4] = {0.1f, 0.1f, 0.9f, 0.9f};
         std::map<std::string, std::vector<int>> InScreenRoiData;
@@ -102,5 +104,6 @@ namespace IFCS
         bool IsAnalyzing = false;
         std::future<void> AnalyzeFuture;
         void OnAnalyzeFinished();
+        std::future<void> GenerateDemoFuture;
     };
 }

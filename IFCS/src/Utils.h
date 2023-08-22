@@ -19,7 +19,7 @@ namespace IFCS
 {
     namespace Utils
     {
-        std::string GetCurrentTimeString(bool IsStyled = false);
+        std::string GetCurrentTimeString(bool IsStyled = false, bool IsFileName=false);
 
         typedef std::vector<std::vector<std::string>> CSV;
 

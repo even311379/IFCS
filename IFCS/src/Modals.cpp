@@ -163,8 +163,8 @@ namespace IFCS
     void Modals::Sync()
     {
         ThemeToUse = static_cast<int>(Setting::Get().Theme);
-        strcpy(TempPythonPath, Setting::Get().PythonPath.c_str());
-        strcpy(TempYoloV7Path, Setting::Get().YoloV7Path.c_str());
+        // strcpy(TempPythonPath, Setting::Get().PythonPath.c_str());
+        // strcpy(TempYoloV7Path, Setting::Get().YoloV7Path.c_str());
     }
 
     void Modals::RenderWelcome()
@@ -180,8 +180,7 @@ namespace IFCS
                 ImGui::BulletText("Project Location:");
                 ImGui::SameLine();
                 ImGui::SetNextItemWidth(400);
-                ImGui::InputText("##hidden123", TempExistingProjectLocation, IM_ARRAYSIZE(TempExistingProjectLocation),
-                                 ImGuiInputTextFlags_ReadOnly);
+                ImGui::InputText("##hidden123", &TempExistingProjectLocation, ImGuiInputTextFlags_ReadOnly);
                 ImGui::SameLine();
                 if (ImGui::Button("Choose Existing Project"))
                 {
@@ -203,12 +202,11 @@ namespace IFCS
                 ImGui::BulletText("New Project Name:");
                 ImGui::SameLine(300);
                 ImGui::SetNextItemWidth(400);
-                ImGui::InputText("##Project Name", TempProjectName, IM_ARRAYSIZE(TempProjectName));
+                ImGui::InputText("##Project Name", &TempProjectName);
                 ImGui::BulletText("New Project Location:");
                 ImGui::SameLine(300);
                 ImGui::SetNextItemWidth(400);
-                ImGui::InputText("##hidden", TempProjectLocation, IM_ARRAYSIZE(TempProjectLocation),
-                                 ImGuiInputTextFlags_ReadOnly);
+                ImGui::InputText("##hidden", &TempProjectLocation, ImGuiInputTextFlags_ReadOnly);
                 ImGui::SameLine();
                 if (ImGui::Button("Choose"))
                 {
@@ -236,8 +234,7 @@ namespace IFCS
             {
                 if (ImGuiFileDialog::Instance()->IsOk())
                 {
-                    std::string RawString = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
-                    strcpy(TempProjectLocation, RawString.c_str());
+                    TempProjectLocation = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
                 }
                 ImGuiFileDialog::Instance()->Close();
             }
@@ -245,8 +242,7 @@ namespace IFCS
             {
                 if (ImGuiFileDialog::Instance()->IsOk())
                 {
-                    std::string RawString = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
-                    strcpy(TempExistingProjectLocation, RawString.c_str());
+                    TempExistingProjectLocation = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
                 }
                 ImGuiFileDialog::Instance()->Close();
             }
@@ -256,8 +252,8 @@ namespace IFCS
 
     bool Modals::CheckValidProjectName()
     {
-        if (strlen(TempProjectName) == 0) return false;
-        if (strlen(TempProjectLocation) == 0) return false;
+        if (TempProjectName.empty()) return false;
+        if (TempProjectLocation.empty()) return false;
         // check folder name is used
         for (const auto& entry : std::filesystem::directory_iterator(TempProjectLocation))
         {
@@ -286,12 +282,11 @@ namespace IFCS
             ImGui::BulletText("New Project Name:");
             ImGui::SameLine(300);
             ImGui::SetNextItemWidth(400);
-            ImGui::InputText("##Project Name", TempProjectName, IM_ARRAYSIZE(TempProjectName));
+            ImGui::InputText("##Project Name", &TempProjectName);
             ImGui::BulletText("New Project Location:");
             ImGui::SameLine(300);
             ImGui::SetNextItemWidth(400);
-            ImGui::InputText("##hidden", TempProjectLocation, IM_ARRAYSIZE(TempProjectLocation),
-                             ImGuiInputTextFlags_ReadOnly);
+            ImGui::InputText("##hidden", &TempProjectLocation, ImGuiInputTextFlags_ReadOnly);
             ImGui::SameLine();
             if (ImGui::Button("Choose"))
             {
@@ -324,8 +319,7 @@ namespace IFCS
             {
                 if (ImGuiFileDialog::Instance()->IsOk())
                 {
-                    std::string RawString = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
-                    strcpy(TempProjectLocation, RawString.c_str());
+                    TempProjectLocation = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
                 }
                 ImGuiFileDialog::Instance()->Close();
             }
@@ -340,8 +334,7 @@ namespace IFCS
         {
             ImGui::BulletText("Project Location:");
             ImGui::SetNextItemWidth(400);
-            ImGui::InputText("##hidden123", TempExistingProjectLocation, IM_ARRAYSIZE(TempExistingProjectLocation),
-                             ImGuiInputTextFlags_ReadOnly);
+            ImGui::InputText("##hidden", &TempExistingProjectLocation, ImGuiInputTextFlags_ReadOnly);
             ImGui::SameLine();
             if (ImGui::Button("Choose Existing Project"))
             {
@@ -367,8 +360,7 @@ namespace IFCS
             {
                 if (ImGuiFileDialog::Instance()->IsOk())
                 {
-                    std::string RawString = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
-                    strcpy(TempExistingProjectLocation, RawString.c_str());
+                    TempExistingProjectLocation = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
                 }
                 ImGuiFileDialog::Instance()->Close();
             }
@@ -726,7 +718,7 @@ namespace IFCS
                 }
                 ImGui::InputTextWithHint("Font file", "Default (NotoSansCJKtc-Black.otf)", &Setting::Get().Font, ImGuiInputTextFlags_ReadOnly);
                 ImGui::SameLine();
-                if (ImGui::Button("..."))
+                if (ImGui::Button("...##set_font"))
                 {
                     ImGuiFileDialog::Instance()->OpenDialog("SetNewFontFile", "Choose font file", ".ttf,.otf", Setting::Get().ProjectPath,
                         1, nullptr, ImGuiFileDialogFlags_Modal);
@@ -789,19 +781,19 @@ namespace IFCS
             if (ImGui::TreeNodeEx("Core path", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 ImGui::BulletText("Yolo v7 Environment");
-                ImGui::InputText("Python path", TempPythonPath, IM_ARRAYSIZE(TempPythonPath), ImGuiInputTextFlags_ReadOnly);
+                ImGui::InputText("Python path", &Setting::Get().PythonPath, ImGuiInputTextFlags_ReadOnly);
                 ImGui::SameLine();
-                if (ImGui::Button("..."))
+                if (ImGui::Button("...##set_python_path"))
                 {
                     ImGuiFileDialog::Instance()->OpenDialog("ChoosePythonPath", "Choose python path", nullptr, ".", 1,
                         nullptr, ImGuiFileDialogFlags_Modal);
                 }
-                ImGui::InputText("Yolo v7 path", TempYoloV7Path, IM_ARRAYSIZE(TempYoloV7Path),
-                                 ImGuiInputTextFlags_ReadOnly);
+                ImGui::InputText("Yolo v7 path", &Setting::Get().YoloV7Path, ImGuiInputTextFlags_ReadOnly);
                 ImGui::SameLine();
-                if (ImGui::Button("..."))
+                if (ImGui::Button("...##set_yolo_path"))
                 {
-                    ImGuiFileDialog::Instance()->OpenDialog("ChooseYoloV7Path", "Choose yolo V7 path", nullptr, ".", 1, nullptr, ImGuiFileDialogFlags_Modal);
+                    ImGuiFileDialog::Instance()->OpenDialog("ChooseYoloV7Path", "Choose yolo V7 path", nullptr, ".", 1,
+                        nullptr, ImGuiFileDialogFlags_Modal);
                 }
                 ImGui::TreePop();
             }
@@ -816,9 +808,7 @@ namespace IFCS
             {
                 if (ImGuiFileDialog::Instance()->IsOk())
                 {
-                    std::string RawString = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
-                    strcpy(TempPythonPath, RawString.c_str());
-                    Setting::Get().PythonPath = RawString;
+                    Setting::Get().PythonPath = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
                 }
                 ImGuiFileDialog::Instance()->Close();
             }
@@ -826,9 +816,7 @@ namespace IFCS
             {
                 if (ImGuiFileDialog::Instance()->IsOk())
                 {
-                    std::string RawString = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
-                    strcpy(TempYoloV7Path, RawString.c_str());
-                    Setting::Get().YoloV7Path = RawString;
+                    Setting::Get().YoloV7Path = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
                 }
                 ImGuiFileDialog::Instance()->Close();
             }
@@ -897,10 +885,12 @@ namespace IFCS
             ImGui::Separator();
             if (ImGui::Button("OK"))
             {
+                DataBrowser::Get().ShouldViewDetail = false;
                 switch (AssetType)
                 {
                 case EAssetType::TrainingSet:
                     {
+                        std::string SetToDelete = DataBrowser::Get().SelectedTrainingSet;
                         // modify yaml file
                         YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Data/TrainingSets.yaml");
                         YAML::Node NewData;
@@ -908,7 +898,7 @@ namespace IFCS
                         for (YAML::const_iterator it=Data.begin();it!=Data.end();++it)
                         {
                             std::string Name = it->first.as<std::string>();
-                            if (Name == DataBrowser::Get().SelectedTrainingSet) continue;
+                            if (Name == SetToDelete) continue;
                             NewData[Name] = it->second;
                         }
                         std::ofstream ofs;
@@ -919,9 +909,9 @@ namespace IFCS
                         ofs.close();
                         
                         // delete contents
-                        auto async_delete = [this]()
+                        auto async_delete = [=]()
                         {
-                            std::filesystem::remove_all(Setting::Get().ProjectPath + "/Data/" + DataBrowser::Get().SelectedTrainingSet);
+                            std::filesystem::remove_all(Setting::Get().ProjectPath + "/Data/" + SetToDelete);
                         };
                         auto f = std::async(std::launch::async, async_delete);
                         DataBrowser::Get().SelectedTrainingSet.clear();
@@ -930,13 +920,14 @@ namespace IFCS
                     
                 case EAssetType::Model:
                     {
+                        std::string ModelToDelete = DataBrowser::Get().SelectedModel;
                         YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Models/Models.yaml");
                         YAML::Node NewData;
                         
                         for (YAML::const_iterator it=Data.begin();it!=Data.end();++it)
                         {
                             std::string Name = it->first.as<std::string>();
-                            if (Name == DataBrowser::Get().SelectedModel) continue;
+                            if (Name == ModelToDelete) continue;
                             NewData[Name] = it->second;
                         }
                         std::ofstream ofs;
@@ -947,18 +938,19 @@ namespace IFCS
                         ofs.close();
                         
                         // delete contents
-                        std::filesystem::remove_all(Setting::Get().ProjectPath + "/Models/" + DataBrowser::Get().SelectedModel);
+                        std::filesystem::remove_all(Setting::Get().ProjectPath + "/Models/" + ModelToDelete);
                         DataBrowser::Get().SelectedModel.clear();
                         break;
                     }
                 case EAssetType::Detection:
                     {
+                        std::string DetectionToDelete = DataBrowser::Get().SelectedDetection;
                         YAML::Node Data = YAML::LoadFile(Setting::Get().ProjectPath + "/Detections/Detections.yaml");
                         YAML::Node NewData;
                         for (YAML::const_iterator it=Data.begin();it!=Data.end();++it)
                         {
                             std::string Name = it->first.as<std::string>();
-                            if (Name == DataBrowser::Get().SelectedDetection) continue;
+                            if (Name == DetectionToDelete) continue;
                             NewData[Name] = it->second;
                         }
                         std::ofstream ofs;
@@ -969,9 +961,9 @@ namespace IFCS
                         ofs.close();
                         
                         // delete contents
-                        auto async_delete = [this]()
+                        auto async_delete = [=]()
                         {
-                            std::filesystem::remove_all(Setting::Get().ProjectPath + "/Detections/" + DataBrowser::Get().SelectedDetection);
+                            std::filesystem::remove_all(Setting::Get().ProjectPath + "/Detections/" + DetectionToDelete);
                         };
                         auto f = std::async(std::launch::async, async_delete);
                         DataBrowser::Get().SelectedDetection.clear();
@@ -1023,7 +1015,7 @@ namespace IFCS
             if (ImGuiFileDialog::Instance()->IsOk())
             {
                 std::string RawString = Utils::ChangePathSlash(ImGuiFileDialog::Instance()->GetCurrentPath());
-                strcpy(Train::Get().ExternalModelPath, RawString.c_str());
+                Train::Get().ExternalModelPath = RawString;
             }
             ImGuiFileDialog::Instance()->Close();
         }
