@@ -295,7 +295,6 @@ namespace IFCS
                         }
                     }
                 }
-                // TODO: add export video?
                 if (SelectedAnalysisType == 0)
                 {
                     RenderAnalysisWidgets_Pass();
@@ -360,6 +359,7 @@ namespace IFCS
         DetectFuture = std::async(std::launch::async, func);
     }
 
+    static bool Enable_FISHWAY_MIDDLE = false;
 
     void Detection::RenderDetectionBox(ImVec2 StartPos)
     {
@@ -415,7 +415,7 @@ namespace IFCS
                 FEP2.x += W;
                 ImGui::GetWindowDrawList()->AddText(FSP2, HintCol, "Start");
                 ImGui::GetWindowDrawList()->AddText(FEP2, HintCol, "End");
-                if ( MinPos < FishwayMiddle  && FishwayMiddle < MaxPos)
+                if ( MinPos < FishwayMiddle  && FishwayMiddle < MaxPos && Enable_FISHWAY_MIDDLE)
                 {
                     FMP1.y += FishwayMiddle * H;
                     FMP2 = FMP1;
@@ -433,7 +433,7 @@ namespace IFCS
                 FEP2.y += H;
                 ImGui::GetWindowDrawList()->AddText(FSP1 + ImVec2(0, -ImGui::GetFontSize()), HintCol, "Start");
                 ImGui::GetWindowDrawList()->AddText(FEP1 + ImVec2(0, -ImGui::GetFontSize()), HintCol, "End");
-                if ( MinPos < FishwayMiddle  && FishwayMiddle < MaxPos)
+                if ( MinPos < FishwayMiddle  && FishwayMiddle < MaxPos && Enable_FISHWAY_MIDDLE)
                 {
                     FMP1.x += FishwayMiddle * W;
                     FMP2 = FMP1;
@@ -520,7 +520,6 @@ namespace IFCS
     static float BODY_SIZE_BUFFER = 0.2f;
     static int NUM_BUFFER_FRAMES = 10;
     static std::string OtherCategoryName = "";
-    static bool Enable_FISHWAY_MIDDLE = false;
 
     void Detection::RenderAnalysisWidgets_Pass()
     {
@@ -881,7 +880,6 @@ namespace IFCS
                 bool IsInLeavingArea;
                 if (IsVertical)
                 {
-// TODO: Add another param to control is in leaving area? or is in fishway?? think think....
                     IsInFishway = (L.Y >= MinPos) && (L.Y <= MaxPos);
                     IsInLeavingArea = FishwayPos[0] > FishwayPos[1] ? L.Y < FishwayPos[1] : L.Y > FishwayPos[1];
                 }
@@ -925,6 +923,7 @@ namespace IFCS
                         {
                             TempTrackData.emplace_back(F, L);
                             TempTrackData[TempTrackData.size() - 1].HasPicked = true;
+                            // this bug !!! why there is no zero division error... 
                         }
                         else
                         {
@@ -1232,13 +1231,15 @@ namespace IFCS
             Categories.clear();
             CurrentCatCount.clear();
             FIndividualData::CategoryNames.clear();
+            FIndividualData::OtherName.clear();
             for (const auto& C : DataNode["Categories"].as<std::vector<std::string>>())
             {
                 Categories.push_back({C, Utils::RandomPickColor(Setting::Get().Theme)});
                 CurrentCatCount[C] = 0;
                 FIndividualData::CategoryNames.push_back(C);
             }
-            FIndividualData::OtherName = OtherCategoryName;
+            if (Utils::Contains(FIndividualData::CategoryNames, OtherCategoryName))
+                FIndividualData::OtherName = OtherCategoryName;
         };
         IsAnalyzing = true;
         AnalyzeFuture = std::async(std::launch::async, LoadLabels);
