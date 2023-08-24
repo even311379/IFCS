@@ -84,6 +84,10 @@ namespace IFCS
             ofs.open(Data.TaskOutputDir + "/RUN.bat");
             ofs << Setting::Get().PythonPath << "/python.exe Deploy.py";
             ofs.close();
+            std::ofstream ofs;
+            ofs.open(Data.TaskOutputDir + "/send_data.bat");
+            ofs << Setting::Get().PythonPath << "/python.exe Deploy.py --send-data-only";
+            ofs.close();
             ShellExecuteA(NULL, "open", Data.TaskOutputDir.c_str(), NULL, NULL, SW_SHOWDEFAULT);
         }
     }

@@ -1,25 +1,31 @@
 import os, sys, subprocess, re, datetime, time, atexit, random, shutil
+import argparse
 import yaml
 import logging
 import requests
-from twilio.rest import Client
-from twilio.base.exceptions import TwilioException
+
+# from twilio.rest import Client
+# from twilio.base.exceptions import TwilioException
+from tqdm import tqdm
 import cv2
 from termcolor import colored
 import pandas as pd
 import individual_tracker as tracker
 
+
 # global vars
 CONFIG = {}
 CONFIG_PROBLEMS = {}
+LOGGER = ""
 
 FAILURE_LIMIT = 5
-DB_TIEM_FORMAT = "%Y-%m-%dT%H:%M:%S+08:00"
+DB_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S+08:00"
 DB_DATE_FORMAT = "%Y-%m-%d"
 CLIP_TIME_FORMAT = "%Y%m%d%H%M"
+FOLDER_DATE_FORMAT = "%Y%m%d"
 PASS_COUNT_FPS = 30
 WEB_APP_SESSION = requests.Session()
-SMS_SERVER = Client("Fake", "FakeSID")
+# SMS_SERVER = Client("Fake", "FakeSID")
 
 
 def init_config():
@@ -33,12 +39,16 @@ def init_config():
         os.mkdir(f"{CONFIG['TaskOutputDir']}/PassCounts")
         os.mkdir(f"{CONFIG['TaskOutputDir']}/Highlights")
         # TODO: let this be part of new model in my server
-    analysis_event = dict(cam=[], model=[], event_date=[], analysis_type=[], analysis_time=[])
-    fishway_utility_summary = dict(cam=[], fish=[], date=[], hour=[], count=[])
-    pass_count_summary = dict(cam=[], fish=[], date=[], hour=[], count=[])
-    pd.DataFrame(analysis_event).to_csv(f"{CONFIG['TaskInputDir']}/events_summary.csv", header=True)
-    pd.DataFrame(fishway_utility_summary).to_csv(f"{CONFIG['TaskInputDir']}/fishway_utility_summary.csv", header=True)
-    pd.DataFrame(pass_count_summary).to_csv(f"{CONFIG['TaskInputDir']}/fishway_pass_summary.csv", header=True)
+        analysis_event = dict(cam=[], model=[], event_date=[], analysis_type=[], analysis_time=[])
+        fishway_utility_summary = dict(cam=[], date=[], hour=[], fish=[], count=[])
+        pass_count_summary = dict(cam=[], date=[], hour=[], fish=[], count=[])
+        pd.DataFrame(analysis_event).to_csv(f"{CONFIG['TaskOutputDir']}/events_summary.csv", header=True, index=False)
+        pd.DataFrame(fishway_utility_summary).to_csv(
+            f"{CONFIG['TaskOutputDir']}/fishway_utility_summary.csv", header=True, index=False
+        )
+        pd.DataFrame(pass_count_summary).to_csv(
+            f"{CONFIG['TaskOutputDir']}/fishway_pass_summary.csv", header=True, index=False
+        )
 
     # check server status
     try:
@@ -113,36 +123,36 @@ def get_clips_from_date(clips_folder: str, query_date: datetime.date) -> list[st
 
 
 def perform_detection__fishway_utility(target_date, cam):
-    global logger
+    global LOGGER
 
-    # logger.info("   prepare raw clips...")
-    # # prepare clip
-    # detection_frequency = CONFIG["DetectionFrequency"]
-    # clips_to_detect = get_clips_from_date(f"{CONFIG['TaskInputDir']}/{cam['CameraName']}", target_date)
-    work_folder = f"{CONFIG['TaskOutputDir']}/Detections/{cam['CameraName']}/{target_date.strftime(CLIP_TIME_FORMAT)}"
-    # writer = cv2.VideoWriter(work_folder + "/frames.mp4", cv2.VideoWriter_fourcc(*"mp4v"), 30, (1280, 720))
-    # frames_info = open(work_folder + "/frames_info.txt", "w")
-    # for clip in clips_to_detect:
-    #     clip_start_time = datetime.datetime.strptime(re.findall(r"(\d*)__\d", clip)[0], CLIP_TIME_FORMAT)
-    #     cap = cv2.VideoCapture(clip)
-    #     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    #     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-    #     fps = cap.get(cv2.CAP_PROP_FPS)
-    #     frame_count_written = 0
-    #     while cap.isOpened():
-    #         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_count_written * fps * detection_frequency)
-    #         ret, frame = cap.read()
-    #         # if ret and frame_count % (fps * detection_frequency) == 0:
-    #         writer.write(frame)
-    #         time_info = clip_start_time + datetime.timedelta(seconds=frame_count_written * detection_frequency)
-    #         frame_count_written += 1
-    #         frames_info.write(time_info.strftime(CLIP_TIME_FORMAT + "%S") + "\n")
-    #         if not ret:
-    #             break
-    # writer.release()
-    # frames_info.close()
+    LOGGER.info("   prepare raw clips...")
+    # prepare clip
+    detection_frequency = CONFIG["DetectionFrequency"]
+    clips_to_detect = get_clips_from_date(f"{CONFIG['TaskInputDir']}/{cam['CameraName']}", target_date)
+    work_folder = f"{CONFIG['TaskOutputDir']}/Detections/{cam['CameraName']}/{target_date.strftime(FOLDER_DATE_FORMAT)}"
+    writer = cv2.VideoWriter(work_folder + "/frames.mp4", cv2.VideoWriter_fourcc(*"mp4v"), 30, (1280, 720))
+    frames_info = open(work_folder + "/frames_info.txt", "w")
+    for clip in clips_to_detect:
+        clip_start_time = datetime.datetime.strptime(re.findall(r"(\d*)__\d", clip)[0], CLIP_TIME_FORMAT)
+        cap = cv2.VideoCapture(clip)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        frame_count_written = 0
+        while cap.isOpened():
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_count_written * fps * detection_frequency)
+            ret, frame = cap.read()
+            # if ret and frame_count % (fps * detection_frequency) == 0:
+            writer.write(frame)
+            time_info = clip_start_time + datetime.timedelta(seconds=frame_count_written * detection_frequency)
+            frame_count_written += 1
+            frames_info.write(time_info.strftime(CLIP_TIME_FORMAT + "%S") + "\n")
+            if not ret:
+                break
+    writer.release()
+    frames_info.close()
 
-    logger.info("   running yolov7 detection...")
+    LOGGER.info("   running yolov7 detection... (for fishway utility)")
     # run yolov7 detection
     subprocess.run(
         [
@@ -168,7 +178,7 @@ def perform_detection__fishway_utility(target_date, cam):
         ],
         # stdout=subprocess.DEVNULL,
     )
-    logger.info("   yolov7 completed")
+    LOGGER.info("   yolov7 completed")
 
 
 # TODO: maybe I should edit the web app models now?
@@ -176,7 +186,7 @@ def perform_detection__fishway_utility(target_date, cam):
 def extract_fishway_utility_results(target_date, cam):
     # handle ROI?
     # collect data as csv format, save it locally
-    work_folder = f"{CONFIG['TaskOutputDir']}/Detections/{cam['CameraName']}/{target_date.strftime(CLIP_TIME_FORMAT)}"
+    work_folder = f"{CONFIG['TaskOutputDir']}/Detections/{cam['CameraName']}/{target_date.strftime(FOLDER_DATE_FORMAT)}"
     out = dict(fish=[], count=[], detect_time=[])
     with open(work_folder + "/frames_info.txt", "r") as f:
         time_info = f.readlines()
@@ -213,7 +223,8 @@ def extract_fishway_utility_results(target_date, cam):
     gdf = df.groupby(["fish", "hour"], as_index=False).mean()
     gdf["cam"] = [cam["CameraName"]] * len(gdf)
     gdf["date"] = [target_date] * len(gdf)
-    gdf.to_csv(f"{CONFIG['TaskOutputDir']}/fishway_utility_summary.csv", mode="a", header=False)
+    gdf = gdf[["cam", "date", "hour", "fish", "count"]]
+    gdf.to_csv(f"{CONFIG['TaskOutputDir']}/fishway_utility_summary.csv", mode="a", index=False, header=False)
     aout = dict(
         cam=[cam["CameraName"]],
         model=[cam["ModelName"]],
@@ -221,7 +232,7 @@ def extract_fishway_utility_results(target_date, cam):
         analysis_type=["FishwayUtility"],
         analysis_time=[datetime.datetime.now()],
     )
-    pd.DataFrame(aout).to_csv(f"{CONFIG['TaskOutputDir']}/events_summary.csv", mode="a", header=False)
+    pd.DataFrame(aout).to_csv(f"{CONFIG['TaskOutputDir']}/events_summary.csv", mode="a", index=False, header=False)
 
 
 def perform_detection__fishway_pass(target_date, cam):
@@ -236,10 +247,12 @@ def perform_detection__fishway_pass(target_date, cam):
     """
     ## TODO: maybe to boost the performance... I can cut down the fps in this stage to 15 or 12?
     ## anyways, I'll just stick on 30fps for now... also need to consider the frame buffer size parameter...
-
+    
+    global LOGGER
+    LOGGER.info("   prepare raw clips...")
     pass_count_duration = CONFIG["PassCountDuration"]
     clips = get_clips_from_date(f"{CONFIG['TaskInputDir']}/{cam['CameraName']}", target_date)
-    work_folder = f"{CONFIG['TaskOutputDir']}/PassCounts/{cam['CameraName']}/{target_date.strftime(CLIP_TIME_FORMAT)}"
+    work_folder = f"{CONFIG['TaskOutputDir']}/PassCounts/{cam['CameraName']}/{target_date.strftime(FOLDER_DATE_FORMAT)}"
     block_info = open(work_folder + "/block_info.txt", "w")
     writer = cv2.VideoWriter(work_folder + "/blocks.mp4", cv2.VideoWriter_fourcc(*"mp4v"), PASS_COUNT_FPS, (1280, 720))
     # get the per hour clip
@@ -267,7 +280,7 @@ def perform_detection__fishway_pass(target_date, cam):
             clips.remove(c)
 
     # get the real clip that will get cut into block!
-    for clip in pass_count_clips:
+    for clip in tqdm(pass_count_clips, desc="Aggreating clips..."):
         clip_start_time = datetime.datetime.strptime(re.findall(r"/(\d*)__", clip)[0], CLIP_TIME_FORMAT)
         cap = cv2.VideoCapture(clip)
         fps = int(cap.get(cv2.CAP_PROP_FPS))
@@ -301,6 +314,7 @@ def perform_detection__fishway_pass(target_date, cam):
 
     # run yolov7 detection
     ## TODO:test if subprocess may work?
+    LOGGER.info("   running yolov7 detection... (for pass count)")
     subprocess.run(
         [
             sys.executable,
@@ -325,10 +339,12 @@ def perform_detection__fishway_pass(target_date, cam):
         ],
         # stdout=subprocess.DEVNULL,
     )
+    LOGGER.info("   yolov7 completed")
+
 
 
 def extract_fishway_pass_result(target_date, cam):
-    work_folder = f"{CONFIG['TaskOutputDir']}/PassCounts/{cam['CameraName']}/{target_date.strftime(CLIP_TIME_FORMAT)}"
+    work_folder = f"{CONFIG['TaskOutputDir']}/PassCounts/{cam['CameraName']}/{target_date.strftime(FOLDER_DATE_FORMAT)}"
     block_info = [
         datetime.datetime.strptime(b, CLIP_TIME_FORMAT + "%S\n")
         for b in open(work_folder + "/block_info.txt", "r").readlines()
@@ -359,7 +375,7 @@ def extract_fishway_pass_result(target_date, cam):
                     block_info[h] + datetime.timedelta(seconds=ind.get_enter_frame_num() / PASS_COUNT_FPS)
                 )
                 out["leave_time"].append(
-                    block_info[h] + datetime.timedelta(seconds=ind.get_enter_leave_num() / PASS_COUNT_FPS)
+                    block_info[h] + datetime.timedelta(seconds=ind.get_leave_frame_num() / PASS_COUNT_FPS)
                 )
     df = pd.DataFrame(out)
     df.to_csv(work_folder + "/results.csv", index=False)
@@ -367,7 +383,9 @@ def extract_fishway_pass_result(target_date, cam):
     gdf = df.groupby(["fish", "hour"], as_index=False).count()
     gdf["cam"] = [cam["CameraName"]] * len(gdf)
     gdf["date"] = [target_date] * len(gdf)
-    gdf.to_csv(f"{CONFIG['TaskOutputDir']}/fishway_pass_summary.csv", mode="a", header=False)
+    gdf = gdf[["cam", "date", "hour", "fish", "leave_time"]]
+    gdf.rename({"leave_time": "count"}, inplace=True)
+    gdf.to_csv(f"{CONFIG['TaskOutputDir']}/fishway_pass_summary.csv", mode="a", index=False, header=False)
     aout = dict(
         cam=[cam["CameraName"]],
         model=[cam["ModelName"]],
@@ -375,17 +393,18 @@ def extract_fishway_pass_result(target_date, cam):
         analysis_type=["FishwayPass"],
         analysis_time=[datetime.datetime.now()],
     )
-    pd.DataFrame(aout).to_csv(f"{CONFIG['TaskOutputDir']}/events_summary.csv", mode="a", header=False)
+    pd.DataFrame(aout).to_csv(f"{CONFIG['TaskOutputDir']}/events_summary.csv", mode="a", index=False, header=False)
 
 
 def send_results_to_server(target_date, cam):
-    global logger
+    global LOGGER
+    os.chdir(CONFIG["TaskOutputDir"])
+    adf = pd.read_csv("events_summary.csv")
     base_url = CONFIG["Server"] + "/api/"
     event_date = target_date.strftime(DB_DATE_FORMAT)
-    analysis_time = datetime.datetime.now().strftime(DB_TIEM_FORMAT)
     analysis_data = dict(
-        event_data=event_date,
-        analysis_time=analysis_time,
+        event_date=event_date,
+        analysis_time = "",
         analysis_log="send from deployment",
         detection_model=cam["ModelName"],
         camera=cam["CameraName"],
@@ -394,31 +413,40 @@ def send_results_to_server(target_date, cam):
 
     pass_analysis_data = analysis_data.copy()
     pass_analysis_data["sample_length"] = CONFIG["PassCountDuration"]
+    analysis_time = adf[(adf["cam"]==cam["CameraName"]) & (adf["event_date"]==event_date) &
+                        (adf["analysis_type"]=="FishwayPass")]['analysis_time'].iloc[0]
+    pass_analysis_data["analysis_time"] = datetime.datetime.strptime(analysis_time, "%Y-%m-%d %H:%M:%S.%f").strftime(DB_TIME_FORMAT)
     r = WEB_APP_SESSION.post(base_url + "fishway_pass_analysis/", json=pass_analysis_data)
     if not r.ok:
-        logger.error("send data to server failed... (pass analysis)")
+        print("send data failed...")
+        LOGGER.error("send data to server failed... (pass analysis)")
         return
-    df = pd.read_csv(f"{CONFIG['TaskInputDir']}/fishway_pass_summary.csv")
-    df = df[(df["cam"] == cam["CameraName"] & df["event_date"] == target_date)]
+    ## aggregate it to per day count ... instead of per hour
+    df = pd.read_csv(f"{CONFIG['TaskOutputDir']}/fishway_pass_summary.csv")
+    df = df[(df["cam"] == cam["CameraName"]) & (df["date"] == event_date)]
+    gdf = df.groupby(['date','cam','fish'], as_index=False).sum()    
     data_to_send = []
-    for _, row in df.iterrows():
+    for _, row in gdf.iterrows():
         d = template_data.copy()
         d["fish"] = row["fish"]
         d["count"] = row["count"]
         data_to_send.append(d)
     r = WEB_APP_SESSION.post(base_url + "pass_count/", json=data_to_send)
     if not r.ok:
-        logger.error("send data to server failed...(pass count)")
+        LOGGER.error("send data to server failed...(pass count)")
         return
 
     utility_analysis_data = analysis_data.copy()
     utility_analysis_data["detection_frequency"] = CONFIG["DetectionFrequency"]
+    analysis_time = adf[(adf['cam']==cam["CameraName"]) & (adf["event_date"]==event_date) &
+                        (adf["analysis_type"]=="FishwayUtility")]['analysis_time'].iloc[0]
+    utility_analysis_data["analysis_time"] = datetime.datetime.strptime(analysis_time, "%Y-%m-%d %H:%M:%S.%f").strftime(DB_TIME_FORMAT)
     r = WEB_APP_SESSION.post(base_url + "fishway_utility_analysis/", json=utility_analysis_data)
     if not r.ok:
-        logger.error("send data (utility analysis) to server failed...")
+        LOGGER.error("send data (utility analysis) to server failed...")
         return
-    df = pd.read_csv(f"{CONFIG['TaskInputDir']}/fishway_utility_summary.csv")
-    df = df[(df["cam"] == cam["CameraName"] & df["event_date"] == target_date)]
+    df = pd.read_csv(f"{CONFIG['TaskOutputDir']}/fishway_utility_summary.csv")
+    df = df[(df["cam"] == cam["CameraName"]) & (df["date"] == event_date)]
     data_to_send = []
     for _, row in df.iterrows():
         d = template_data.copy()
@@ -428,33 +456,34 @@ def send_results_to_server(target_date, cam):
         data_to_send.append(d)
     r = WEB_APP_SESSION.post(base_url + "fishway_utility/", json=data_to_send)
     if not r.ok:
-        logger.error("send data to server failed...(fishway utility)")
+        LOGGER.error("send data to server failed...(fishway utility)")
         return
+
+    print(colored("Send data successful! GREAT! Have a wonderful day!", "green"))
+    LOGGER.info(f"Send date to server complete --- ({target_date} - {cam['CameraName']})")
+
 
 
 # collect 1 region with highest fishway utility, 3 minutes long!
 def collect_highlight(target_date, cam):
-    global logger
-    utility_result = (
-        f"{CONFIG['TaskOutputDir']}/Detections/{cam['CameraName']}/{target_date.strftime(CLIP_TIME_FORMAT)}/results.csv"
-    )
-    us = pd.DataFrame(utility_result).groupby(["detect_time"], as_index=False).sum()
-    if max(us.count) == 0:
-        logger.info(f"    skip highlight since there is no any detection! {cam} - {target_date}")
+    global LOGGER
+    utility_result = f"{CONFIG['TaskOutputDir']}/Detections/{cam['CameraName']}/{target_date.strftime(FOLDER_DATE_FORMAT)}/results.csv"
+    us = pd.read_csv(utility_result).groupby(["detect_time"], as_index=False).sum()
+    if max(us["count"]) == 0:
+        LOGGER.info(f"    skip highlight since there is no any detection! {cam} - {target_date}")
         return
-    max_time = us[us["count"] == max(us["count"])].detect_time.iloc[0]
-    clips_folder = CONFIG["TaskInputDir"] + cam["CameraName"]
-    hightlight_name = (
-        f"{CONFIG['TaskOutputDir']}/Highlights/{cam['CameraName']}_{target_date.strptime(CLIP_TIME_FORMAT)}.mp4"
-    )
+    max_time = us[us["count"] == max(us["count"])]["detect_time"].iloc[0]
+    max_time = datetime.datetime.strptime(max_time, "%Y-%m-%d %H:%M:%S")
+    clips_folder = CONFIG["TaskInputDir"] + "/" + cam["CameraName"]
+    hightlight_name = f"{CONFIG['TaskOutputDir']}/Highlights/{cam['CameraName']}/{target_date.strftime('%Y%m%d')}.mp4"
     for clip in os.listdir(clips_folder):
-        clip_start_time = datetime.datetime.strptime(re.findall(r"/(.*)__", clip)[0], CLIP_TIME_FORMAT)
+        clip_start_time = datetime.datetime.strptime(re.findall(r"(.*)__", clip)[0], CLIP_TIME_FORMAT)
         clip_end_time = datetime.datetime.strptime(re.findall(r"__(.*)\.mp4", clip)[0], CLIP_TIME_FORMAT)
         if clip_start_time <= max_time <= clip_end_time:
             if clip_end_time - clip_start_time <= datetime.timedelta(minutes=3):
                 shutil.copy(clips_folder + "/" + clip, hightlight_name)
             else:
-                cap = cv2.VideCapture(clips_folder + "/" + clip)
+                cap = cv2.VideoCapture(clips_folder + "/" + clip)
                 fps = cap.get(cv2.CAP_PROP_FPS)
                 w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                 h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -463,13 +492,13 @@ def collect_highlight(target_date, cam):
                     start_pos = ((max_time - clip_end_time).seconds - 90) * fps
                 else:
                     start_pos = ((clip_end_time - datetime.timedelta(seconds=180)) - clip_start_time).seconds * fps
-                cap.set(cv2.CAP_PROP_FRAME_COUNT)
+                cap.set(cv2.CAP_PROP_FRAME_COUNT, start_pos)
                 frames_written = 0
-                while cap.isOpend():
+                while cap.isOpened():
                     ret, frame = cap.read()
                     writer.write(frame)
                     frames_written += 1
-                    if frames_written > 300:
+                    if frames_written > 300 * fps:
                         break
                 writer.release()
             break
@@ -489,42 +518,53 @@ def collect_highlight(target_date, cam):
 
 
 def run_tasks(target_date):
-    global logger
+    global LOGGER
     for cam in CONFIG["Cameras"]:
-        ## TODO: temp... remove later
-        try:
-            os.mkdir(
-                f"{CONFIG['TaskOutputDir']}/Detections/{cam['CameraName']}/{target_date.strftime(CLIP_TIME_FORMAT)}"
-            )
-            os.mkdir(
-                f"{CONFIG['TaskOutputDir']}/PassCounts/{cam['CameraName']}/{target_date.strftime(CLIP_TIME_FORMAT)}"
-            )
-        except:
-            pass
-        # logger.info(f"Start fishway utility analysis {cam['CameraName']} - {target_date}")
+        cam_name = cam["CameraName"]
+        if os.path.exists(
+            CONFIG["TaskOutputDir"] + "/Detections/" + cam_name + "/" + target_date.strftime(FOLDER_DATE_FORMAT)
+        ):
+            msg = f"detection analysis was performed on {cam_name} {target_date}, you can not just rerun it!"
+            LOGGER.error(msg)
+            print(colored("Error, " + msg, "red"))
+            return
+        if os.path.exists(
+            CONFIG["TaskOutputDir"] + "/PassCounts/" + cam_name + "/" + target_date.strftime(FOLDER_DATE_FORMAT)
+        ):
+            msg = f"pass count analysis was performed on {cam_name} {target_date}, you can not just rerun it!"
+            LOGGER.error(msg)
+            print(colored("Error, " + msg, "red"))
+            return
+        os.mkdir(f"{CONFIG['TaskOutputDir']}/Detections/{cam_name}/{target_date.strftime(FOLDER_DATE_FORMAT)}")
+        os.mkdir(f"{CONFIG['TaskOutputDir']}/PassCounts/{cam_name}/{target_date.strftime(FOLDER_DATE_FORMAT)}")
+
+    for cam in CONFIG["Cameras"]:
+        LOGGER.info(f"Start fishway utility analysis {cam['CameraName']} - {target_date}")
         # perform_detection__fishway_utility(target_date, cam)
-        # extract_fishway_utility_results(target_date, cam)
-        # logger.info(f"Analysis complete {cam['CameraName']} - {target_date}")
-        # logger.info(f"Start fishway pass analysis {cam['CameraName']} - {target_date}")
+        extract_fishway_utility_results(target_date, cam)
+        LOGGER.info(f"Analysis complete {cam['CameraName']} - {target_date}")
+        LOGGER.info(f"Start fishway pass analysis {cam['CameraName']} - {target_date}")
         # perform_detection__fishway_pass(target_date, cam)
         extract_fishway_pass_result(target_date, cam)
-        logger.info(f"Analysis complete {cam['CameraName']} - {target_date}")
-        send_results_to_server(target_date, cam)
-        logger.info(f"Send date to server complete {cam['CameraName']} - {target_date} - fishway utility")
-        collect_highlight(target_date, cam)
-        logger.info(f"Collect highlight complete {cam['CameraName']} - {target_date}")
-        raise
+        LOGGER.info(f"Analysis complete {cam['CameraName']} - {target_date}")
+        # collect_highlight(target_date, cam)
+        LOGGER.info(f"Collect highlight complete {cam['CameraName']} - {target_date}")
+
+    if CONFIG["ShouldAutoSendServer"]:
+        for cam in CONFIG["Cameras"]:
+            send_results_to_server(target_date, cam)
+        LOGGER.info(f"Send date to server complete --- ({target_date})")
 
 
 def one_time_task():
     # TODO: need to check if the date has already processed...
     # if so... maybe double check with the client and provide some options to handle
     # such as ... remove the date data in server completely? and ???
-    global logger
+    global LOGGER
     dates_to_run = []
     if CONFIG["IsRunSpecifiedDates"]:
         for d in CONFIG["RunDates"]:
-            dates_to_run.append(datetime.datetime(year=d["Year"] + 1900, month=d["Month"] + 1, day=d["Day"]))
+            dates_to_run.append(datetime.datetime(year=d["Year"] + 1900, month=d["Month"] + 1, day=d["Day"]).date())
     else:
         sd = CONFIG["StartDate"]
         ed = CONFIG["EndDate"]
@@ -535,38 +575,21 @@ def one_time_task():
             dates_to_run.append(d)
             d += datetime.timedelta(days=1)
     for d in dates_to_run:
-        for cam in CONFIG["Cameras"]:
-            cam_name = cam["CameraName"]
-            if os.path.exists(CONFIG["TaskOutputDir"] + "/Detections/" + cam_name + d.strftime(CLIP_TIME_FORMAT)):
-                msg = f"detection analysis was performed on {cam_name} {d}, you can not just rerun it!"
-                logger.error(msg)
-                print(colored("Error, " + msg, "red"))
-                return
-            if os.path.exists(CONFIG["TaskOutputDir"] + "/PassCounts/" + cam_name + d.strftime(CLIP_TIME_FORMAT)):
-                msg = f"pass count analysis was performed on {cam_name} {d}, you can not just rerun it!"
-                logger.error(msg)
-                print(colored("Error, " + msg, "red"))
-                return
-    for d in dates_to_run:
         run_tasks(d)
 
 
 def schedule_task():
-    global logger
+    global LOGGER
 
     # notify server task is started...
-
     # def notify_server_stopping_scheduled_task():
     #     pass
-    #
     # atexit.register(notify_server_stopping_scheduled_task)
-
-    ## TODO: send startup SMS?
 
     while True:
         now = datetime.datetime.now()
         run_hour, run_minute = CONFIG["ScheduledRuntime"]
-        sms_hour, sms_minute = CONFIG["SMS_SendTime"]
+        # sms_hour, sms_minute = CONFIG["SMS_SendTime"]
         if now.hour == run_hour and now.minute == run_minute:
             target_date = now.date() - datetime.timedelta(days=1)
             run_tasks(target_date)
@@ -575,8 +598,9 @@ def schedule_task():
         #     SMS_notify()
         time.sleep(60)
 
-
-if __name__ == "__main__":
+def main():
+    global CONFIG
+    global LOGGER
     with open("IFCS_DeployConfig.yaml", "r", encoding="utf8") as f:
         CONFIG = yaml.safe_load(f.read())
     logging.basicConfig(
@@ -588,22 +612,50 @@ if __name__ == "__main__":
     )
     # exclude logger from other modules... so annoying...
     # loggers from yolov7? still exists....
+    is_init_sucess = init_config()
     for name, logger in logging.root.manager.loggerDict.items():
         logger.disabled = True
-
-    logger = logging.getLogger(__name__)
-    is_init_sucess = init_config()
-    if is_init_sucess:
-        # TODO: init per day output dir?
-        if CONFIG["IsTaskStartNow"]:
-            one_time_task()
-        else:
-            schedule_task()
-    else:
+    LOGGER = logging.getLogger(__name__)
+    if not is_init_sucess:
         for k in CONFIG_PROBLEMS:
             print("*" * 100)
             print(colored((k + " ERROR").center(25, " ").center(100, "*"), "red"))
             for v in CONFIG_PROBLEMS[k]:
                 print("    " + v)
-                logger.error(k + " ERROR: " + v)
+                LOGGER.error(k + " ERROR: " + v)
             print("*" * 100)
+        return
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--send-data-only", action="store_true", help="when one only want to send local data to server!"
+    )
+    opt = parser.parse_args()
+    if opt.send_data_only:
+        is_dates_valid = False
+        print(colored("*"*100, "green"))
+        print(colored("SEND DATA ONLY".center(50, " ").center(100, "*"), "green"))
+        print(colored("*"*100, "green"))
+        while not is_dates_valid:
+            dates_str = input("Type the dates you want to send data to server in this format: 2023-8-25\n"
+                            "You can use space to gap multiple dates. ex: 2023-7-12 2023-7-15 2023-9-21\n"
+                            "    (Press enter to confirm)\n")
+            try:
+                dates_to_send = [datetime.datetime.strptime(d, "%Y-%m-%d").date() for d in dates_str.split(" ")]
+                is_dates_valid = True
+            except Exception as e:
+                print(e)
+                print("... the input format is wrong... type again... (or press Ctrl + Z to just leave it!)")
+        for target_date in dates_to_send:
+            for cam in CONFIG["Cameras"]:
+                send_results_to_server(target_date, cam)
+        return
+
+    if CONFIG["IsTaskStartNow"]:
+        one_time_task()
+    else:
+        schedule_task()
+
+if __name__ == "__main__":
+    main()
+    

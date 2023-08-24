@@ -47,16 +47,15 @@ class Individual:
     ## TODO: apply new other exclusion logic to cpp
     def get_name(self, camera_info):
         max_conf = 0
-        others_name = camera_info["OtherCategoryName"]
-        max_cat = others_name
-        for _, label in self.info.items():
-            if label.conf < max_conf:
+        other_name = camera_info["OtherCategoryName"]
+        out = other_name
+        for f, l in self.info.items():
+            if l.conf < max_conf:
                 continue
-            category_name = camera_info["Categories"][label.cat_id]            
-            if category_name != others_name:            
-                max_conf = label.conf
-                max_cat = category_name
-        return max_cat
+            if camera_info["Categories"] != other_name:
+                max_conf = l.conf
+                out = camera_info["Categories"][l.cat_id]
+        return out
 
     def add_info(self, new_frame_num: int, new_label_data: LabelData):
         self.info[new_frame_num] = new_label_data
@@ -108,14 +107,20 @@ def track_individual(camera_info, loaded_labels) -> list[Individual]:
     individual_data = []
     min_fishway_pos = min(camera_info["FishwayStartEnd"])
     max_fishway_pos = max(camera_info["FishwayStartEnd"])
+    if min_fishway_pos < camera_info["FishwayMiddle"] < max_fishway_pos:
+        min_fishway_pos = min(camera_info["FishwayStartEnd"][0], camera_info["FishwayMiddle"])
+        max_fishway_pos = max(camera_info["FishwayStartEnd"][0], camera_info["FishwayMiddle"])
+
     fishway_start, fishway_end = camera_info["FishwayStartEnd"]
 
     loaded_labels = dict(sorted(loaded_labels.items()))  # sort dict...
-    for k, v in loaded_labels.items():
-        print(k)
-        print(v)
-        print("***")
-    raise
+    # i = 0
+    # for f, l in loaded_labels.items():
+    #     print(f)
+    #     i += 1
+    #     if i > 200:
+    #         break
+    # raise
     temp_indivial_data = []  # list[Individual] # list of individual
     for frame_num, labels in loaded_labels.items():
         for label in labels:
@@ -143,14 +148,16 @@ def track_individual(camera_info, loaded_labels) -> list[Individual]:
                     for data in temp_indivial_data:
                         if data.has_picked:
                             continue
-                        # last_frame_num = sorted(data.info)[-1]
-                        # print(last_frame_num)
                         last_frame_num = max(data.info.keys())
-                        # print(last_frame_num)
-                        # print("....")
-                        # print(f"frame num: {frame_num} vs last frame num {last_frame_num}")
                         last_label = data.info[last_frame_num]
                         distance = last_label.get_distance(label, 16, 9)
+                        if frame_num == last_frame_num:
+                            print("this should be impossible...")
+                            print(frame_num)
+                            print(">>>>")
+                            for f, l in data.info.items():
+                                print(f)
+                            raise
                         if (
                             is_size_similar(last_label, label, frame_num - last_frame_num, camera_info)
                             and is_distance_acceptable(last_label, label, frame_num - last_frame_num, camera_info)
@@ -161,7 +168,7 @@ def track_individual(camera_info, loaded_labels) -> list[Individual]:
                         i += 1
                     if closest_idx == -1:
                         temp_indivial_data.append(Individual(frame_num, label))
-                        temp_indivial_data[0].has_picked = True
+                        temp_indivial_data[-1].has_picked = True
                     else:
                         temp_indivial_data[closest_idx].add_info(frame_num, label)
                         temp_indivial_data[closest_idx].has_picked = True
@@ -170,6 +177,8 @@ def track_individual(camera_info, loaded_labels) -> list[Individual]:
                 closest_distance = 999999
                 i = 0
                 for data in temp_indivial_data:
+                    if data.has_picked:
+                        continue
                     # last_frame_num = sorted(data.info)[-1]
                     last_frame_num = max(data.info.keys())
                     last_label = data.info[last_frame_num]
@@ -186,37 +195,23 @@ def track_individual(camera_info, loaded_labels) -> list[Individual]:
                     temp_indivial_data[closest_idx].has_picked = True
                     temp_indivial_data[closest_idx].is_completed = True
 
-        # how did python handle ref? I need ref, and don't know it is or not?
-        temp_indivial_data2 = []
         for data in temp_indivial_data:
             data.has_picked = False
-            temp_indivial_data2.append(data)
-        # temp_indivial_data = temp_indivial_data2.copy()
-
-        for data in temp_indivial_data2:
             if len(data.info) == 1:
                 continue
-            last_frame_num = max(data.info.keys())
+            last_frame_num = sorted(data.info)[-1]
             if last_frame_num + camera_info["FrameBufferSize"] < frame_num or data.is_completed:
                 individual_data.append(data)
 
-        temp_indivial_data = []
-        for data in temp_indivial_data2:
-            if max(data.info.keys()) + camera_info["FrameBufferSize"] < frame_num or data.is_completed:
-                continue
-            temp_indivial_data.append(data)
+        temp_indivial_data = [
+            data
+            for data in temp_indivial_data
+            if not data.is_completed and sorted(data.info)[-1] + camera_info["FrameBufferSize"] >= frame_num
+        ]
+        # print("prgress to frame: ", frame_num)
+        # for d in temp_indivial_data:
+        #     print("ind info:")
+        #     for ff, dd in d.info.items():
+        #         print("    ", ff)
 
-        # for data in temp_indivial_data:
-        #     data.has_picked = False
-        #     if len(data.info) == 1:
-        #         continue
-        #     last_frame_num = sorted(data.info)[-1]
-        #     if last_frame_num + camera_info["FrameBufferSize"] < frame_num or data.is_completed:
-        #         individual_data.append(data)
-        #
-        # temp_indivial_data = [
-        #     data
-        #     for data in temp_indivial_data
-        #     if not data.is_completed and sorted(data.info)[-1] + camera_info["FrameBufferSize"] >= frame_num
-        # ]
     return individual_data
