@@ -15,6 +15,8 @@ def main():
     clip_length = CONFIG["ClipLength"]
     target_folder = CONFIG["TargetFolder"]
     cameras = CONFIG["Cameras"]
+    resolution = CONFIG["Resolution"]
+    enable_gstreamer = CONFIG["EnableGStreamer"]
     if not os.path.exists(target_folder):
         os.mkdir(target_folder)
     for cam in cameras:
@@ -24,15 +26,14 @@ def main():
     print("*" * 100)
     print("Press Ctrl + C to stop".center(30, " ").center(100, "*"))
     print("*" * 100)
-    task_command = (
-        f"{sys.executable} YoutubeDVR_Task.py --clip_length {clip_length} --video_id "
-    )
+    task_command = f"{sys.executable} YoutubeDVR_Task.py --clip_length {clip_length} --resolution {resolution}"
+    if enable_gstreamer:
+        task_command += " --enable-gstreamer"
     print("Dispatching first backup task...")
     for cam in cameras:
         target_path = target_folder + "/" + cam["Name"]
         subprocess.Popen(
-            task_command +
-            f"{cam['StreamID']} --path {target_path} --start_now",
+            task_command + f" --video_id {cam['StreamID']} --path {target_path} --start_now",
             shell=True,
         )
     while True:
@@ -52,8 +53,7 @@ def main():
                 for cam in cameras:
                     target_path = target_folder + "/" + cam["Name"]
                     subprocess.Popen(
-                        task_command +
-                        f"{cam['StreamID']} --path {target_path}",
+                        task_command + f"{cam['StreamID']} --path {target_path}",
                         shell=True,
                     )
         time.sleep(1)

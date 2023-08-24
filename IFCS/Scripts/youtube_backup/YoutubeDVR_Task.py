@@ -17,9 +17,7 @@ def abs_add_hour(in_time: datetime.datetime):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Automate backup youtube streams to your local disk"
-    )
+    parser = argparse.ArgumentParser(description="Automate backup youtube streams to your local disk")
     parser.add_argument(
         "--video_id",
         type=str,
@@ -45,6 +43,22 @@ def main():
         action="store_true",
         help="start this task without wait",
     )
+    parser.add_argument(
+        "--resolution",
+        type=str,
+        choices=["1080p", "720p", "best", "worst"],
+        default="720p",
+        help="choose the resolution you want",
+    )
+    parser.add_argument(
+        "--enable-gstreamer",
+        type=bool,
+        actio="store_true",
+        default=False,
+        help="use gtreamer as backend instead of ffmpeg (it's suggested option but "
+        "rather hard tp make gsteamer work...)",
+    )
+
     parser.set_defaults(start_now=False)
     args = parser.parse_args()
     if not args.video_id or not args.path:
@@ -62,15 +76,23 @@ def main():
     path = args.path
     start_now = args.start_now
     options = {
-        "STREAM_RESOLUTION": "720p",
+        "STREAM_RESOLUTION": args.resolution,
     }
-    stream = CamGear(
-        source="https://youtu.be/" + video_id,
-        stream_mode=True,
-        logging=False,
-        backend=cv2.CAP_GSTREAMER,
-        **options,
-    ).start()
+    if args.enable_gstreamer:
+        stream = CamGear(
+            source="https://youtu.be/" + video_id,
+            stream_mode=True,
+            logging=False,
+            backend=cv2.CAP_GSTREAMER,
+            **options,
+        ).start()
+    else:
+        stream = CamGear(
+            source="https://youtu.be/" + video_id,
+            stream_mode=True,
+            logging=False,
+            **options,
+        ).start()
     w = int(stream.stream.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(stream.stream.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = stream.stream.get(cv2.CAP_PROP_FPS)
@@ -125,21 +147,15 @@ def main():
     else:
         end_time = start_time + datetime.timedelta(minutes=clip_length)
 
-    time_info = (
-        start_time.strftime("%Y%m%d%H%M") + "__" +
-        end_time.strftime("%Y%m%d%H%M")
-    )
+    time_info = start_time.strftime("%Y%m%d%H%M") + "__" + end_time.strftime("%Y%m%d%H%M")
     new_clip = f"{path}/{time_info}.mp4"
-    writer = cv2.VideoWriter(
-        new_clip, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+    writer = cv2.VideoWriter(new_clip, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
     sleep_time = (start_time - datetime.datetime.now()).seconds
     print(f"    wait {sleep_time} sec to start (in order to match time?)")
     time.sleep(sleep_time)
     print(
         colored(
-            "Start recording..."
-            + f"{start_time.strftime('%Y%m%d%H%M')}"
-            + f" to {end_time.strftime('%Y%m%d%H%M')}",
+            "Start recording..." + f"{start_time.strftime('%Y%m%d%H%M')}" + f" to {end_time.strftime('%Y%m%d%H%M')}",
             "green",
         )
     )
@@ -161,12 +177,9 @@ def main():
                 print(colored(msg, "red"))
                 writer.release()
                 end_time = datetime.datetime.now().strftime("%Y%m%d%H%M")
-                mod_clip = new_clip.replace(
-                    re.findall(r"__(.*)\.", new_clip)[0], end_time
-                )
+                mod_clip = new_clip.replace(re.findall(r"__(.*)\.", new_clip)[0], end_time)
                 os.rename(new_clip, mod_clip)
-                print(
-                    colored(f"current file is renames as {mod_clip}", "yellow"))
+                print(colored(f"current file is renames as {mod_clip}", "yellow"))
                 logging.warning(f"rename current recording as {mod_clip}")
                 # target_path = new_clip.replace(new_clip.split("/")[-1], "")
                 task_command = f"{sys.executable} YoutubeDVR_Task.py \
@@ -179,12 +192,7 @@ def main():
             continue
         writer.write(frame)
         if frames_written > frames_to_write:
-            print(
-                colored(
-                    "one clip is finished".center(
-                        50, " ").center(100, "*"), "yellow"
-                )
-            )
+            print(colored("one clip is finished".center(50, " ").center(100, "*"), "yellow"))
             break
         if frames_written % (60 * fps) == 0:
             print(
@@ -197,14 +205,11 @@ def main():
     if corrupted_frames > 0:
         print(
             colored(
-                f"{corrupted_frames} corrupted frames is found inside"
-                + f"{path}/{time_info}.mp4...",
+                f"{corrupted_frames} corrupted frames is found inside" + f"{path}/{time_info}.mp4...",
                 "red",
             )
         )
-        logging.error(
-            f"{corrupted_frames} empty frame is inside this video, {path}/{time_info}.mp4"
-        )
+        logging.error(f"{corrupted_frames} empty frame is inside this video, {path}/{time_info}.mp4")
     else:
         logging.info(f"{new_clip} is completed without any issue...")
     print("Recording completed!")

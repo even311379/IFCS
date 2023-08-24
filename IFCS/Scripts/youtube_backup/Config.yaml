@@ -1,5 +1,7 @@
 ClipLength: 60
 TargetFolder: /home/even/下載/yt_backup 
+Resolution: 720p
+EnableGStreamer: true
 Cameras:
   - Name: 魚道影像1
     StreamID: 7Qu8XckwKIY  
