@@ -135,20 +135,19 @@ def perform_detection__fishway_utility(target_date, cam):
     for clip in clips_to_detect:
         clip_start_time = datetime.datetime.strptime(re.findall(r"(\d*)__\d", clip)[0], CLIP_TIME_FORMAT)
         cap = cv2.VideoCapture(clip)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
         fps = cap.get(cv2.CAP_PROP_FPS)
         frame_count_written = 0
         while cap.isOpened():
             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_count_written * fps * detection_frequency)
             ret, frame = cap.read()
-            # if ret and frame_count % (fps * detection_frequency) == 0:
+            if not ret:
+                break
+            frame = cv2.resize(frame, (1280, 720))
             writer.write(frame)
             time_info = clip_start_time + datetime.timedelta(seconds=frame_count_written * detection_frequency)
             frame_count_written += 1
             frames_info.write(time_info.strftime(CLIP_TIME_FORMAT + "%S") + "\n")
-            if not ret:
-                break
+
     writer.release()
     frames_info.close()
 
@@ -191,7 +190,6 @@ def extract_fishway_utility_results(target_date, cam):
     with open(work_folder + "/frames_info.txt", "r") as f:
         time_info = f.readlines()
     time_info = [datetime.datetime.strptime(t, CLIP_TIME_FORMAT + "%S\n") for t in time_info]
-
     def is_xy_in_roi(x, y):
         if cam["ShouldApplyDetectionROI"]:
             rx1, ry1, rx2, ry2 = cam["DetectionROI"]
@@ -214,8 +212,9 @@ def extract_fishway_utility_results(target_date, cam):
                     cats.append(cam["Categories"][cat_id])
             for cat in set(cats):
                 out["fish"].append(cat)
-                out["count"].append(cats.count(cat))
-            out["detect_time"] += [time_info[detected_frame_id]] * len(set(cats))
+                out["count"].append(cats.count(cat))            
+            out["detect_time"] += [time_info[detected_frame_id - 1]] * len(set(cats))
+
     df = pd.DataFrame(out)
     df.to_csv(work_folder + "/results.csv", index=False)
     df["hour"] = [t.hour for t in df["detect_time"]]
@@ -284,8 +283,6 @@ def perform_detection__fishway_pass(target_date, cam):
         clip_start_time = datetime.datetime.strptime(re.findall(r"/(\d*)__", clip)[0], CLIP_TIME_FORMAT)
         cap = cv2.VideoCapture(clip)
         fps = int(cap.get(cv2.CAP_PROP_FPS))
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         pos = random.randrange(0, total_frames - fps * (pass_count_duration * 60 + 1))
         sample_time = clip_start_time + datetime.timedelta(seconds=pos // fps)
@@ -293,10 +290,10 @@ def perform_detection__fishway_pass(target_date, cam):
         # TODO: the fps will only be 60 or 30, this is ... really great!
         frame_count = 0
         frame_count_written = 0
-        print(f"fps: {fps}, duration: {pass_count_duration}")
         while cap.isOpened():
             ret, frame = cap.read()
             if ret and frame_count % (fps // PASS_COUNT_FPS) == 0:
+                frame = cv2.resize(frame, (1280, 720))
                 writer.write(frame)
                 if frame_count_written % 1000 == 0:
                     print(f"   write {frame_count_written} frames...")
@@ -353,13 +350,13 @@ def extract_fishway_pass_result(target_date, cam):
 
     for h in range(24):
         # load labels files in that hour
-        label_frame_offset = CONFIG["PassCountDuration"] * PASS_COUNT_FPS * h
+        label_frame_offset = CONFIG["PassCountDuration"] * PASS_COUNT_FPS * 60 * h
         loaded_lables = {}
         for file in os.listdir(work_folder + "/detail/labels"):
             frame_num = int(re.findall(r"_(\d*)\.txt", file)[0])
             if (
                 frame_num < label_frame_offset
-                or frame_num >= label_frame_offset + CONFIG["PassCountDuration"] * PASS_COUNT_FPS
+                or frame_num >= label_frame_offset + CONFIG["PassCountDuration"] * PASS_COUNT_FPS * 60
             ):
                 continue
             loaded_lables[frame_num - label_frame_offset] = tracker.label_file_to_list(
@@ -469,6 +466,9 @@ def collect_highlight(target_date, cam):
     global LOGGER
     utility_result = f"{CONFIG['TaskOutputDir']}/Detections/{cam['CameraName']}/{target_date.strftime(FOLDER_DATE_FORMAT)}/results.csv"
     us = pd.read_csv(utility_result).groupby(["detect_time"], as_index=False).sum()
+    if len(us["count"]) == 0:
+        LOGGER.info(f"    skip highlight since there is no any detection! {cam} - {target_date}")
+        return
     if max(us["count"]) == 0:
         LOGGER.info(f"    skip highlight since there is no any detection! {cam} - {target_date}")
         return
