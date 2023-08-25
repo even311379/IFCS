@@ -540,14 +540,14 @@ def run_tasks(target_date):
 
     for cam in CONFIG["Cameras"]:
         LOGGER.info(f"Start fishway utility analysis {cam['CameraName']} - {target_date}")
-        # perform_detection__fishway_utility(target_date, cam)
+        perform_detection__fishway_utility(target_date, cam)
         extract_fishway_utility_results(target_date, cam)
         LOGGER.info(f"Analysis complete {cam['CameraName']} - {target_date}")
         LOGGER.info(f"Start fishway pass analysis {cam['CameraName']} - {target_date}")
-        # perform_detection__fishway_pass(target_date, cam)
+        perform_detection__fishway_pass(target_date, cam)
         extract_fishway_pass_result(target_date, cam)
         LOGGER.info(f"Analysis complete {cam['CameraName']} - {target_date}")
-        # collect_highlight(target_date, cam)
+        collect_highlight(target_date, cam)
         LOGGER.info(f"Collect highlight complete {cam['CameraName']} - {target_date}")
 
     if CONFIG["ShouldAutoSendServer"]:

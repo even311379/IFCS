@@ -592,7 +592,7 @@ namespace IFCS
             if (ENABLE_BODY_SIZE_BUFFER)
             {
                 ImGui::SetNextItemWidth(240.f);
-                if (ImGui::DragFloat("Body size threshould", &BODY_SIZE_BUFFER, 0.01f, 0.01f, 0.5f, "%.2f"))
+                if (ImGui::DragFloat("Body size threshold", &BODY_SIZE_BUFFER, 0.01f, 0.01f, 0.5f, "%.2f"))
                 {
                     IsIndividualDataLatest = false;
                 }
@@ -603,12 +603,12 @@ namespace IFCS
             {
                 IsIndividualDataLatest = false;
             }
-            Utils::AddSimpleTooltip("A threshold value to remove individaul that only appear in single frame. "
+            Utils::AddSimpleTooltip("A threshold value to remove individual that only appear in single frame. "
                 "If no new prediction for that individual after N frames are tracked, that individual could be a noise, and remove it");
             // TODO: it required combo box... so fucking tedious...
             // use other group name instead...
             ImGui::SetNextItemWidth(240.f);
-            if (ImGui::BeginCombo("Other group", ""))
+            if (ImGui::BeginCombo("Other group", OtherCategoryName.c_str()))
             {
                 if (ImGui::Selectable(""))
                 {
