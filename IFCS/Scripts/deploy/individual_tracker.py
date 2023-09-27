@@ -88,10 +88,12 @@ def is_size_similar(label1, label2, frame_diff, camera_info):
     bl2, bh2 = label2.get_approx_body_size(16, 9)
     s2 = bl2 * bh2
     th = camera_info["BodySizeThreshold"]
+    frame_diff = min(3, frame_diff)
+    max_size_mod = min(2, (1 + th) ** (frame_diff + 1))
     return (
-        s1 < s2 * (1 + th) ** (frame_diff + 1)
+        s1 < s2 * max_size_mod
         and s1 > s2 * (1 - th) ** (frame_diff + 1)
-        or s2 < s1 * (1 + th) ** (frame_diff + 1)
+        or s2 < s1 * max_size_mod
         and s2 > s1 * (1 - th) ** (frame_diff + 1)
     )
 
