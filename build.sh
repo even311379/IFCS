@@ -1,3 +1,6 @@
  #!/usr/bin/bash 
-cd IFCS/src && make
-./IFCS
+
+# write script to cmake yamlcpp...
+
+ premake5 gmake2
+ make

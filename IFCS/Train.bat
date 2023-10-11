@@ -1,2 +1,0 @@
-cd K:/YOLO/yolov7 &^
-K:/Python/python-3.10.8-embed-amd64/python train_aux.py --weights yolov7-d6_training.pt --cfg cfg/training/yolov7-d6.yaml --data L:/IFCS_DEV_PROJECTS/P1/Data/Set1/Set1.yaml --hyp data/hyp.scratch.p6.yaml --epochs 5 --batch-size 16 --img-size 640 640 --workers 1 --device 0 --project L:/IFCS_DEV_PROJECTS/P1/Models --name KK

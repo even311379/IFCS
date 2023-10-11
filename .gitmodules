@@ -7,10 +7,6 @@
 [submodule "IFCS/vendor/imgui_extensions/Imspinner"]
 	path = IFCS/vendor/imgui_extensions/Imspinner
 	url = https://github.com/even311379/imspinner.git
-[submodule "IFCS/vendor/imgui"]
-	path = IFCS/vendor/imgui
-	url = https://github.com/ocornut/imgui.git
-	branch = docking
 [submodule "IFCS/vendor/imgui_extensions/Implot"]
 	path = IFCS/vendor/imgui_extensions/Implot
 	url = https://github.com/epezent/implot.git
@@ -20,3 +16,13 @@
 [submodule "IFCS/vendor/imgui_extensions/ImGuiFileDialog"]
 	path = IFCS/vendor/imgui_extensions/ImGuiFileDialog
 	url = https://github.com/even311379/ImGuiFileDialog.git
+[submodule "libs/glfw"]
+	path = libs/glfw
+	url = https://github.com/glfw/glfw.git
+[submodule "libs/imgui"]
+	path = libs/imgui
+	url = https://github.com/ocornut/imgui.git
+	branch = docking
+[submodule "libs/yaml-cpp"]
+	path = libs/yaml-cpp
+	url = https://github.com/jbeder/yaml-cpp.git
