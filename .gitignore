@@ -4,7 +4,6 @@ bin/*
 obj/*
 DevContent/*
 Config/*
-libs/*
 IFCS_old/*
 *.vcxproj
 *.vcxproj.filters
