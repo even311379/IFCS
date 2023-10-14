@@ -1,7 +1,7 @@
 ﻿#include "IFCS_Types.h"
 #include <yaml-cpp/yaml.h>
 
-// // #include "Modals.h"
+#include "Modals.h"
 #include "Setting.h"
 #include "Utils.h"
 #include "Style.h"
@@ -323,8 +323,7 @@ namespace IFCS
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, Style::RED(700, Setting::Get().Theme));
         if (ImGui::Button("Delete", {128, 0}))
         {
-            // TODO: modal linux
-            // Modals::Get().IsModalOpen_Delete = true;
+            Modals::Get().IsModalOpen_Delete = true;
         }
         ImGui::PopStyleColor(3);
     }
@@ -399,8 +398,7 @@ namespace IFCS
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, Style::RED(700, Setting::Get().Theme));
         if (ImGui::Button("Delete", {128, 0}))
         {
-            // TODO: modal linux
-            // Modals::Get().IsModalOpen_Delete = true;
+            Modals::Get().IsModalOpen_Delete = true;
         }
         ImGui::PopStyleColor(3);
     }
@@ -472,8 +470,7 @@ namespace IFCS
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, Style::RED(700, Setting::Get().Theme));
         if (ImGui::Button("Delete", {128, 0}))
         {
-            // TODO: modal linux
-            // Modals::Get().IsModalOpen_Delete = true;
+            Modals::Get().IsModalOpen_Delete = true;
         }
         ImGui::PopStyleColor(3);
     }

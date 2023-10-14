@@ -10,7 +10,6 @@
 #if defined _WINDOWS
 #include <shellapi.h>
 #endif
-// TODO: get linux alternative
 
 #include <fstream>
 #include <regex>
@@ -145,6 +144,8 @@ namespace IFCS
         cv::Mat Img = cv::imread(DataBrowser::Get().SelectedImageInfo.ImagePath);
 
 // TODO: linux fix later
+// no problem to read chinese path or file name in linux (KDE)!!!
+// is this still a issus in windows since I've figured out the settup of utf8?
 #if defined _WINDOWS
         if (Img.empty())
         {
@@ -285,10 +286,12 @@ namespace IFCS
                 {
                     if (ImGui::Button("Open Folder", ImVec2(-1, 0)))
                     {
-// TODO: get linux alternative
 #if defined _WINDOWS
                         ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Clips").c_str(), NULL, NULL,
                                       SW_SHOWDEFAULT);
+#else
+                        std::string command = "xdg-open " + Setting::Get().ProjectPath + "/Clips";
+                        system(command.c_str());
 #endif                                      
                     }
                 }
@@ -303,10 +306,12 @@ namespace IFCS
                 {
                     if (ImGui::Button("Open Folder", ImVec2(-1, 0)))
                     {
-                        // TODO: get linux alternative
 #if defined _WINDOWS
                         ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Images").c_str(), NULL, NULL,
                                       SW_SHOWDEFAULT);
+#else
+                        std::string command = "xdg-open " + Setting::Get().ProjectPath + "/Images";
+                        system(command.c_str());
 #endif                                      
                     }
                 }
@@ -347,11 +352,13 @@ namespace IFCS
             ImGui::Separator();
             if (ImGui::Button(LOCTEXT("Common.OpenProjectFolder"), ImVec2(-1, 0)))
             {
-                        // TODO: get linux alternative
 #if defined _WINDOWS
                 ShellExecuteA(NULL, "open", Setting::Get().ProjectPath.c_str(), NULL, NULL,
                               SW_SHOWDEFAULT);
-#endif
+#else
+                        std::string command = "xdg-open " + Setting::Get().ProjectPath;
+                        system(command.c_str());
+#endif        
             }
         }
 

@@ -135,83 +135,6 @@ namespace IFCS
             // Rendering
             RenderIFCS();
 
-
-    //         ImGui::ShowDemoWindow();
-    //         ImPlot::ShowDemoWindow();
-    //         static int WS_ID = 0;
-    //         static bool update_WS = false;
-    // if (ImGui::BeginMainMenuBar())
-    // {
-    //     if (ImGui::BeginMenu("File"))
-    //     {
-    //         if (ImGui::MenuItem("Undo", "CTRL+Z")) {}
-    //         ImGui::EndMenu();
-    //     }
-    //     if (ImGui::BeginMenu("ChangeWS"))
-    //     {
-    //         if (ImGui::MenuItem("WS1", "CTRL+1")) {
-    //             WS_ID = 0;
-    //             update_WS = true;
-    //         }
-    //         if (ImGui::MenuItem("WS2", "CTRL+2")) {
-    //             WS_ID = 1;
-    //             update_WS = true;
-
-    //         }  // Disabled item
-    //         ImGui::Separator();
-    //         if (ImGui::MenuItem("Cut", "CTRL+X")) {}
-    //         if (ImGui::MenuItem("Copy", "CTRL+C")) {}
-    //         if (ImGui::MenuItem("Paste", "CTRL+V")) {}
-    //         ImGui::EndMenu();
-    //     }
-    //     ImGui::EndMainMenuBar();
-    // }
-
-    // ImGuiID DS_ID = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
-    // {
-    //     ImGui::Begin("Win1");
-    //     ImGui::Text("Something");
-    //     ImGui::End();
-    // }
-    // {
-    //     ImGui::Begin("Win2");
-    //     ImGui::Text("Something");
-    //     ImGui::End();
-    // }
-    // if (update_WS)
-    // {            
-    //     ImGuiDockNodeFlags Flags = ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_AutoHideTabBar;
-    //     // ImGui::DockBuilderRemoveNode(DS_ID);
-    //     // ImGui::DockBuilderAddNode(DS_ID, Flags | ImGuiDockNodeFlags_DockSpace);
-    //     // ImGui::DockBuilderSetNodeSize(DS_ID, ImGui::GetMainViewport()->Size);
-    //     // static ImGuiID Left = ImGui::GetID("DS_Left");
-    //     static ImGuiID Left;
-    //     static ImGuiID Right = ImGui::GetID("DS_Right");
-    //     static ImGuiID Up = ImGui::GetID("DS_Up");
-    //     static ImGuiID Down = ImGui::GetID("DS_Down");
-    //     ImGui::DockBuilderRemoveNodeChildNodes(DS_ID);         
-    //     if (WS_ID == 0)
-    //     {   
-    //         ImGui::DockBuilderSplitNode(DS_ID, ImGuiDir_Left, 0.40f, &Left, &Right);
-    //         ImGui::DockBuilderDockWindow("Win1", Left);
-    //         ImGui::DockBuilderDockWindow("Win2", Right);
-    //         ImGui::DockBuilderFinish(DS_ID);
-    //         spdlog::info("change to WS 2?");
-    //     }
-    //     if (WS_ID == 1)
-    //     {
-    //         ImGui::DockBuilderSplitNode(DS_ID, ImGuiDir_Up, 0.40f, &Up, &Down);
-    //         ImGui::DockBuilderDockWindow("Win1", Up);
-    //         ImGui::DockBuilderDockWindow("Win2", Down);
-    //         ImGui::DockBuilderFinish(DS_ID);
-    //         spdlog::info("change to WS 1?");
-
-    //     }
-    //     update_WS = false;
-    // }
-
-
-
             ImGui::Render();
             int display_w, display_h;
             glfwGetFramebufferSize(m_Window, &display_w, &display_h);
@@ -284,7 +207,6 @@ namespace IFCS
         if (tick == 1)
         {
             Setting::Get().Tick1();
-            spdlog::info("tick 1 is called");
         }
 
         if (Setting::Get().bEnableAutoSave && tick  > UnSaveFileTick + Setting::Get().AutoSaveInterval*60  && Annotation::Get().NeedSaveFile)

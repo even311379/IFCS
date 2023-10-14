@@ -84,15 +84,29 @@ namespace IFCS
             std::filesystem::copy_file(AppPath + "/Scripts/deploy/individual_tracker.py", Data.TaskOutputDir + "/individual_tracker.py", std::filesystem::copy_options::overwrite_existing);
             // write run script
             std::ofstream ofs;
-            ofs.open(Data.TaskOutputDir + "/RUN.bat");
+#if defined _WINDOWS            
+            ofs.open(Data.TaskOutputDir + "/Run.bat");
             ofs << Setting::Get().PythonPath << "/python.exe Deploy.py";
             ofs.close();
-            ofs.open(Data.TaskOutputDir + "/send_data.bat");
+            ofs.open(Data.TaskOutputDir + "/SendData.bat");
             ofs << Setting::Get().PythonPath << "/python.exe Deploy.py --send-data-only";
-            ofs.close();
-            // TODO: linux shellapi fix
-#if defined _WIDNOWS
+            ofs.close();            
             ShellExecuteA(NULL, "open", Data.TaskOutputDir.c_str(), NULL, NULL, SW_SHOWDEFAULT);
+#else
+            ofs.open(Data.TaskOutputDir + "/Run.sh");
+            ofs << "#!/usr/bin/bash\n";
+            ofs << Setting::Get().PythonPath << "/python Deploy.py";
+            ofs.close();
+            ofs.open(Data.TaskOutputDir + "/SendData.sh");
+            ofs << "#!/usr/bin/bash\n";
+            ofs << Setting::Get().PythonPath << "/python Deploy.py --send-data-only";
+            
+            std::string command = "chmod +x " + Data.TaskOutputDir + "/Run.sh";
+            system(command.c_str());
+            command = "chmod +x " + Data.TaskOutputDir + "/SendData.sh";
+            system(command.c_str());
+            command = "xdg-open " + Data.TaskOutputDir;
+            system(command.c_str());
 #endif            
         }
     }
@@ -608,6 +622,7 @@ namespace IFCS
                 for (auto& C: Data.Cameras)
                     C.OtherCategoryName = NewValue;
             }
+            ImGui::TreePop();
         }
     }
 

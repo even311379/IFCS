@@ -39,6 +39,9 @@ namespace IFCS
             // TODO: linux alternative
 #if defined _WIDNOWS            
             ShellExecuteA(NULL, "open", url.c_str(), NULL, NULL, SW_SHOWNORMAL);
+#else            
+            std::string command = std::string("xdg-open ") + url;
+            system(command.c_str());
 #endif            
         }
     }
@@ -868,8 +871,6 @@ namespace IFCS
     void Modals::RenderDeleteModal(EAssetType AssetType)
     {
         // only supports for training set, model, and detection for now
-        ImGui::SetNextWindowPos(Center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-        ImGui::SetNextWindowSize(ImVec2(384, 108));
         std::string ToDeleteName;
         switch (AssetType)
         {
@@ -884,7 +885,8 @@ namespace IFCS
             break;
         default: ;
         }
-
+        ImGui::SetNextWindowPos(Center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowSize(ImVec2(384, 108));
         if (ImGui::BeginPopupModal("Delete Asset"))
         {
             ImGui::Text("Delete %s. Are you sure?", ToDeleteName.c_str());
@@ -987,6 +989,7 @@ namespace IFCS
                 ImGui::CloseCurrentPopup();
                 IsModalOpen_Delete = false;
             }
+            ImGui::EndPopup();
         }
     }
 

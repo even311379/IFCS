@@ -26,8 +26,8 @@
 #include "Implot/implot.h"
 #include "Imspinner/imspinner.h"
 #include "misc/cpp/imgui_stdlib.h"
+// #include "spdlog/spdlog.h"
 
-// TODO: model comparison!!!
 
 namespace IFCS
 {
@@ -427,15 +427,33 @@ namespace IFCS
                 std::vector<const char*> CatNames;
                 std::vector<double> Positions;
                 size_t i = 0;
-                for (const auto& [CatName, N] : CategoriesExportCounts_Merged)
+                if (ShouldMergeCategories)
                 {
-                    std::vector<ImU16> Temp(NumBars, 0);
-                    Temp[i] = (ImU16)N;
-                    CatNames.emplace_back(CatName.c_str());
-                    BarData.emplace_back(Temp);
-                    i++;
-                    Positions.push_back((double)i);
+                    for (const auto& [CatName, N] : CategoriesExportCounts_Merged)
+                    {
+                        std::vector<ImU16> Temp(NumBars, 0);
+                        Temp[i] = (ImU16)N;
+                        CatNames.emplace_back(CatName.c_str());
+                        BarData.emplace_back(Temp);
+                        i++;
+                        Positions.push_back((double)i);
+                    }
                 }
+                else 
+                {
+                    auto CatData = CategoryManagement::Get().Data;
+                    for (const auto& [CatID, N] : CategoriesExportCounts)
+                    {
+                        std::vector<ImU16> Temp(NumBars, 0);
+                        Temp[i] = (ImU16)N;
+                        CatNames.emplace_back(CatData[CatID].DisplayName.c_str());
+                        BarData.emplace_back(Temp);
+                        i++;
+                        Positions.push_back((double)i);
+                    }
+                
+                }
+
                 if (ImPlot::BeginPlot("Category Counts", ImVec2(-1, 0), ImPlotFlags_NoInputs |
                                       ImPlotFlags_NoTitle | ImPlotFlags_NoLegend | ImPlotFlags_NoFrame))
                 {
@@ -843,7 +861,6 @@ namespace IFCS
             CurrentImgGenerated = 0;
             IsGeneratingSet = true;
             
-            // TODO: multi thread here??
             auto func = [this]()
             {
                 GenerateTrainingSet();
@@ -890,14 +907,13 @@ namespace IFCS
         std::vector<std::string> IncludedImgs;
         for (const auto& IF : IncludedImageFolders)
         {
-            // TODO: maybe remove all the codecs convertion? Linux
-            // for (const auto& p : std::filesystem::directory_iterator(Utils::ConvertUtf8ToWide(IF)))
-            // {
-            //     if (p.is_directory()) continue;
-            //     std::string FullPath = p.path().u8string();
-            //     std::replace(FullPath.begin(), FullPath.end(), '\\', '/');
-            //     IncludedImgs.push_back(FullPath);
-            // }
+            for (const auto& p : std::filesystem::directory_iterator(IF))
+            {
+                if (p.is_directory()) continue;
+                std::string FullPath = p.path().u8string();
+                std::replace(FullPath.begin(), FullPath.end(), '\\', '/');
+                IncludedImgs.push_back(FullPath);
+            }
         }
 
         for (const auto& Img : IncludedImgs)
@@ -1105,7 +1121,6 @@ namespace IFCS
                 std::replace(GenName.begin(), GenName.end(), '/', '-');
                 std::vector<FAnnotation> Annotations;
                 auto Node = it->second.as<YAML::Node>();
-                // should check category in each image
                 for (YAML::const_iterator A = Node.begin(); A != Node.end(); ++A)
                 {
                     if (A->first.as<std::string>() == "UpdateTime" || A->first.as<std::string>() == "IsReady")
@@ -1117,15 +1132,15 @@ namespace IFCS
 
                 if (std::find(TrainingIdx.begin(), TrainingIdx.end(), N) != TrainingIdx.end())
                 {
-                    GenerateImgTxt(Cap, FrameNum, Annotations, GenName.c_str(), true, "Train");
+                    GenerateImgTxt(Cap, FrameNum, Annotations, GenName.c_str(), true, "train");
                 }
                 else if (std::find(ValidIdx.begin(), ValidIdx.end(), N) != ValidIdx.end())
                 {
-                    GenerateImgTxt(Cap, FrameNum, Annotations, GenName.c_str(), true, "Valid");
+                    GenerateImgTxt(Cap, FrameNum, Annotations, GenName.c_str(), true, "valid");
                 }
                 else
                 {
-                    GenerateImgTxt(Cap, FrameNum, Annotations, GenName.c_str(), true, "Test");
+                    GenerateImgTxt(Cap, FrameNum, Annotations, GenName.c_str(), true, "test");
                 }
                 N++;
             }
@@ -1157,11 +1172,11 @@ namespace IFCS
         {
             std::string SplitName;
             if (std::find(TrainingIdx.begin(), TrainingIdx.end(), N) != TrainingIdx.end())
-                SplitName = "Train";
+                SplitName = "train";
             else if (std::find(ValidIdx.begin(), ValidIdx.end(), N) != ValidIdx.end())
-                SplitName = "Valid";
+                SplitName = "valid";
             else
-                SplitName = "Test";
+                SplitName = "test";
             std::string GenName = Img.substr(ProjectPath.size() + 1) + "_";
             std::replace(GenName.begin(), GenName.end(), '/', '-');
             const std::string OutImgName = Setting::Get().ProjectPath + "/Data/" + NewTrainingSetName + "/" + SplitName
@@ -1169,7 +1184,7 @@ namespace IFCS
             const std::string OutTxtName = Setting::Get().ProjectPath + "/Data/" + NewTrainingSetName + "/" + SplitName
                 + "/labels/" + GenName + ".txt";
             cv::Mat ImgData = cv::imread(Img);
-// TODO: find linux solution
+// TODO: find linux solution or maybe this issue did not exist in linux at all?
 #if defined _WINDOWS            
             if (ImgData.empty())
             {
@@ -1190,7 +1205,6 @@ namespace IFCS
                 ImgData = cv::imdecode(buffer, cv::IMREAD_COLOR);
             }
 #endif            
-            
             cv::resize(ImgData, ImgData, cv::Size(ExportedImageSize[0], ExportedImageSize[1]));
             cv::imwrite(OutImgName, ImgData);
 
@@ -1474,7 +1488,7 @@ namespace IFCS
     {
         if (IsTraining) return;
         TrainLog = Utils::GetCurrentTimeString(true) + " Start training... Check progross in Console or TensorBoard\n";
-
+        std::string AppPath = Utils::ChangePathSlash(std::filesystem::current_path().u8string());
         // system can noy handle command quene...
         auto func = [=]()
         {
@@ -1484,21 +1498,35 @@ namespace IFCS
                 std::string PtFile = Setting::Get().YoloV7Path + "/" + ModelOptions[SelectedModelIdx] + "_training.pt";
                 if (!std::filesystem::exists(PtFile))
                 {
-                    std::string AppPath = Utils::ChangePathSlash(std::filesystem::current_path().u8string());
                     std::string DownloadWeightCommand = Setting::Get().PythonPath + "/python " + AppPath +
                         "/Scripts/DownloadWeight.py --model " + std::string(ModelOptions[SelectedModelIdx]);
+#if defined _WINDOWS                        
                     std::ofstream ofs;
                     ofs.open("DownloadWeight.bat");
                     ofs << SetPathScript << " &^\n" << DownloadWeightCommand;
                     ofs.close();
                     system("DownloadWeight.bat");
+#else
+                    DownloadWeightCommand += " --yolov7_path " + Setting::Get().YoloV7Path;
+                    system(DownloadWeightCommand.c_str());
+#endif                    
                 }
             }
+#if defined _WINDOWS            
             std::ofstream ofs;
             ofs.open("Train.bat");
             ofs << SetPathScript << " &^\n" << TrainScript;
             ofs.close();
             system("Train.bat");
+#else
+            std::ofstream ofs;
+            ofs.open("Train.sh");
+            ofs << "#!/usr/bin/bash\n";
+            ofs << SetPathScript << "\n" << TrainScript;
+            ofs.close();
+            system("chmod +x Train.sh");
+            system("./Train.sh");
+#endif            
         };
         IsTraining = true;
         TrainingFuture = std::async(std::launch::async, func);
@@ -1509,7 +1537,9 @@ namespace IFCS
     {
         if (!HasHostTensorBoard)
         {
+
             // make host only once
+#if defined _WINDOWS            
             char host[255];
             if (Setting::Get().PythonPath.find("Scripts") != std::string::npos)
                 sprintf(host, "%s/tensorboard --logdir %s/Models", Setting::Get().PythonPath.c_str(),
@@ -1521,6 +1551,19 @@ namespace IFCS
             {
                 system(host);
             };
+#else            
+            std::ofstream ofs;
+            ofs.open("OpenTensorBoard.sh");
+            ofs << "#!/usr/bin/bash\n";
+            ofs << "source " + Setting::Get().PythonPath + "/activate\n";
+            ofs << "tensorboard --logdir " + Setting::Get().ProjectPath + "/Models";
+            ofs.close();
+            system("chmod +x OpenTensorBoard.sh");
+            auto func = [=]()
+            {
+                system("./OpenTensorBoard.sh &");
+            };
+#endif            
             std::thread t(func);
             t.detach();
             HasHostTensorBoard = true;
@@ -1529,7 +1572,11 @@ namespace IFCS
 //TODO: linux alternative        
 #if defined _WINDOWS
         ShellExecuteA(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
-#endif        
+#else
+        std::string command = std::string("xdg-open ") + url;
+        system(command.c_str());
+#endif
+
     }
 
     void Train::OnTrainingFinished()
@@ -1602,8 +1649,6 @@ namespace IFCS
                 std::filesystem::remove(entry.path());
             }
         }
-
-        
         ModelName.clear();
     }
 
@@ -1612,8 +1657,11 @@ namespace IFCS
         
         const bool IsChoose6Model = bTrainOnExisitingModel?
             Utils::Contains(Model6Names, SelectedExistingModel.ModelType) : Utils::Contains(Model6Indices, SelectedModelIdx);
-
+#if defined _WINDOWS
         SetPathScript = "cd /d " + Setting::Get().YoloV7Path;
+#else        
+        SetPathScript = "cd " + Setting::Get().YoloV7Path;
+#endif        
         TrainScript = "";
         if (IsChoose6Model)
             TrainScript += Setting::Get().PythonPath + "/python train_aux.py";

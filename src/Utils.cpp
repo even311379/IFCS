@@ -11,6 +11,7 @@
 
 #include "imgui_internal.h"
 #include "Style.h"
+#include "spdlog/spdlog.h"
 
 
 // #define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
@@ -78,6 +79,7 @@ namespace IFCS
                     }
                 }
             }
+            spdlog::error(LocID);
             assert(0 && "key missing in localized text");
             return "";
         }
