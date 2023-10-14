@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 #include <regex>
+#include <spdlog/spdlog.h>
 
 #include "yaml-cpp/yaml.h"
 

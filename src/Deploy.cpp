@@ -1,11 +1,10 @@
 ﻿#include "Deploy.h"
 #include <fstream>
-#if defined _WINDOWS
-#include <shellapi.h>
-#endif
 
 #include "misc/cpp/imgui_stdlib.h"
 #include <IconFontCppHeaders/IconsFontAwesome5.h>
+
+#include "Application.h"
 #include "yaml-cpp/yaml.h"
 #include "addons/imguidatechooser.h"
 #include "ImGuiFileDialog/ImGuiFileDialog.h"
@@ -90,8 +89,9 @@ namespace IFCS
             ofs.close();
             ofs.open(Data.TaskOutputDir + "/SendData.bat");
             ofs << Setting::Get().PythonPath << "/python.exe Deploy.py --send-data-only";
-            ofs.close();            
-            ShellExecuteA(NULL, "open", Data.TaskOutputDir.c_str(), NULL, NULL, SW_SHOWDEFAULT);
+            ofs.close();
+            std::string command = "start " + Data.TaskOutputDir;
+            system(command.c_str());
 #else
             ofs.open(Data.TaskOutputDir + "/Run.sh");
             ofs << "#!/usr/bin/bash\n";

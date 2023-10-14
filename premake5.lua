@@ -43,7 +43,12 @@ project "IFCS"
         "vendor/imgui_extensions/Implot/*.cpp",
     }
 
-    links {"GLFW", "GLAD", "ImGui", "yaml-cpp", "spdlog"}
+    links {
+        "GLFW",
+        "GLAD",
+        "ImGui",
+        "spdlog",
+    }
 
     
     filter "system:linux"
@@ -52,9 +57,9 @@ project "IFCS"
         links {
             "dl",
             "pthread",
+            "yaml-cpp",
             "opencv_core",
             "opencv_imgproc",
-            -- "opencv_highgui", 
             "opencv_imgcodecs",
             "opencv_video",
             "opencv_videoio",
@@ -62,16 +67,40 @@ project "IFCS"
         defines { "_X11", "D_GLIBCXX_USE_CXX11_ABI" }
 
     filter "system:windows"
-        defines { "_WINDOWS" }    
-        postbuildcommands {
-            "xcopy Resources %{wks.location}build\\%{cfg.buildcfg}\\Resources /s /i /y",
-            "xcopy Scripts %{wks.location}build\\%{cfg.buildcfg}\\Scripts /s /i /y",
-            "xcopy %{wks.location}%{prj.name}\\Config %{wks.location}build\\%{cfg.buildcfg}\\Config /s /i /y"
+        defines { 
+            "_WINDOWS",
+            "_CRT_SECURE_NO_WARNINGS",
+            "YAML_CPP_STATIC_DEFINE"
+        }            
+        buildoptions {"/utf-8"}
+        includedirs {
+            "Dependencies/opencv/build/include",        
         }
+        libdirs {
+            "Dependencies/opencv/build/x64/vc15/lib",
+            "Dependencies/window_build",
+        }
+        postbuildcommands {
+            "xcopy Resources %{wks.location}bin\\%{cfg.buildcfg}\\Resources /s /i /y",
+            "xcopy Scripts %{wks.location}bin\\%{cfg.buildcfg}\\Scripts /s /i /y",
+            "xcopy Config_Template %{wks.location}bin\\%{cfg.buildcfg}\\Config /s /i /y",
+            "xcopy Config_Template Config /s /i /y",
+        }
+        filter "configurations:Debug"
+            links {
+                "opencv_world460d",
+                "yaml-cppd",
+            }
+        filter "configurations:Release"
+            links {
+                "opencv_world460",
+                "yaml-cpp",
+            }
 
 include "libs/glfw.lua"
 include "libs/glad.lua"
 include "libs/imgui.lua"
-include "libs/yaml-cpp.lua"
-include "libs/spdlog.lua"
-
+if (system == linux) then
+    include "libs/yaml-cpp.lua"
+    include "libs/spdlog.lua"
+end

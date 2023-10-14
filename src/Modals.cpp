@@ -2,9 +2,6 @@
 
 #include <thread>
 #include <fstream>
-#if defined _WINDOWS
-#include <shellapi.h>
-#endif
 #include "ImGuiFileDialog/ImGuiFileDialog.h"
 #include "ImguiMD/imgui_markdown.h"
 #include "yaml-cpp/yaml.h"

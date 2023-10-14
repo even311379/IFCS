@@ -7,10 +7,6 @@
 // #include <GL/gl.h>
 #include <spdlog/spdlog.h>
 
-#if defined _WINDOWS
-#include <shellapi.h>
-#endif
-
 #include <fstream>
 #include <regex>
 #include <yaml-cpp/yaml.h>
@@ -146,26 +142,26 @@ namespace IFCS
 // TODO: linux fix later
 // no problem to read chinese path or file name in linux (KDE)!!!
 // is this still a issus in windows since I've figured out the settup of utf8?
-#if defined _WINDOWS
-        if (Img.empty())
-        {
-            // Solution to unicode path in opencv: https://stackoverflow.com/a/43369056
-            std::wstring wpath = Utils::ConvertUtf8ToWide(DataBrowser::Get().SelectedImageInfo.ImagePath);
-            
-            std::ifstream f(wpath, std::iostream::binary);
-            // Get its size
-            std::filebuf* pbuf = f.rdbuf();
-            size_t size = pbuf->pubseekoff(0, f.end, f.in);
-            pbuf->pubseekpos(0, f.in);
-
-            // Put it in a vector
-            std::vector<uchar> buffer(size);
-            pbuf->sgetn((char*)buffer.data(), size);
-
-            // Decode the vector
-            Img = cv::imdecode(buffer, cv::IMREAD_COLOR);
-        }
-#endif        
+// #if defined _WINDOWS
+//         if (Img.empty())
+//         {
+//             // Solution to unicode path in opencv: https://stackoverflow.com/a/43369056
+//             std::wstring wpath = Utils::ConvertUtf8ToWide(DataBrowser::Get().SelectedImageInfo.ImagePath);
+//             
+//             std::ifstream f(wpath, std::iostream::binary);
+//             // Get its size
+//             std::filebuf* pbuf = f.rdbuf();
+//             size_t size = pbuf->pubseekoff(0, f.end, f.in);
+//             pbuf->pubseekpos(0, f.in);
+//
+//             // Put it in a vector
+//             std::vector<uchar> buffer(size);
+//             pbuf->sgetn((char*)buffer.data(), size);
+//
+//             // Decode the vector
+//             Img = cv::imdecode(buffer, cv::IMREAD_COLOR);
+//         }
+// #endif        
         SelectedImageInfo.Update(Img.cols, Img.rows);
         cv::cvtColor(Img, Img, cv::COLOR_BGR2RGB);
         cv::resize(Img, Img, cv::Size((int)WorkArea.x, (int)WorkArea.y));
@@ -287,12 +283,11 @@ namespace IFCS
                     if (ImGui::Button("Open Folder", ImVec2(-1, 0)))
                     {
 #if defined _WINDOWS
-                        ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Clips").c_str(), NULL, NULL,
-                                      SW_SHOWDEFAULT);
+                        std::string command = "start " + Setting::Get().ProjectPath + "/Clips";
 #else
                         std::string command = "xdg-open " + Setting::Get().ProjectPath + "/Clips";
-                        system(command.c_str());
 #endif                                      
+                        system(command.c_str());
                     }
                 }
                 ImGui::Checkbox("Show not ready only?", &NeedReviewedOnly);
@@ -307,12 +302,11 @@ namespace IFCS
                     if (ImGui::Button("Open Folder", ImVec2(-1, 0)))
                     {
 #if defined _WINDOWS
-                        ShellExecuteA(NULL, "open", (Setting::Get().ProjectPath + "/Images").c_str(), NULL, NULL,
-                                      SW_SHOWDEFAULT);
+                        std::string command = "start " + Setting::Get().ProjectPath + "/Images";
 #else
                         std::string command = "xdg-open " + Setting::Get().ProjectPath + "/Images";
-                        system(command.c_str());
 #endif                                      
+                        system(command.c_str());
                     }
                 }
                 ImGui::Checkbox("Show not ready only?", &NeedReviewedOnly);
@@ -353,12 +347,11 @@ namespace IFCS
             if (ImGui::Button(LOCTEXT("Common.OpenProjectFolder"), ImVec2(-1, 0)))
             {
 #if defined _WINDOWS
-                ShellExecuteA(NULL, "open", Setting::Get().ProjectPath.c_str(), NULL, NULL,
-                              SW_SHOWDEFAULT);
+                std::string command = "start " + Setting::Get().ProjectPath;
 #else
-                        std::string command = "xdg-open " + Setting::Get().ProjectPath;
-                        system(command.c_str());
+                std::string command = "xdg-open " + Setting::Get().ProjectPath;
 #endif        
+                system(command.c_str());
             }
         }
 
