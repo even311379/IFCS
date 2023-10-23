@@ -1,3 +1,3 @@
 #!/bin/sh
-source /home/even/.local/share/virtualenvs/fishway/bin/activate &&
-python Automation.py
+source /home/even/.local/share/virtualenvs/fishway/bin/activate
+konsole -e "python Automation.py"

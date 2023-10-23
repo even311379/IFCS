@@ -94,11 +94,11 @@ namespace IFCS
             system(command.c_str());
 #else
             ofs.open(Data.TaskOutputDir + "/Run.sh");
-            ofs << "#!/usr/bin/bash\n";
+            ofs << "#!/bin/sh\n";
             ofs << Setting::Get().PythonPath << "/python Deploy.py";
             ofs.close();
             ofs.open(Data.TaskOutputDir + "/SendData.sh");
-            ofs << "#!/usr/bin/bash\n";
+            ofs << "#!/bin/sh\n";
             ofs << Setting::Get().PythonPath << "/python Deploy.py --send-data-only";
             
             std::string command = "chmod +x " + Data.TaskOutputDir + "/Run.sh";

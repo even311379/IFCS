@@ -1,6 +1,7 @@
  
 workspace "IFCS"
     configurations { "Debug", "Release"}
+    -- system {"Windows", "Unix"}
     startproject "IFCS"
 
     flags { "MultiProcessorCompile"}
@@ -8,11 +9,23 @@ workspace "IFCS"
     filter "configurations:Debug"
         defines { "IFCS_DEBUG" }
         symbols "On"
+if (system == windows) then
+        links {
+            "opencv_world460d",
+            "yaml-cppd",
+        }
+end
 
     filter "configurations:Release"
         defines { "IFCS_RELEASE", "NDEBUG" }
         optimize "Speed"
         flags { "LinkTimeOptimization" }
+if (system == windows) then
+        links {
+            "opencv_world460",
+            "yaml-cpp",            
+        }
+end
 
 
 project "IFCS"
@@ -86,16 +99,7 @@ project "IFCS"
             "xcopy Config_Template %{wks.location}bin\\%{cfg.buildcfg}\\Config /s /i /y",
             "xcopy Config_Template Config /s /i /y",
         }
-        filter "configurations:Debug"
-            links {
-                "opencv_world460d",
-                "yaml-cppd",
-            }
-        filter "configurations:Release"
-            links {
-                "opencv_world460",
-                "yaml-cpp",
-            }
+
 
 include "libs/glfw.lua"
 include "libs/glad.lua"

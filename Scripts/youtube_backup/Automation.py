@@ -53,7 +53,7 @@ def main():
                 for cam in cameras:
                     target_path = target_folder + "/" + cam["Name"]
                     subprocess.Popen(
-                        task_command + f"{cam['StreamID']} --path {target_path}",
+                        task_command + f" --video_id {cam['StreamID']} --path {target_path}",
                         shell=True,
                     )
         time.sleep(1)

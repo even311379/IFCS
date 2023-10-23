@@ -405,15 +405,15 @@ namespace IFCS
     void Annotation::RenderVideoControls()
     {
         // TODO: linux temp fix
-        // static char* PlayIcon;
-        // if (DB.CurrentFrame == DB.VideoEndFrame)
-        //     PlayIcon = ICON_FA_SYNC;
-        // else if (IsPlaying)
-        //     PlayIcon = ICON_FA_PAUSE;
-        // else
-        //     PlayIcon = ICON_FA_PLAY;
-        // if (ImGui::Button(PlayIcon, {120, 32}))
-        if (ImGui::Button(ICON_FA_PLAY, {120, 32}))
+        static std::string PlayIcon;
+        if (DB.CurrentFrame == DB.VideoEndFrame)
+            PlayIcon = ICON_FA_SYNC;
+        else if (IsPlaying)
+            PlayIcon = ICON_FA_PAUSE;
+        else
+            PlayIcon = ICON_FA_PLAY;
+        if (ImGui::Button(PlayIcon.c_str(), {120, 32}))
+        // if (ImGui::Button(ICON_FA_PLAY, {120, 32}))
         {
             if (DB.CurrentFrame == DB.VideoEndFrame)
                 DB.CurrentFrame = DB.VideoStartFrame;

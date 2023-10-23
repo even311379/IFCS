@@ -1181,27 +1181,7 @@ namespace IFCS
             const std::string OutTxtName = Setting::Get().ProjectPath + "/Data/" + NewTrainingSetName + "/" + SplitName
                 + "/labels/" + GenName + ".txt";
             cv::Mat ImgData = cv::imread(Img);
-// TODO: find linux solution or maybe this issue did not exist in linux at all?
-// #if defined _WINDOWS            
-//             if (ImgData.empty())
-//             {
-//                 // Solution to unicode path in opencv: https://stackoverflow.com/a/43369056
-//                 std::wstring wpath = Utils::ConvertUtf8ToWide(Img);
-//                 
-//                 std::ifstream f(wpath, std::iostream::binary);
-//                 // Get its size
-//                 std::filebuf* pbuf = f.rdbuf();
-//                 size_t size = pbuf->pubseekoff(0, f.end, f.in);
-//                 pbuf->pubseekpos(0, f.in);
-//
-//                 // Put it in a vector
-//                 std::vector<uchar> buffer(size);
-//                 pbuf->sgetn((char*)buffer.data(), size);
-//
-//                 // Decode the vector
-//                 ImgData = cv::imdecode(buffer, cv::IMREAD_COLOR);
-//             }
-// #endif            
+// TODO: Chinese path should be fine now??
             cv::resize(ImgData, ImgData, cv::Size(ExportedImageSize[0], ExportedImageSize[1]));
             cv::imwrite(OutImgName, ImgData);
 
@@ -1509,16 +1489,15 @@ namespace IFCS
 #endif                    
                 }
             }
-#if defined _WINDOWS            
             std::ofstream ofs;
+#if defined _WINDOWS            
             ofs.open("Train.bat");
             ofs << SetPathScript << " &^\n" << TrainScript;
             ofs.close();
             system("Train.bat");
 #else
-            std::ofstream ofs;
             ofs.open("Train.sh");
-            ofs << "#!/usr/bin/bash\n";
+            ofs << "#!/bin/sh\n";
             ofs << SetPathScript << "\n" << TrainScript;
             ofs.close();
             system("chmod +x Train.sh");
@@ -1551,7 +1530,7 @@ namespace IFCS
 #else            
             std::ofstream ofs;
             ofs.open("OpenTensorBoard.sh");
-            ofs << "#!/usr/bin/bash\n";
+            ofs << "#!/bin/sh\n";
             ofs << "source " + Setting::Get().PythonPath + "/activate\n";
             ofs << "tensorboard --logdir " + Setting::Get().ProjectPath + "/Models";
             ofs.close();
@@ -1566,7 +1545,6 @@ namespace IFCS
             HasHostTensorBoard = true;
         }
         char url[100] = "http://localhost:6006/";
-//TODO: linux alternative        
 #if defined _WINDOWS
         std::string command = std::string("start ") + url;
         system(command.c_str());

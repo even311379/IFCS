@@ -23,6 +23,9 @@
 #include "Implot/implot.h"
 #include "spdlog/spdlog.h"
 #include "imgui_internal.h"
+#if defined _X11
+#include <unistd.h>
+#endif
 
 namespace IFCS
 {
@@ -54,7 +57,14 @@ namespace IFCS
 
     void Application::Init()
     {    
-
+// the current path in linux is where you start the exe... not the actual exe path...
+#if defined _X11
+        char out[1024] = {0};
+        readlink("/proc/self/exe", out, sizeof(out));
+        std::string exefile = out;
+        std::string exepath = exefile.substr(0, exefile.length() - 5);
+        std::filesystem::current_path(exepath);
+#endif
         if (!glfwInit())
         {
             fprintf(stderr, "Failed to init GLFW\n");
@@ -78,7 +88,6 @@ namespace IFCS
         data->height = height;
         GL(glViewport(0, 0, width, height));
 
-        printf("Resized %d, %d\n 123456", data->width, data->height);
     });
 
 
@@ -197,7 +206,6 @@ namespace IFCS
             Train::Get().Render();
             Detection::Get().Render();
             Deploy::Get().Render();
-            // BGPanel::Get().Render();
         }
 
         // task modals
@@ -211,7 +219,6 @@ namespace IFCS
 
         if (Setting::Get().bEnableAutoSave && tick  > UnSaveFileTick + Setting::Get().AutoSaveInterval*60  && Annotation::Get().NeedSaveFile)
         {
-            // spdlog::info("tick: {0}, tick + interval *60: {1}, UnSaveFileTick: {2}", tick, tick + Setting::Get().AutoSaveInterval * 60, UnSaveFileTick);
             Annotation::Get().SaveDataFile();
             UnSaveFileTick = 99999999;
         }

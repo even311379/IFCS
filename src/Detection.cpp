@@ -238,15 +238,14 @@ namespace IFCS
                 ImVec2 StartPos = ImGui::GetCursorScreenPos();
                 ImGui::Image((void*)(intptr_t)DB.LoadedFramePtr, ImVec2(1280, 720));
                 RenderDetectionBox(StartPos);
-                // TODO: temp fix for linux
-                // static char* PlayIcon;
-                // if (DB.DB.CurrentFrame == DB.VideoEndFrame)
-                //     PlayIcon = ICON_FA_SYNC;
-                // else if (IsPlaying)
-                //     PlayIcon = ICON_FA_PAUSE;
-                // else
-                //     PlayIcon = ICON_FA_PLAY;
-                if (ImGui::Button(ICON_FA_PLAY, {120, 32}))
+                static std::string PlayIcon;
+                if (DB.DB.CurrentFrame == DB.VideoEndFrame)
+                    PlayIcon = ICON_FA_SYNC;
+                else if (IsPlaying)
+                    PlayIcon = ICON_FA_PAUSE;
+                else
+                    PlayIcon = ICON_FA_PLAY;
+                if (ImGui::Button(PlayIcon.c_str(), {120, 32}))
                 {
                     if (DB.CurrentFrame == DB.VideoEndFrame)
                         DB.CurrentFrame = DB.VideoStartFrame;
@@ -318,11 +317,16 @@ namespace IFCS
             IsDetectionNameUsed);
     }
 
+// TODO: linux version
     void Detection::UpdateDetectionScript()
     {
         std::string ProjectPath = Setting::Get().ProjectPath;
         std::string SelectedModelName = SelectedModel;
+#if defined _WINDOWS        
         SetPathScript = "cd /d " + Setting::Get().YoloV7Path; // add /d to allow change drivers  ex C:/ to D:/ ... this is very change code in windows system...
+#else
+        SetPathScript = "cd " + Setting::Get().YoloV7Path;
+#endif
         DetectScript = "";
         DetectScript += Setting::Get().PythonPath + "/python detect.py";
         DetectScript += " --weights " + ProjectPath + "/Models/" + SelectedModelName + "/weights/best.pt";
@@ -351,10 +355,19 @@ namespace IFCS
         {
             system(SetPathScript.c_str());
             std::ofstream ofs;
+#if defined _WINDOWS            
             ofs.open("Detect.bat");
             ofs << SetPathScript << " &^\n" << DetectScript;
             ofs.close();
             system("Detect.bat");
+#else
+            ofs.open("Detect.sh");
+            ofs << "%!/bin/sh\n";
+            ofs << SetPathScript << "\n" << DetectScript;
+            ofs.close();
+            system("chmod +x Detect.sh");
+            system("./Detect.sh");
+#endif            
         };
         IsDetecting = true;
         DetectFuture = std::async(std::launch::async, func);
