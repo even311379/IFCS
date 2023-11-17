@@ -9,30 +9,20 @@ workspace "IFCS"
     filter "configurations:Debug"
         defines { "IFCS_DEBUG" }
         symbols "On"
-if (system == windows) then
-        links {
-            "opencv_world460d",
-            "yaml-cppd",
-        }
-end
 
     filter "configurations:Release"
         defines { "IFCS_RELEASE", "NDEBUG" }
         optimize "Speed"
         flags { "LinkTimeOptimization" }
-if (system == windows) then
-        links {
-            "opencv_world460",
-            "yaml-cpp",            
-        }
-end
+       
+
 
 
 project "IFCS"
     kind "ConsoleApp"
     language "C++"
     cppdialect "C++17"
-	architecture "x86_64"
+    architecture "x86_64"
         
     targetdir "bin/%{cfg.buildcfg}"
     objdir "obj/%{cfg.buildcfg}"
@@ -63,21 +53,6 @@ project "IFCS"
         "spdlog",
     }
 
-    
-    filter "system:linux"
-        includedirs {"/usr/include/opencv4", "/usr/include"}
-        libdirs {"/usr/lib"}
-        links {
-            "dl",
-            "pthread",
-            "yaml-cpp",
-            "opencv_core",
-            "opencv_imgproc",
-            "opencv_imgcodecs",
-            "opencv_video",
-            "opencv_videoio",
-        }
-        defines { "_X11", "D_GLIBCXX_USE_CXX11_ABI" }
 
     filter "system:windows"
         defines { 
@@ -99,12 +74,18 @@ project "IFCS"
             "xcopy Config_Template %{wks.location}bin\\%{cfg.buildcfg}\\Config /s /i /y",
             "xcopy Config_Template Config /s /i /y",
         }
+        filter "configurations:Debug"
+            links {
+                "opencv_world460d",
+                "yaml-cppd",
+            }
+        filter "configurations:Release"
+            links {
+                "opencv_world460",
+                "yaml-cpp",            
+            }
 
 
 include "libs/glfw.lua"
 include "libs/glad.lua"
 include "libs/imgui.lua"
-if (system == linux) then
-    include "libs/yaml-cpp.lua"
-    include "libs/spdlog.lua"
-end
